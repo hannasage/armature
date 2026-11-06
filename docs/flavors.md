@@ -43,7 +43,8 @@ Only the top level is needed by every flavor. The other four parts are optional.
 
 The surface is the press, the glint, and the glow. `createSurface`, `attachSurface`, and `installDelegation` read this part. In the list below, "the surface" means `dom/surface.ts` and "delegation" means `dom/delegate.ts`.
 
-- `vars` holds the suffixes of the five CSS variables the surface writes: `press`, `flex`, `specX`, `specY`, and `glow`. The surface reads it.
+- `specular` and `glow` are optional switches, both true by default. `specular: false` turns off the glint: the surface writes no glint variable, follows no pointer position, and asks for no frame on a pointer move. `glow: false` turns off the glow for the surface and for its neighbors: the surface writes no glow variable, measures no neighbor, and asks for no frame because of a hover or a press. With both off, only the press and flex variables are written. `validateFlavor` checks that a switch is a boolean. The surface reads them.
+- `vars` holds the suffixes of the five CSS variables the surface writes: `press`, `flex`, `specX`, `specY`, and `glow`. The surface reads it. When a switch is off, the names it covers stay required and are never written.
 - `attributes` holds the suffixes of the data attributes `surface`, `group`, and `feel`. Delegation reads it. An empty suffix gives the bare `data-<prefix>`.
 - `springKeys` names the press spring and the release spring in the `springs` map. The surface reads it.
 - `rest` holds the rest thresholds, `restDelta` and `restSpeed`, that are merged under both surface springs. The surface reads it.

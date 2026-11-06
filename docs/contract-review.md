@@ -23,23 +23,20 @@ No existing part carries that. Forcing it through the lens or the surface writes
 
 Fix: the `follower` part and the `createFollower` controller. See "What was added".
 
-### 2. The surface cannot turn off the specular glint or the glow
+### 2. The surface could not turn off the specular glint or the glow
 
-`src/dom/surface.ts` always runs three motions: the press scale, the specular glint, and the glow.
-The flavor can set the flex, the neighbor share, and the hover glow to 0, and the Projection flavor does.
-That is as far as the contract allows, and it is not off:
+`src/dom/surface.ts` ran three motions with no way to stop two of them: the press scale, the specular glint, and the glow.
+The first Projection flavor set the flex, the neighbor share, and the hover glow to 0, and the engine still wrote the glint and glow variables.
+One hover move wrote all three variables and asked for 35 frames. The Projection stylesheet never reads them, so this was wasted work on every Button hover.
 
-- On `pointerdown`, the engine writes `--pui-glow` and runs the glow motion.
-- On `pointermove`, the engine writes `--pui-spec-x` and `--pui-spec-y`, and runs a frame loop until the glint settles.
-- A test run on the Projection surface showed one hover move writing all three variables and asking for 35 frames.
-  A hover does nothing visible, because the Projection stylesheet never reads them.
-  The cost is wasted frames and wasted style writes on every Button hover.
+Fix: the surface part has two optional switches, `specular` and `glow`, both true by default.
+When a switch is off, the surface writes none of that effect's variables and asks for no frame because of it.
+The Projection flavor turns both off. A hover on its surface now asks for no frame, and a press writes only `--pui-press` and `--pui-flex`.
+The glass flavor sets neither switch, and every earlier test passes unchanged.
 
-The same part also forces a flavor to name five variables, three attributes, and two time constants.
-The values `specularTauMs`, `glowTauMs`, and `glowFalloff` need to be above 0. A zero makes the math divide by zero.
-The Projection flavor supplies names and numbers for things it does not use.
-
-This is not fixed. It needs a decision. See the recommendation.
+One smaller point stays. The part still requires names for the glint and glow variables and numbers for their time constants.
+A flavor that turns them off supplies values that are never used.
+The values `specularTauMs`, `glowTauMs`, and `glowFalloff` need to be above 0, or the math divides by zero when they are on.
 
 ### 3. A follower has one spring for its whole life
 
@@ -87,6 +84,7 @@ No Projection delegation test was written for this reason.
   It takes an injected `env`.
 - New public names: `requireFollower`, `FollowerSpec`, and `FollowerFlavor` from `@hannasage/armature`, and `createFollower`, `FollowerOptions`, `FollowerState`, and `Follower` from `@hannasage/armature/dom`.
   The lists are in `scripts/check-exports.mjs`. The `.` entry now has 28 runtime names and 17 type names. The `./dom` entry has 25 runtime names and 10 type names.
+- The optional `specular` and `glow` switches in the surface part (`src/engine/flavor.ts`, `src/dom/surface.ts`). They default to true. They add no public name.
 - `docs/flavors.md` describes the follower part.
 - The glass flavor has no follower part. All 527 earlier tests pass unchanged.
 - Support for the example: path aliases in `tsconfig.json` and `vitest.config.ts`, and a boundary test that lets files under `examples/` import only the public names.
@@ -95,7 +93,7 @@ The engine has no branch on a flavor name. A search of `src/engine`, `src/dom`, 
 
 ## What still feels glass-shaped
 
-- The surface part. Its vocabulary is press, flex, specular, glow, and neighbors. See item 2 above.
+- The surface part. Its vocabulary is press, flex, specular, glow, and neighbors. The switches in item 2 let a flavor drop the glint and the glow, but the press, flex, and neighbor model is still the glass one.
   Its doc comment in `src/dom/surface.ts` still says "Makes an element feel like glass".
 - The comments in `src/engine/flavor.ts` that name the specular glint, and one in `src/dom/reveal.ts` that quotes the glass fold of 8 percent.
 - The lens part is built for a row indicator that stretches with speed: six variables, a ready attribute, and a stretch rule.
@@ -125,12 +123,11 @@ The engine has no branch on a flavor name. A search of `src/engine`, `src/dom`, 
 
 ## Recommendation
 
-Do not mark the API stable yet. The follower part works and has tests, but four things are open.
+Do not mark the API stable yet. The follower part works and has tests, but three things are open.
 Each is small. Each changes a public name or a shape. Settle them before a stable mark.
 
-1. Decide what to do about the surface. There are two choices. One: a flavor omits the specular and glow parts, and the engine skips the writes and the frames. Two: the press scale becomes its own controller.
-2. Add a follower hook to `@hannasage/armature/react`, since Milestone 3 needs it.
-3. Let a follower change its spring per move, so one follower can enter on one spring and leave on another, and `dialog` can go.
-4. Settle one shape for rest limits, and settle `follower` or `followers`.
-After those four, the lens and the reveal still have only one real flavor.
+1. Add a follower hook to `@hannasage/armature/react`, since Milestone 3 needs it.
+2. Let a follower change its spring per move, so one follower can enter on one spring and leave on another, and `dialog` can go.
+3. Settle one shape for rest limits, and settle `follower` or `followers`.
+After those three, the lens and the reveal still have only one real flavor.
 A reasonable path is to mark `follower` and the engine stable, and to leave the `lens` and `reveal` parts marked unstable until a real flavor uses them.

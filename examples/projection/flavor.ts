@@ -21,12 +21,13 @@ const settle = Object.freeze({ stiffness: 600, damping: criticalDamping(600, 1),
 /**
  * The Button press and release. Only the press scale is used.
  *
- * The engine cannot switch the specular glint or the glow off, so this part turns them down as far as it can:
- * the flex is 0 (no squash), the neighbor share is 0 (no neighbor lights up), and the hover glow is 0.
- * The engine still writes `--pui-glow` on the pressed element, and `--pui-spec-x` and `--pui-spec-y` when the pointer moves.
- * The Projection stylesheet never reads them.
+ * The specular glint and the glow are switched off with `specular: false` and `glow: false`. The surface then writes only
+ * `--pui-press` and `--pui-flex`, and a hover asks for no frame. The flex default is 0, so the surface does not squash.
+ * The names and the numbers for the glint and the glow stay in the part because the contract still requires them. They are never used.
  */
 const surface: SurfaceFlavor = {
+  specular: false,
+  glow: false,
   vars: { press: "press", flex: "flex", specX: "spec-x", specY: "spec-y", glow: "glow" },
   attributes: { surface: "", group: "group", feel: "feel" },
   springKeys: { press: "mechanical", release: "mechanical" },

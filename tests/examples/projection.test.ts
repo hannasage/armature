@@ -59,10 +59,20 @@ describe("the Projection surface (the Button press)", () => {
     expect(config.springKeys).toEqual({ press: "mechanical", release: "mechanical" });
   });
 
-  it("turns the glass extras off as far as the engine allows", () => {
+  it("turns the glint and the glow off, and the flex to 0", () => {
+    expect(config.specular).toBe(false);
+    expect(config.glow).toBe(false);
     expect(config.defaults.flex).toBe(0);
-    expect(config.defaults.neighborShare).toBe(0);
-    expect(config.hoverGlow).toBe(0);
+  });
+
+  it("asks for no frame on a hover and writes nothing", () => {
+    const env = new FakeEnv();
+    const surface = createSurface(box, { flavor: projection, env });
+    surface.move({ clientX: 80, clientY: 10, pointerType: "mouse" });
+    surface.move({ clientX: 20, clientY: 30, pointerType: "mouse" });
+    surface.leave();
+    expect(env.requested).toBe(0);
+    expect(env.writes).toEqual([]);
   });
 
   it("scales on press, springs a little past 1 on release, and settles at 1", () => {
@@ -87,7 +97,7 @@ describe("the Projection surface (the Button press)", () => {
     expect(surface.getState()).toMatchObject({ scale: 1, pressed: false });
   });
 
-  it("never squashes, never lights a neighbour, and writes only pui names", () => {
+  it("writes only the press and flex variables, and lights no neighbour", () => {
     const env = new FakeEnv();
     const neighbor = { getBoundingClientRect: () => ({ left: 120, top: 0, width: 100, height: 40 }) };
     const surface = createSurface(box, { flavor: projection, env, neighbors: [neighbor] });
@@ -96,9 +106,9 @@ describe("the Projection surface (the Button press)", () => {
     surface.up();
     env.settle();
     expect(env.writes.length).toBeGreaterThan(0);
-    expect(env.writes.every((write) => write.name.startsWith("--pui-"))).toBe(true);
+    expect([...new Set(env.writes.map((write) => write.name))].sort()).toEqual(["--pui-flex", "--pui-press"]);
     expect(env.read(box, "--pui-flex")).toBe("0");
-    expect(env.read(neighbor, "--pui-glow")).toBe("0");
+    expect(env.vars.has(neighbor)).toBe(false);
   });
 
   it("does nothing under reduced motion", () => {

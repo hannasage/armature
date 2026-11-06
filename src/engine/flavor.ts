@@ -58,6 +58,16 @@ export interface FollowerSpec {
 export type FollowerFlavor = Readonly<Record<string, FollowerSpec>>;
 
 export interface SurfaceFlavor {
+  /**
+   * False turns the specular glint off. The surface then writes no glint variable, follows no pointer position, and asks for no frame
+   * on a pointer move. Default true. The variable names in `vars` are still required and are never written.
+   */
+  readonly specular?: boolean;
+  /**
+   * False turns the glow off, for the surface and for its neighbors. The surface then writes no glow variable, measures no neighbor,
+   * and asks for no frame because of a hover or a press. Default true.
+   */
+  readonly glow?: boolean;
   /** Suffixes of the CSS variables the surface writes. */
   readonly vars: { readonly press: string; readonly flex: string; readonly specX: string; readonly specY: string; readonly glow: string };
   /** Suffixes of the data attributes that mark a surface, a group, and a feel. An empty suffix is the bare `data-<prefix>`. */
@@ -225,7 +235,7 @@ const checked = new WeakSet<object>();
  * Checks that a flavor holds together, and throws a TypeError that names the flavor when it does not:
  * the prefix is lowercase letters, digits, and hyphens and starts with a letter, the log label is not empty,
  * the reveal fallback is one of the reveal personalities, every spring key names a spring in `springs`,
- * and every follower has a variable name and a spring key that names a spring in `springs`.
+ * every surface switch is a boolean when it is set, and every follower has a variable name and a spring key that names a spring in `springs`.
  * The require helpers call it, and a flavor that passes is not checked again.
  */
 export function validateFlavor(flavor: Flavor): void {
@@ -243,6 +253,10 @@ export function validateFlavor(flavor: Flavor): void {
   }
   const keys = [...Object.values(flavor.surface?.springKeys ?? {}), ...Object.values(flavor.lens?.springKeys ?? {})];
   for (const key of keys) if (!hasOwn(flavor.springs, key)) missingSpring(flavor, key);
+  for (const key of ["specular", "glow"] as const) {
+    const value = flavor.surface?.[key];
+    if (value !== undefined && typeof value !== "boolean") throw new TypeError(`${label} has a surface switch "${key}" that is not a boolean.`);
+  }
   if (flavor.follower !== undefined) {
     if (typeof flavor.follower !== "object" || flavor.follower === null) throw new TypeError(`${label} has a follower part that is not an object.`);
     for (const [name, spec] of Object.entries(flavor.follower)) {
