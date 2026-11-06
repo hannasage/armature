@@ -33,7 +33,8 @@ const stiff = freeze({ stiffness: 210, damping: 20, mass: 1 });
 
 /**
  * The spring of a slow reveal and of a fast one, on the progress `p` (travel 1). The slow one is `gentle` with a little more
- * damping, and the fast one is `lensWidth`'s wobble with a little more damping. They give 3.5 and 12.0 percent overshoot.
+ * damping, and the fast one is `lensWidth`'s wobble with a little more damping. The formula gives 3.5 and 12.0 percent overshoot.
+ * The solver measures lower than the formula because its fixed step adds damping.
  */
 const revealSlow: SpringConfig = Object.freeze({ stiffness: 120, damping: 16, mass: 1, restSpeed: 0.02, restDelta: 0.002 });
 const revealFast: SpringConfig = Object.freeze({ stiffness: 180, damping: 15, mass: 1, restSpeed: 0.02, restDelta: 0.002 });

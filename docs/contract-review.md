@@ -58,9 +58,9 @@ The semi-implicit Euler slice of 1/120 s adds damping.
 The slice cannot be changed per spring, because `src/engine/spring.ts` sets it from `FIXED_STEP`.
 
 The same gap shows in the glass flavor.
-The comment in `src/glass/flavor.ts` says `revealSlow` and `revealFast` "give 3.5 and 12.0 percent overshoot".
+The comment in `src/glass/flavor.ts` said `revealSlow` and `revealFast` "give 3.5 and 12.0 percent overshoot".
 Those are closed-form numbers. The solver measures 2.6 and 10.9 percent.
-That comment is true of the formula and not of the solver. It was not changed.
+The comment now says that these are the formula values and that the solver measures lower.
 
 This is not a glass assumption, but it is the first thing a second flavor author trips over.
 `docs/projection-flavor.md` records both numbers for each Projection spring.
