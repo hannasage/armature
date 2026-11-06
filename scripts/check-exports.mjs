@@ -39,12 +39,12 @@ const API = {
   },
   "./dom": {
     values: [
-      "REST_POSE", "attachSurface", "belowFold", "createLens", "createScrollReveal", "createSurface", "dragAttributes", "dragTarget",
+      "REST_POSE", "attachSurface", "belowFold", "createFollower", "createLens", "createScrollReveal", "createSurface", "dragAttributes", "dragTarget",
       "installDelegation", "mountScrollReveal", "parseDelay", "parseDepth", "parsePersonality", "revealAttributes",
       "revealGroupAttributes", "revealLineAttributes", "revealPose", "revealRootMargin", "revealSpring", "revealStart",
       "scrollDirection", "staggerDelayFor", "startScrollReveal", "velocityBlend"
     ],
-    types: ["SurfaceOptions", "LensOptions", "DelegateOptions", "ScrollRevealOptions", "ScrollRevealController", "MountScrollRevealOptions", "ArmatureRevealAttributes"],
+    types: ["SurfaceOptions", "LensOptions", "FollowerOptions", "FollowerState", "Follower", "DelegateOptions", "ScrollRevealOptions", "ScrollRevealController", "MountScrollRevealOptions", "ArmatureRevealAttributes"],
     generic: true,
   },
   "./react": {
