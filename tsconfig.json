@@ -9,7 +9,12 @@
     "noEmit": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@hannasage/armature": ["./src/index.ts"],
+      "@hannasage/armature/dom": ["./src/dom/index.ts"],
+      "@hannasage/armature/react": ["./src/react/index.ts"]
+    }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "tests/**/*.tsx"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "tests/**/*.tsx", "examples/**/*.ts", "examples/**/*.tsx"]
 }
