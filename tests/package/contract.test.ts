@@ -17,7 +17,7 @@ const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as Reco
 describe("package contract", () => {
   it("has the public name and the prerelease version", () => {
     expect(pkg.name).toBe("@hannasage/armature");
-    expect(pkg.version).toBe("1.0.0-next.0");
+    expect(pkg.version).toBe("1.0.0-beta.0");
   });
 
   it("is public, MIT, and ESM only", () => {
@@ -30,8 +30,8 @@ describe("package contract", () => {
     expect([...pkg.files].sort()).toEqual(["LICENSE", "README.md", "dist"]);
   });
 
-  it("publishes publicly on the next tag", () => {
-    expect(pkg.publishConfig).toEqual({ access: "public", tag: "next" });
+  it("publishes publicly on the beta tag", () => {
+    expect(pkg.publishConfig).toEqual({ access: "public", tag: "beta" });
   });
 
   it("exports the five subpaths and the stylesheet, and nothing else", () => {
