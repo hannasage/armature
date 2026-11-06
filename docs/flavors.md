@@ -105,7 +105,7 @@ thumb.snap(0); // jumps with no travel
 thumb.destroy();
 ```
 
-A call can replace the spring with the `spring` option. The rest limits of the flavor still apply.
+A call can replace the spring with the `spring` option. The rest limits of the flavor still apply. A key of the `spring` option that is `undefined` is skipped, so it does not erase a rest limit. `createFollower` throws a `TypeError` that names the follower and the flavor when the element is missing or when `initial` is not a finite number.
 
 ## Personalities
 

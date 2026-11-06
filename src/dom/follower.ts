@@ -7,7 +7,7 @@ export interface FollowerOptions {
   flavor: Flavor;
   /** The name of the follower in the flavor's follower part. */
   name: string;
-  /** The value to start on, written once when the follower is made. Default 0. A value that is not finite counts as 0. */
+  /** The value to start on, written once when the follower is made. Default 0. A value that is not finite throws a TypeError. */
   initial?: number;
   /** Replaces the flavor's spring for this follower. The rest limits of the flavor still apply under it. */
   spring?: SpringConfig;
@@ -52,8 +52,13 @@ export function createFollower(target: ArmatureTarget, options: FollowerOptions)
   const env = options.env ?? createBrowserEnvironment();
   const flavor = options.flavor;
   const spec = requireFollower(flavor, options.name);
+  const who = `The follower ${JSON.stringify(options.name)} of the flavor "${flavor.name}"`;
+  if ((typeof target !== "object" && typeof target !== "function") || target === null) throw new TypeError(`${who} needs an element to write to.`);
+  if (options.initial !== undefined && !Number.isFinite(options.initial)) throw new TypeError(`${who} got an initial value that is not a finite number.`);
   const name = cssVar(flavor, spec.var);
-  const config: SpringConfig = { restDelta: spec.rest.restDelta, restSpeed: spec.rest.restSpeed, ...(options.spring ?? springOf(flavor, spec.springKey)) };
+  // A key set to undefined does not erase the flavor's rest limits.
+  const given = Object.fromEntries(Object.entries(options.spring ?? springOf(flavor, spec.springKey)).filter(([, value]) => value !== undefined));
+  const config = { restDelta: spec.rest.restDelta, restSpeed: spec.rest.restSpeed, ...given } as SpringConfig;
 
   let spring: SpringState = createSpring(config, options.initial);
   let frame = 0;

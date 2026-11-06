@@ -277,11 +277,12 @@ describe("a follower and bad numbers", () => {
     expect(env.read(element, "--acme-grow")).toBe("1");
   });
 
-  it("starts at 0 when the initial value is not finite", () => {
-    for (const bad of [NaN, Infinity]) {
-      const { env, element, follower } = make({ initial: bad });
-      expect(env.read(element, "--acme-grow")).toBe("0");
-      expect(follower.getState().value).toBe(0);
+  it("throws a named TypeError at creation when the initial value is not finite, and writes nothing", () => {
+    for (const bad of [NaN, Infinity, -Infinity, "1" as never]) {
+      const env = new FakeEnv();
+      expect(() => createFollower({}, { flavor, name: "grow", env, initial: bad }), String(bad)).toThrow(TypeError);
+      expect(() => createFollower({}, { flavor, name: "grow", env, initial: bad }), String(bad)).toThrow('The follower "grow" of the flavor "acme" got an initial value that is not a finite number.');
+      expect(env.writes).toEqual([]);
     }
   });
 
@@ -315,6 +316,39 @@ describe("a follower destroy", () => {
     const { follower } = make();
     follower.destroy();
     expect(() => follower.destroy()).not.toThrow();
+  });
+});
+
+describe("a follower made with bad arguments", () => {
+  it("throws a named TypeError when there is no element, and writes nothing", () => {
+    for (const bad of [undefined, null, 5, "x"]) {
+      const env = new FakeEnv();
+      expect(() => createFollower(bad as never, { flavor, name: "grow", env }), String(bad)).toThrow(TypeError);
+      expect(() => createFollower(bad as never, { flavor, name: "grow", env }), String(bad)).toThrow('The follower "grow" of the flavor "acme" needs an element to write to.');
+      expect(env.writes).toEqual([]);
+    }
+  });
+
+  it("keeps the flavor's rest limits when the spring option has keys set to undefined", () => {
+    // The flavor rest of "loose" is large. A spring that names restDelta and restSpeed as undefined must not erase it.
+    const bare = { stiffness: 400, damping: 40, mass: 1 };
+    const withUndefined = make({ spring: { ...bare, restDelta: undefined, restSpeed: undefined } }, "loose");
+    withUndefined.follower.setTarget(1);
+    const plain = make({ spring: bare }, "loose");
+    plain.follower.setTarget(1);
+    const frames = withUndefined.env.settle();
+    expect(frames).toBe(plain.env.settle());
+    const tight = make({ spring: { ...bare, restDelta: 0.001, restSpeed: 0.01 } }, "loose");
+    tight.follower.setTarget(1);
+    expect(frames).toBeLessThan(tight.env.settle());
+  });
+
+  it("lets a spring option set its own rest limits", () => {
+    const loose = make({}, "fade");
+    loose.follower.setTarget(1);
+    const own = make({ spring: { stiffness: 400, damping: 40, mass: 1, restDelta: 0.3, restSpeed: 10 } }, "fade");
+    own.follower.setTarget(1);
+    expect(own.env.settle()).toBeLessThan(loose.env.settle());
   });
 });
 
