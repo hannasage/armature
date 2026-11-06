@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createFollower, type FollowerOptions } from "../../src/dom/follower";
 import { MAX_FRAME } from "../../src/engine/spring";
 import type { Flavor } from "../../src/engine/flavor";
@@ -293,6 +293,86 @@ describe("a follower and bad numbers", () => {
     expect(env.read(element, "--acme-fade")).toBe("-2");
     follower.snap(-0.00001);
     expect(env.read(element, "--acme-fade")).toBe("0");
+  });
+});
+
+describe("a follower whose write fails", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  /** An environment whose style write throws while `fail` is true. It records each attempt. */
+  function failing() {
+    const env = new FakeEnv();
+    const original = env.setCSSVariable;
+    const state = { fail: false, attempts: [] as string[] };
+    env.setCSSVariable = (target, name, value) => {
+      state.attempts.push(value);
+      if (state.fail) throw new Error("boom");
+      original(target, name, value);
+    };
+    return { env, state };
+  }
+
+  it("logs once with the flavor's label, stops the frame loop, and is not moving", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { env, state } = failing();
+    const follower = createFollower({}, { flavor, name: "grow", env });
+    follower.setTarget(1);
+    env.tick();
+    state.fail = true;
+    env.tick();
+    expect(env.pending).toBe(0);
+    expect(follower.getState().moving).toBe(false);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(String(spy.mock.calls[0]?.[0])).toMatch(/^\[acme-motion\] /);
+    expect(spy.mock.calls[0]?.[1]).toBeInstanceOf(Error);
+    env.tick();
+    follower.setTarget(2);
+    follower.setTarget(3);
+    env.tick();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(env.pending).toBe(0);
+    expect(follower.getState().moving).toBe(false);
+  });
+
+  it("does not throw into the caller from setTarget, snap, or a frame", () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { env, state } = failing();
+    state.fail = true;
+    expect(() => createFollower({}, { flavor, name: "grow", env })).not.toThrow();
+    const follower = createFollower({}, { flavor, name: "grow", env });
+    expect(() => follower.setTarget(1)).not.toThrow();
+    expect(() => env.tick()).not.toThrow();
+    expect(() => follower.snap(4)).not.toThrow();
+    expect(follower.getState()).toMatchObject({ moving: false, destroyed: false });
+  });
+
+  it("records a value as written only after the write works, so a later write of the same text goes through", () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { env, state } = failing();
+    const element = {};
+    const follower = createFollower(element, { flavor, name: "grow", env });
+    follower.setTarget(1);
+    state.fail = true;
+    env.tick();
+    const lost = state.attempts[state.attempts.length - 1];
+    expect(env.read(element, "--acme-grow")).toBe("0");
+    state.fail = false;
+    follower.snap(Number(lost));
+    expect(env.read(element, "--acme-grow")).toBe(lost);
+  });
+
+  it("works again after the environment recovers", () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { env, state } = failing();
+    const element = {};
+    const follower = createFollower(element, { flavor, name: "grow", env });
+    state.fail = true;
+    follower.setTarget(1);
+    env.tick();
+    state.fail = false;
+    follower.setTarget(2);
+    env.settle();
+    expect(env.read(element, "--acme-grow")).toBe("2");
   });
 });
 

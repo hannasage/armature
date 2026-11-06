@@ -1,4 +1,4 @@
-import { cssVar, requireFollower, springOf, type Flavor } from "../engine/flavor";
+import { cssVar, logTag, requireFollower, springOf, type Flavor } from "../engine/flavor";
 import { createBrowserEnvironment, prefersReducedMotion, type ArmatureEnvironment, type ArmatureTarget } from "../engine/env";
 import { createSpring, isAtRest, MAX_FRAME, retarget, stepSpring, type SpringConfig, type SpringState } from "../engine/spring";
 
@@ -65,12 +65,32 @@ export function createFollower(target: ArmatureTarget, options: FollowerOptions)
   let last = 0;
   let destroyed = false;
   let written = "";
+  let logged = false;
 
-  const write = () => {
+  /**
+   * Writes the value. When the write throws, it logs once and returns false. The text counts as written only after the write works,
+   * so a later write of the same text still goes through.
+   */
+  const write = (): boolean => {
     const next = text(spring.value);
-    if (next === written) return;
+    if (next === written) return true;
+    try {
+      env.setCSSVariable(target, name, next);
+    } catch (error) {
+      if (!logged) {
+        logged = true;
+        console.error(`${logTag(flavor)} The follower ${JSON.stringify(options.name)} could not write ${name} and stopped.`, error);
+      }
+      return false;
+    }
     written = next;
-    env.setCSSVariable(target, name, next);
+    return true;
+  };
+
+  /** After a failed write: stop the frame loop and rest on the target, so the follower is not moving. */
+  const giveUp = () => {
+    stopFrame();
+    spring = createSpring(config, spring.target);
   };
 
   const stopFrame = () => {
@@ -91,7 +111,10 @@ export function createFollower(target: ArmatureTarget, options: FollowerOptions)
     const dt = Math.min(MAX_FRAME, Math.max(0, (time - last) / 1000));
     last = time;
     spring = stepSpring(spring, spring.target, dt);
-    write();
+    if (!write()) {
+      giveUp();
+      return;
+    }
     if (!isAtRest(spring)) continueChain();
   };
 
@@ -110,10 +133,10 @@ export function createFollower(target: ArmatureTarget, options: FollowerOptions)
   const jumpTo = (value: number) => {
     stopFrame();
     spring = createSpring(config, value);
-    write();
+    if (!write()) giveUp();
   };
 
-  write();
+  if (!write()) giveUp();
 
   return {
     setTarget(next) {
