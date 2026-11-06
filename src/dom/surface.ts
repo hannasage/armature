@@ -328,7 +328,8 @@ function build(element: Pick<SurfaceElement, "getBoundingClientRect">, options: 
     targetY = rest.y;
     glowTarget = 0;
     if (pressed) release_();
-    else if (touched()) schedule();
+    // With the glint and the glow off, a frame is needed only while the press spring still moves. Otherwise it would run with nothing to do.
+    else if (touched() && (useSpecular || useGlow || busy())) schedule();
   };
 
   const syncNeighbors = (next: Iterable<SurfaceNeighbor>) => {

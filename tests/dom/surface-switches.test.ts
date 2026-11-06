@@ -92,6 +92,69 @@ describe("both switches off", () => {
   });
 });
 
+describe("an idle surface with both switches off", () => {
+  const off = withSurface({ specular: false, glow: false });
+
+  it("asks for no frame when the pointer leaves after a press and release have settled", () => {
+    const env = new FakeEnv();
+    const surface = createSurface(box(0), { env, flavor: off });
+    surface.move({ clientX: 10, clientY: 10, pointerType: "mouse" });
+    surface.down({ clientX: 10, clientY: 10 });
+    env.settle();
+    surface.up();
+    env.settle();
+    const requested = env.requested;
+    expect(surface.getState()).toMatchObject({ scale: 1, moving: false });
+    surface.leave();
+    expect(env.requested).toBe(requested);
+    expect(env.pending).toBe(0);
+  });
+
+  it("still springs back when the pointer leaves during a press", () => {
+    const env = new FakeEnv();
+    const surface = createSurface(box(0), { env, flavor: off });
+    surface.down({ clientX: 10, clientY: 10 });
+    env.settle();
+    const requested = env.requested;
+    surface.leave();
+    expect(env.requested).toBe(requested + 1);
+    env.settle();
+    expect(surface.getState()).toMatchObject({ scale: 1, pressed: false });
+  });
+
+  it("asks for a frame on leave when the press spring is still moving", () => {
+    const env = new FakeEnv();
+    const surface = createSurface(box(0), { env, flavor: off });
+    surface.down({ clientX: 10, clientY: 10 });
+    env.tick();
+    env.tick();
+    surface.up();
+    env.tick();
+    expect(surface.getState().moving).toBe(true);
+    surface.leave();
+    expect(env.pending).toBe(1);
+    env.settle();
+    expect(surface.getState()).toMatchObject({ scale: 1, moving: false });
+  });
+});
+
+describe("an idle surface with the switches on", () => {
+  it("still asks for a frame on leave after a press has settled, as before", () => {
+    for (const flavor of [glassFlavor, acme]) {
+      const env = new FakeEnv();
+      const surface = createSurface(box(0), { env, flavor });
+      surface.move({ clientX: 10, clientY: 10, pointerType: "mouse" });
+      surface.down({ clientX: 10, clientY: 10 });
+      env.settle();
+      surface.up();
+      env.settle();
+      const requested = env.requested;
+      surface.leave();
+      expect(env.requested, flavor.name).toBe(requested + 1);
+    }
+  });
+});
+
 describe("one switch off", () => {
   it("specular off keeps the glow", () => {
     const run = hover(withSurface({ specular: false }));
