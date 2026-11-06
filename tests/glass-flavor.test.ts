@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { cssVar, dataAttr, logTag } from "../src/engine/flavor";
+import { cssVar, dataAttr, logTag, type Flavor } from "../src/engine/flavor";
 import { glassFlavor } from "../src/glass/flavor";
 import { LQG_PREFIX } from "../src/index";
 import * as legacyDelegate from "./golden/legacy/delegate";
@@ -18,6 +18,8 @@ const inLegacy = (file: keyof typeof legacy, text: string) => expect(legacy[file
 const inLegacyAt = (file: keyof typeof legacy, pattern: RegExp) => expect(legacy[file], `${pattern} in ${file}`).toMatch(pattern);
 
 const { surface, lens, reveal } = glassFlavor;
+// The flavor's own springs are typed by key. These checks look them up by a string key from the surface and lens parts.
+const springsByKey: Flavor["springs"] = glassFlavor.springs;
 
 describe("identity", () => {
   it("keeps the lqg prefix and the liquid-glass log label", () => {
@@ -33,8 +35,8 @@ describe("springs", () => {
   it("has the six presets, equal to the legacy presets", () => {
     expect(Object.keys(glassFlavor.springs)).toEqual(["lensX", "lensWidth", "press", "release", "gentle", "stiff"]);
     for (const name of Object.keys(glassFlavor.springs) as Array<keyof typeof glassFlavor.springs>) {
-      expect(glassFlavor.springs[name], name).toStrictEqual(legacySpring[name as keyof typeof legacySpring]);
-      expect(Object.isFrozen(glassFlavor.springs[name]), name).toBe(true);
+      expect(springsByKey[name], name).toStrictEqual(legacySpring[name as keyof typeof legacySpring]);
+      expect(Object.isFrozen(springsByKey[name]), name).toBe(true);
     }
   });
 });
@@ -55,10 +57,10 @@ describe("surface", () => {
     expect(dataAttr(glassFlavor, surface.attributes.feel)).toBe(legacyDelegate.FEEL_ATTRIBUTE);
   });
   it("uses the press and release springs of the legacy surface", () => {
-    expect(glassFlavor.springs[surface.springKeys.press]).toBe(glassFlavor.springs.press);
-    expect(glassFlavor.springs[surface.springKeys.release]).toBe(glassFlavor.springs.release);
-    expect(glassFlavor.springs[surface.springKeys.press]).toStrictEqual(legacySpring.press);
-    expect(glassFlavor.springs[surface.springKeys.release]).toStrictEqual(legacySpring.release);
+    expect(springsByKey[surface.springKeys.press]).toBe(glassFlavor.springs.press);
+    expect(springsByKey[surface.springKeys.release]).toBe(glassFlavor.springs.release);
+    expect(springsByKey[surface.springKeys.press]).toStrictEqual(legacySpring.press);
+    expect(springsByKey[surface.springKeys.release]).toStrictEqual(legacySpring.release);
     inLegacyAt("surface", /const pressConfig = withRest\(options\.springs\?\.press \?\? press\);/);
     inLegacyAt("surface", /const releaseConfig = withRest\(options\.springs\?\.release \?\? release\);/);
   });
@@ -96,8 +98,8 @@ describe("lens", () => {
     expect(lens.readyValue).toBe("ready");
   });
   it("uses the lens springs, the pixel rest, and the stretch numbers of the legacy lens", () => {
-    expect(glassFlavor.springs[lens.springKeys.x]).toStrictEqual(legacySpring.lensX);
-    expect(glassFlavor.springs[lens.springKeys.width]).toStrictEqual(legacySpring.lensWidth);
+    expect(springsByKey[lens.springKeys.x]).toStrictEqual(legacySpring.lensX);
+    expect(springsByKey[lens.springKeys.width]).toStrictEqual(legacySpring.lensWidth);
     inLegacyAt("lens", /const xConfig = withPixelRest\(options\.springs\?\.x \?\? lensX\);/);
     inLegacyAt("lens", /const wConfig = withPixelRest\(options\.springs\?\.width \?\? lensWidth\);/);
     expect(lens.pixelRest).toEqual({ restDelta: 0.05, restSpeed: 1 });
@@ -204,5 +206,30 @@ describe("reveal personalities", () => {
   it("names the numbers that were inline in the slide and mask bodies", () => {
     inLegacyAt("motion", /y: direction \* lerp\(8, 24, t\)/);
     inLegacyAt("motion", /const height = [^;]*Math\.min\(input\.height!, 96\) : 24;/);
+  });
+});
+
+describe("freezing and typing", () => {
+  it("freezes the glass flavor and everything inside it", () => {
+    const unfrozen: string[] = [];
+    const walk = (value: unknown, path: string) => {
+      if (typeof value !== "object" || value === null) return;
+      if (!Object.isFrozen(value)) unfrozen.push(path);
+      for (const [key, inner] of Object.entries(value)) walk(inner, `${path}.${key}`);
+    };
+    walk(glassFlavor, "glassFlavor");
+    expect(unfrozen).toEqual([]);
+    expect(() => { (glassFlavor.surface.defaults as { pressScale: number }).pressScale = 1; }).toThrow(TypeError);
+    expect(() => { (glassFlavor.reveal.velocity as { slow: number }).slow = 1; }).toThrow(TypeError);
+  });
+  it("keeps the exported FEELS frozen", () => {
+    expect(Object.isFrozen(legacyDelegate.FEELS)).toBe(true);
+    expect(Object.isFrozen(glassFlavor.surface.feels)).toBe(true);
+  });
+  it("types the springs by preset key, so a misspelt key is a compile error", () => {
+    // @ts-expect-error There is no preset named lensXX.
+    const missing = glassFlavor.springs.lensXX;
+    expect(missing).toBeUndefined();
+    expect(glassFlavor.springs.lensX).toBeDefined();
   });
 });

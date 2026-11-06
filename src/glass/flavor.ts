@@ -177,14 +177,30 @@ const reveal: RevealFlavor<RevealPersonality> = {
   },
 };
 
-/** The glass flavor, with the surface, lens, and reveal parts present. */
-export type GlassFlavor = Flavor<RevealPersonality> & {
+/** The keys of the glass spring presets. */
+export type GlassSpringKey = "lensX" | "lensWidth" | "press" | "release" | "gentle" | "stiff";
+
+/**
+ * The glass flavor, with the surface, lens, and reveal parts present. Its springs are typed by key, so a misspelt
+ * preset name is a compile error. It still fits wherever a `Flavor` is expected.
+ */
+export type GlassFlavor = Omit<Flavor<RevealPersonality>, "springs" | "surface" | "lens" | "reveal"> & {
+  readonly springs: Readonly<Record<GlassSpringKey, Readonly<SpringConfig>>>;
   readonly surface: SurfaceFlavor;
   readonly lens: LensFlavor;
   readonly reveal: RevealFlavor<RevealPersonality>;
 };
 
-export const glassFlavor: GlassFlavor = {
+/** Freezes an object and everything it holds, except functions. */
+function deepFreeze<T>(value: T): T {
+  if (typeof value !== "object" || value === null) return value;
+  Object.freeze(value);
+  // A nested object may be unfrozen even when its parent was already frozen, so always walk down.
+  for (const inner of Object.values(value)) deepFreeze(inner);
+  return value;
+}
+
+export const glassFlavor: GlassFlavor = deepFreeze({
   name: "glass",
   prefix: "lqg",
   logLabel: "liquid-glass",
@@ -192,4 +208,4 @@ export const glassFlavor: GlassFlavor = {
   surface,
   lens,
   reveal,
-};
+});
