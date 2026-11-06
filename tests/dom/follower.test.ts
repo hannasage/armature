@@ -411,6 +411,70 @@ describe("a follower and a value that is fine", () => {
   });
 });
 
+describe("a follower and an environment with unusual frame ids", () => {
+  it("does not schedule twice when the first frame id is 0", () => {
+    const env = new FakeEnv();
+    env.nextId = 0;
+    const follower = createFollower({}, { flavor, name: "grow", env });
+    follower.setTarget(1);
+    follower.setTarget(2);
+    follower.setTarget(3);
+    expect(env.requested).toBe(1);
+    expect(env.pending).toBe(1);
+    env.settle();
+    expect(follower.getState()).toMatchObject({ value: 3, moving: false });
+  });
+
+  it("cancels a frame whose id is 0 when it is destroyed or snapped", () => {
+    const env = new FakeEnv();
+    env.nextId = 0;
+    const follower = createFollower({}, { flavor, name: "grow", env });
+    follower.setTarget(1);
+    follower.snap(0.5);
+    expect(env.cancelled).toEqual([0]);
+    expect(env.pending).toBe(0);
+    follower.setTarget(1);
+    follower.destroy();
+    expect(env.cancelled).toEqual([0, 1]);
+    expect(env.pending).toBe(0);
+  });
+
+  it("does not stall when the environment runs the callback before requestFrame returns", () => {
+    const env = new FakeEnv();
+    env.requestFrame = (callback) => {
+      env.requested += 1;
+      env.time += 1000 / 60;
+      callback(env.time);
+      return 7;
+    };
+    const element = {};
+    const follower = createFollower(element, { flavor, name: "grow", env });
+    follower.setTarget(1);
+    expect(follower.getState()).toMatchObject({ value: 1, moving: false });
+    expect(env.read(element, "--acme-grow")).toBe("1");
+    // It is not stuck as "scheduled": the next move runs too.
+    const requested = env.requested;
+    follower.setTarget(0);
+    expect(env.requested).toBeGreaterThan(requested);
+    expect(follower.getState()).toMatchObject({ value: 0, moving: false });
+    expect(env.read(element, "--acme-grow")).toBe("0");
+  });
+
+  it("does not cancel a stale id after a synchronous frame", () => {
+    const env = new FakeEnv();
+    env.requestFrame = (callback) => {
+      env.time += 1000 / 60;
+      callback(env.time);
+      return 7;
+    };
+    const follower = createFollower({}, { flavor, name: "grow", env });
+    follower.setTarget(1);
+    follower.snap(0.2);
+    follower.destroy();
+    expect(env.cancelled).toEqual([]);
+  });
+});
+
 describe("a follower destroy", () => {
   it("cancels the frame and ignores every later call", () => {
     const { env, follower } = make();

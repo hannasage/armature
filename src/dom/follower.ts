@@ -61,7 +61,9 @@ export function createFollower(target: ArmatureTarget, options: FollowerOptions)
   const config = { restDelta: spec.rest.restDelta, restSpeed: spec.rest.restSpeed, ...given } as SpringConfig;
 
   let spring: SpringState = createSpring(config, options.initial);
-  let frame = 0;
+  // A boolean says whether a frame is waiting. An id can be 0, and an environment can run the callback before it returns the id.
+  let scheduled = false;
+  let frameId = 0;
   let last = 0;
   let destroyed = false;
   let written = "";
@@ -102,14 +104,21 @@ export function createFollower(target: ArmatureTarget, options: FollowerOptions)
   };
 
   const stopFrame = () => {
-    if (frame) {
-      env.cancelFrame(frame);
-      frame = 0;
+    if (scheduled) {
+      scheduled = false;
+      env.cancelFrame(frameId);
     }
   };
 
+  const requestNext = () => {
+    scheduled = true;
+    const id = env.requestFrame(tick);
+    // A callback that ran inside requestFrame has already cleared the flag, and its id is stale.
+    if (scheduled) frameId = id;
+  };
+
   const tick = (time: number) => {
-    frame = 0;
+    scheduled = false;
     if (destroyed) return;
     // The reader may have asked for less motion while the spring was moving.
     if (prefersReducedMotion(env)) {
@@ -128,14 +137,14 @@ export function createFollower(target: ArmatureTarget, options: FollowerOptions)
 
   /** Start a chain from idle. The first step is measured from now. */
   function schedule() {
-    if (frame || destroyed) return;
+    if (scheduled || destroyed) return;
     last = env.now();
-    frame = env.requestFrame(tick);
+    requestNext();
   }
   /** Ask for the next frame from inside a frame. `last` stays at the frame time `tick` took, so no time is lost between frames. */
   function continueChain() {
-    if (frame || destroyed) return;
-    frame = env.requestFrame(tick);
+    if (scheduled || destroyed) return;
+    requestNext();
   }
 
   const jumpTo = (value: number) => {
