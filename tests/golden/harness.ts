@@ -3,8 +3,8 @@
  * Two implementations that behave the same return traces that are strictly equal, frame by frame.
  *
  * `tests/golden/legacy/` is a frozen copy of the first version of the code, taken before the engine was
- * extracted. Nobody edits it. The harness compares the legacy copy with a subject. In Milestone 1 step 3
- * the subject is the legacy copy itself. In step 10 the subject becomes the ported code.
+ * extracted. Nobody edits it. The harness compares the legacy copy (`legacyPort`) with the current code under
+ * `src/` (`newPort`).
  */
 import { vi } from "vitest";
 import { FakeEnv } from "../helpers/fake-env";
@@ -16,6 +16,13 @@ import * as motion from "./legacy/scroll-motion";
 import { createScrollReveal, startScrollReveal } from "./legacy/scroll-reveal";
 import * as spring from "./legacy/spring";
 import { createSurface } from "./legacy/surface";
+import { guardedSetup as newGuardedSetup } from "../../src/core/guard";
+import { createLens as newCreateLens } from "../../src/core/lens";
+import { mountScrollReveal as newMountScrollReveal } from "../../src/core/scroll-mount";
+import * as newMotion from "../../src/core/scroll-motion";
+import { createScrollReveal as newCreateScrollReveal, startScrollReveal as newStartScrollReveal } from "../../src/core/scroll-reveal";
+import * as newSpring from "../../src/core/spring";
+import { createSurface as newCreateSurface } from "../../src/core/surface";
 
 /** The pieces of the code the harness drives. The signatures are the ones the code had before the extraction. */
 export interface Port {
@@ -54,6 +61,31 @@ export const legacyPort: Port = {
   startScrollReveal,
   mountScrollReveal,
   guardedSetup,
+};
+
+/** The same pieces, taken from the current code under `src/`. */
+export const newPort: Port = {
+  createSpring: newSpring.createSpring,
+  stepSpring: newSpring.stepSpring,
+  retarget: newSpring.retarget,
+  springs: {
+    lensX: newSpring.lensX,
+    lensWidth: newSpring.lensWidth,
+    press: newSpring.press,
+    release: newSpring.release,
+    gentle: newSpring.gentle,
+    stiff: newSpring.stiff,
+    revealSlow: newMotion.revealSlow,
+    revealFast: newMotion.revealFast,
+    revealCalm: newMotion.revealCalm,
+    dragSpring: newMotion.dragSpring,
+  },
+  createSurface: newCreateSurface,
+  createLens: newCreateLens,
+  createScrollReveal: newCreateScrollReveal,
+  startScrollReveal: newStartScrollReveal,
+  mountScrollReveal: newMountScrollReveal,
+  guardedSetup: newGuardedSetup,
 };
 
 // ---- springs ----

@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { legacyPort, logTrace, lensTrace, revealTrace, springScripts, springTrace, surfaceTrace, type Port } from "./harness";
+import { legacyPort, newPort, logTrace, lensTrace, revealTrace, springScripts, springTrace, surfaceTrace, type Port } from "./harness";
 
-// The reference is the frozen legacy copy. The subject is what we want to prove equal to it.
-// In Milestone 1 step 3 the subject is the legacy copy itself, so this file proves the harness works.
-// In step 10 the subject becomes the ported code, and the same assertions then prove the port changed nothing.
+// The reference is the frozen legacy copy. The subject is the current code under src/.
+// Every comparison is strict, with no tolerance.
 const reference: Port = legacyPort;
-const subject: Port = legacyPort;
+const subject: Port = newPort;
 
 describe("golden: springs", () => {
   const names = Object.keys(reference.springs);
@@ -76,11 +75,11 @@ describe("golden: the log label", () => {
 
 describe("golden: the harness catches a difference", () => {
   const changed: Port = {
-    ...legacyPort,
-    createSurface: (element, options) => legacyPort.createSurface(element, { ...options, pressScale: 0.9 }),
-    createLens: (options) => legacyPort.createLens({ ...options, stretchVelocity: 1000 }),
-    createScrollReveal: (options) => legacyPort.createScrollReveal({ ...options, revealedAttribute: "data-lqg-seen" }),
-    guardedSetup: (context, setup) => legacyPort.guardedSetup(context, setup, () => undefined),
+    ...newPort,
+    createSurface: (element, options) => newPort.createSurface(element, { ...options, pressScale: 0.9 }),
+    createLens: (options) => newPort.createLens({ ...options, stretchVelocity: 1000 }),
+    createScrollReveal: (options) => newPort.createScrollReveal({ ...options, revealedAttribute: "data-lqg-seen" }),
+    guardedSetup: (context, setup) => newPort.guardedSetup(context, setup, () => undefined),
   };
   it("sees a changed surface", () => {
     expect(surfaceTrace(changed)).not.toStrictEqual(surfaceTrace(reference));
