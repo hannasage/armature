@@ -28,23 +28,23 @@ const API = {
     values: [
       "FIXED_STEP", "MAX_FRAME", "REDUCED_MOTION_QUERY", "VELOCITY_MAX", "VELOCITY_REST", "VELOCITY_SMOOTHING_MS",
       "createBrowserEnvironment", "createBrowserScrollEnvironment", "createScrollVelocity", "createSpring", "criticalDamping", "cssVar",
-      "dataAttr", "guardedSetup", "isAtRest", "logTag", "personalityOf", "prefersReducedMotion", "readPreferences", "reconfigure",
-      "requireLens", "requireReveal", "requireSurface", "retarget", "springOf", "stepSpring", "validateFlavor"
+      "dataAttr", "defineFlavor", "guardedSetup", "isAtRest", "logTag", "personalityOf", "prefersReducedMotion", "readPreferences", "reconfigure",
+      "requireFollower", "requireLens", "requireReveal", "requireSurface", "retarget", "springOf", "stepSpring", "validateFlavor"
     ],
     types: [
-      "Flavor", "SurfaceFlavor", "LensFlavor", "RevealFlavor", "PersonalitySpec", "RevealStart", "StartContext", "StartInput", "FeelOptions",
+      "Flavor", "SurfaceFlavor", "LensFlavor", "RevealFlavor", "FollowerSpec", "FollowerFlavor", "PersonalitySpec", "RevealStart", "StartContext", "StartInput", "FeelOptions",
       "SpringConfig", "SpringState", "ArmatureEnvironment", "ArmatureTarget", "ArmatureScrollEnvironment", "Preferences",
     ],
     generic: true,
   },
   "./dom": {
     values: [
-      "REST_POSE", "attachSurface", "belowFold", "createLens", "createScrollReveal", "createSurface", "dragAttributes", "dragTarget",
+      "REST_POSE", "attachSurface", "belowFold", "createFollower", "createLens", "createScrollReveal", "createSurface", "dragAttributes", "dragTarget",
       "installDelegation", "mountScrollReveal", "parseDelay", "parseDepth", "parsePersonality", "revealAttributes",
       "revealGroupAttributes", "revealLineAttributes", "revealPose", "revealRootMargin", "revealSpring", "revealStart",
       "scrollDirection", "staggerDelayFor", "startScrollReveal", "velocityBlend"
     ],
-    types: ["SurfaceOptions", "LensOptions", "DelegateOptions", "ScrollRevealOptions", "ScrollRevealController", "MountScrollRevealOptions", "ArmatureRevealAttributes"],
+    types: ["SurfaceOptions", "LensOptions", "FollowerOptions", "FollowerState", "Follower", "DelegateOptions", "ScrollRevealOptions", "ScrollRevealController", "MountScrollRevealOptions", "ArmatureRevealAttributes"],
     generic: true,
   },
   "./react": {

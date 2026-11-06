@@ -40,9 +40,34 @@ export interface Flavor<P extends string = string> {
   readonly surface?: SurfaceFlavor;
   readonly lens?: LensFlavor;
   readonly reveal?: RevealFlavor<P>;
+  /** Named followers: one number that springs toward a target and is written as a CSS variable. */
+  readonly follower?: FollowerFlavor;
 }
 
+/** One follower. The name is the key in the `follower` record. */
+export interface FollowerSpec {
+  /** The suffix of the CSS variable the follower writes. The value is a bare number. */
+  readonly var: string;
+  /** A key into `Flavor.springs`. */
+  readonly springKey: string;
+  /** The rest thresholds merged under the spring. A spring that sets its own thresholds keeps them. */
+  readonly rest: { readonly restDelta: number; readonly restSpeed: number };
+}
+
+/** The follower part of a flavor: a record from a follower name to its spec. */
+export type FollowerFlavor = Readonly<Record<string, FollowerSpec>>;
+
 export interface SurfaceFlavor {
+  /**
+   * False turns the specular glint off. The surface then writes no glint variable, follows no pointer position, and asks for no frame
+   * on a pointer move. Default true. The variable names in `vars` are still required and are never written.
+   */
+  readonly specular?: boolean;
+  /**
+   * False turns the glow off, for the surface and for its neighbors. The surface then writes no glow variable, measures no neighbor,
+   * and asks for no frame because of a hover or a press. Default true.
+   */
+  readonly glow?: boolean;
   /** Suffixes of the CSS variables the surface writes. */
   readonly vars: { readonly press: string; readonly flex: string; readonly specX: string; readonly specY: string; readonly glow: string };
   /** Suffixes of the data attributes that mark a surface, a group, and a feel. An empty suffix is the bare `data-<prefix>`. */
@@ -204,12 +229,15 @@ function missingSpring(flavor: Flavor, key: string): never {
 }
 
 const PREFIX = /^[a-z][a-z0-9-]*$/;
+const VARIABLE = PREFIX;
 const checked = new WeakSet<object>();
 
 /**
  * Checks that a flavor holds together, and throws a TypeError that names the flavor when it does not:
  * the prefix is lowercase letters, digits, and hyphens and starts with a letter, the log label is not empty,
- * the reveal fallback is one of the reveal personalities, and every spring key names a spring in `springs`.
+ * the reveal fallback is one of the reveal personalities, every spring key names a spring in `springs`,
+ * every surface switch is a boolean when it is set, and every follower has a unique variable name that no other part uses,
+ * rest limits, and a spring key that names a spring in `springs`. Every spring and every rest limit holds finite numbers in range.
  * The require helpers call it, and a flavor that passes is not checked again.
  */
 export function validateFlavor(flavor: Flavor): void {
@@ -221,13 +249,85 @@ export function validateFlavor(flavor: Flavor): void {
   }
   if (typeof flavor.logLabel !== "string" || flavor.logLabel === "") throw new TypeError(`${label} has an empty log label.`);
   if (typeof flavor.springs !== "object" || flavor.springs === null) throw new TypeError(`${label} has no springs object.`);
+  for (const [key, spring] of Object.entries(flavor.springs)) checkSpring(label, key, spring);
+  checkRest(label, "a surface rest", flavor.surface?.rest);
+  checkRest(label, "a lens pixel rest", flavor.lens?.pixelRest);
   const reveal = flavor.reveal;
   if (reveal && !hasOwn(reveal.personalities, reveal.fallback)) {
     throw new TypeError(`${label} has the reveal fallback "${reveal.fallback}", which is not one of its personalities.`);
   }
   const keys = [...Object.values(flavor.surface?.springKeys ?? {}), ...Object.values(flavor.lens?.springKeys ?? {})];
   for (const key of keys) if (!hasOwn(flavor.springs, key)) missingSpring(flavor, key);
+  for (const key of ["specular", "glow"] as const) {
+    const value = flavor.surface?.[key];
+    if (value !== undefined && typeof value !== "boolean") throw new TypeError(`${label} has a surface switch "${key}" that is not a boolean.`);
+  }
+  if (flavor.follower !== undefined) {
+    if (typeof flavor.follower !== "object" || flavor.follower === null) throw new TypeError(`${label} has a follower part that is not an object.`);
+    const taken = new Map<string, string>();
+    const reserved: Array<[string, string[]]> = [
+      ["surface", Object.values(flavor.surface?.vars ?? {})],
+      ["lens", Object.values(flavor.lens?.vars ?? {})],
+      ["reveal", flavor.reveal ? [flavor.reveal.delayProperty] : []],
+    ];
+    for (const [name, spec] of Object.entries(flavor.follower)) {
+      if (typeof spec !== "object" || spec === null || typeof spec.var !== "string" || spec.var === "") {
+        throw new TypeError(`${label} has a follower ${JSON.stringify(name)} with no variable name.`);
+      }
+      if (typeof spec.rest !== "object" || spec.rest === null) throw new TypeError(`${label} has a follower ${JSON.stringify(name)} with no rest limits.`);
+      checkRest(label, `a follower ${JSON.stringify(name)} with a rest`, spec.rest);
+      if (!VARIABLE.test(spec.var)) {
+        throw new TypeError(`${label} has a follower ${JSON.stringify(name)} with the variable name ${JSON.stringify(spec.var)}. A variable name is lowercase letters, digits, and hyphens, and starts with a letter.`);
+      }
+      const owner = taken.get(spec.var);
+      if (owner !== undefined) throw new TypeError(`${label} has the followers ${JSON.stringify(owner)} and ${JSON.stringify(name)} with the same variable name ${JSON.stringify(spec.var)}.`);
+      taken.set(spec.var, name);
+      for (const [part, names] of reserved) {
+        if (names.includes(spec.var)) throw new TypeError(`${label} has a follower ${JSON.stringify(name)} with the variable name ${JSON.stringify(spec.var)}, which the ${part} already uses.`);
+      }
+      if (!hasOwn(flavor.springs, spec.springKey)) missingSpring(flavor, spec.springKey);
+    }
+  }
   checked.add(flavor);
+}
+
+const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+
+/** A spring needs a finite stiffness above 0, a finite damping of 0 or more, and a finite mass above 0 when it has one. */
+function checkSpring(label: string, key: string, spring: unknown): void {
+  const name = JSON.stringify(key);
+  if (typeof spring !== "object" || spring === null) throw new TypeError(`${label} has a spring ${name} that is not an object.`);
+  const { stiffness, damping, mass } = spring as Partial<SpringConfig>;
+  if (!isNumber(stiffness) || stiffness <= 0) throw new TypeError(`${label} has a spring ${name} with a stiffness that is not a finite number above 0.`);
+  if (!isNumber(damping) || damping < 0) throw new TypeError(`${label} has a spring ${name} with a damping that is not a finite number of 0 or more.`);
+  if (mass !== undefined && (!isNumber(mass) || mass <= 0)) throw new TypeError(`${label} has a spring ${name} with a mass that is not a finite number above 0.`);
+}
+
+/** Rest limits are two finite numbers above 0. A part with no rest is left alone: the caller decides whether the part is needed. */
+function checkRest(label: string, what: string, rest: unknown): void {
+  if (rest === undefined) return;
+  const { restDelta, restSpeed } = (typeof rest === "object" && rest !== null ? rest : {}) as { restDelta?: unknown; restSpeed?: unknown };
+  if (!isNumber(restDelta) || restDelta <= 0 || !isNumber(restSpeed) || restSpeed <= 0) {
+    throw new TypeError(`${label} has ${what} whose restDelta and restSpeed are not both finite numbers above 0.`);
+  }
+}
+
+function deepFreeze(value: unknown, seen: Set<object>): void {
+  if (typeof value !== "object" || value === null || seen.has(value)) return;
+  seen.add(value);
+  for (const item of Object.values(value)) deepFreeze(item, seen);
+  Object.freeze(value);
+}
+
+/**
+ * Validates a flavor, freezes it at every level, and returns it. Use it to make a flavor.
+ * A flavor is checked once, and the check is remembered, so a later change would go unseen. A frozen flavor cannot change.
+ * A function in the flavor, such as the `start` of a personality, is left as it is. Nothing is frozen if the flavor does not hold together.
+ */
+export function defineFlavor<F extends Flavor>(flavor: F): F {
+  validateFlavor(flavor);
+  deepFreeze(flavor, new Set());
+  return flavor;
 }
 
 /** Throws a clear TypeError when the argument is not an object. A number here usually means a function that takes a flavor was passed to `map`. */
@@ -253,6 +353,14 @@ export function requireLens(flavor: Flavor): LensFlavor {
 export function requireReveal<P extends string>(flavor: Flavor<P>): RevealFlavor<P> {
   validateFlavor(flavor);
   return flavor.reveal ?? missing(flavor, "reveal");
+}
+
+/** One named follower of a flavor. Throws a clear error when the flavor has no follower part, no follower with that name, or does not hold together. */
+export function requireFollower(flavor: Flavor, name: string): FollowerSpec {
+  validateFlavor(flavor);
+  if (flavor.follower === undefined) missing(flavor, "follower");
+  if (!hasOwn(flavor.follower, name)) throw new TypeError(`The flavor "${flavor.name}" has no follower named "${name}".`);
+  return flavor.follower[name];
 }
 
 /** A named spring from a flavor. Throws a clear error when the flavor has no spring with that key. */

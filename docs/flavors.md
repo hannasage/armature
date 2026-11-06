@@ -6,7 +6,7 @@ A flavor holds the names, the numbers, and the spring presets.
 
 The engine never names a flavor. Every DOM controller and every generic React hook takes the flavor as a required argument. A call that leaves it out ends in one of two ways.
 
-- The DOM controllers throw a clear `TypeError`. These are `createSurface`, `attachSurface`, `createLens`, `installDelegation`, and `createScrollReveal`. The pure helpers, such as `velocityBlend`, throw the same error. The error is clear when the call has an options object. A call with no options object at all fails with the plain JavaScript error for reading a property of `undefined`.
+- The DOM controllers throw a clear `TypeError`. These are `createSurface`, `attachSurface`, `createLens`, `createFollower`, `installDelegation`, and `createScrollReveal`. The pure helpers, such as `velocityBlend`, throw the same error. The error is clear when the call has an options object. A call with no options object at all fails with the plain JavaScript error for reading a property of `undefined`.
 - The React hooks, `ArmatureProvider`, `mountScrollReveal`, `startScrollReveal`, and `guardedSetup` do not throw. They log the failure with the label `[armature]` and skip the start, so a mistake cannot reach a React error boundary. A hook called with no options object counts as a call with no flavor.
 
 The glass flavor is `glassFlavor`, exported from `@hannasage/armature/glass`. It is the one complete example.
@@ -22,27 +22,35 @@ Every name in a flavor is a suffix. The flavor has one prefix, and two helpers b
 
 The prefix is lowercase letters, digits, and hyphens, and it starts with a letter. `validateFlavor` checks this.
 
-## A flavor has four parts
+## Flavors are validated once and must not change
 
-Only the top level is needed by every flavor. The other three parts are optional. A controller asks for the part it needs. If the part is missing, the controller throws a `TypeError` that names the flavor.
+`validateFlavor` checks a flavor once and remembers the result. A change made after that check goes unseen. So a flavor must not change after it is made.
+
+`defineFlavor(flavor)` makes this safe. It validates the flavor, freezes it at every level, and returns it. After that, a change throws a `TypeError` in strict code. A function inside the flavor, such as the `start` of a personality, is not frozen. The glass flavor is already frozen. Use `defineFlavor` for your own flavor.
+
+## A flavor has five parts
+
+Only the top level is needed by every flavor. The other four parts are optional. A controller asks for the part it needs. If the part is missing, the controller throws a `TypeError` that names the flavor.
 
 - Top level: `name`, `prefix`, `logLabel`, and `springs`.
 - `surface`: read by the surface and by delegation.
 - `lens`: read by the lens.
 - `reveal`: read by the scroll reveal and by the attribute builders.
+- `follower`: read by the follower. Added in Milestone 2, after the Projection flavor needed it.
 
 ## Top level fields
 
 - `name` is a short word for messages. `validateFlavor` and the require helpers put it in their errors. The React hooks use it in the context of a logged failure, such as `glass surface`.
 - `prefix` starts every CSS variable and data attribute. `cssVar` and `dataAttr` read it, and every controller calls those two helpers.
 - `logLabel` starts every logged error, in brackets. `logTag` reads it. The guard (`guardedSetup`) and the scroll reveal use it for their default log lines.
-- `springs` is a map of named spring presets. `springOf` reads it. The surface and the lens look up their springs here by key. `validateFlavor` checks that every key named in the `surface` and `lens` parts exists in this map.
+- `springs` is a map of named spring presets. `springOf` reads it. The surface and the lens look up their springs here by key. `validateFlavor` checks that every key named in the `surface`, `lens`, and `follower` parts exists in this map.
 
 ## The surface part
 
 The surface is the press, the glint, and the glow. `createSurface`, `attachSurface`, and `installDelegation` read this part. In the list below, "the surface" means `dom/surface.ts` and "delegation" means `dom/delegate.ts`.
 
-- `vars` holds the suffixes of the five CSS variables the surface writes: `press`, `flex`, `specX`, `specY`, and `glow`. The surface reads it.
+- `specular` and `glow` are optional switches, both true by default. `specular: false` turns off the glint: the surface writes no glint variable, follows no pointer position, and asks for no frame on a pointer move. `glow: false` turns off the glow for the surface and for its neighbors: the surface writes no glow variable, measures no neighbor, and asks for no frame because of a hover or a press. With both off, only the press and flex variables are written. `validateFlavor` checks that a switch is a boolean. The surface reads them.
+- `vars` holds the suffixes of the five CSS variables the surface writes: `press`, `flex`, `specX`, `specY`, and `glow`. The surface reads it. When a switch is off, the names it covers stay required and are never written.
 - `attributes` holds the suffixes of the data attributes `surface`, `group`, and `feel`. Delegation reads it. An empty suffix gives the bare `data-<prefix>`.
 - `springKeys` names the press spring and the release spring in the `springs` map. The surface reads it.
 - `rest` holds the rest thresholds, `restDelta` and `restSpeed`, that are merged under both surface springs. The surface reads it.
@@ -81,6 +89,30 @@ The reveal is the spring that brings elements into view as the page scrolls, and
 - `hints` holds the `will-change` values while a piece moves: `move`, `clip`, and `drag`. The controller reads them.
 - `drag` holds the drag numbers: `shiftMax`, `rotateMax`, `fullVelocity`, the `depth` range with its `fallback`, and the drag `spring`. `dragTarget` and `parseDepth` read the numbers. The controller reads the spring. The `dragAttributes` builder reads the depth range.
 
+## The follower part
+
+A follower springs one number toward a target and writes it as a CSS variable. A toggle thumb, a toast that slides in, and a slider thumb are followers. `createFollower` reads this part. Unlike the other parts, this one holds many entries, because a component often needs more than one number.
+
+The part is a record from a follower name to a spec. `requireFollower(flavor, name)` returns one spec, or throws a `TypeError` that names the flavor.
+
+- `var` is the suffix of the CSS variable the follower writes. The value is a bare number. The stylesheet decides the unit. The suffix is lowercase letters, digits, and hyphens, and starts with a letter. It is unique across followers, and no surface, lens, or reveal variable uses the same suffix. `validateFlavor` checks this.
+- `springKey` names the spring in the `springs` map. `validateFlavor` checks that it exists.
+- `rest` is required. It holds `restDelta` and `restSpeed`, both finite numbers above 0. They are merged under the spring, so a spring that sets its own thresholds keeps them.
+
+A follower keeps its position and its velocity when the target changes in flight. It snaps to the target under reduced motion. This holds while it is moving too: the follower checks the setting on every frame, so it jumps to its target and stops its frame loop when the reader turns reduced motion on in the middle of a move. It stops its frame loop when the spring is at rest. It uses the engine's fixed step, so a 30, 60, and 144 Hz screen land in the same place. It ignores a target that is `NaN` or `Infinity`, and logs one line for the first such value of each follower.
+
+```ts
+import { createFollower } from "@hannasage/armature/dom";
+
+const thumb = createFollower(thumbElement, { flavor: projection, name: "thumb" });
+thumb.setTarget(1); // springs toward 1 and writes --pui-thumb
+thumb.setTarget(0); // turns in flight and keeps its velocity
+thumb.snap(0); // jumps with no travel
+thumb.destroy();
+```
+
+A call can replace the spring with the `spring` option. The rest limits of the flavor still apply. If the environment throws while the follower writes its variable, the follower logs one line that starts with the flavor's label, stops its frame loop, and rests on its target. It does not throw into the page. A key of the `spring` option that is `undefined` is skipped, so it does not erase a rest limit. `createFollower` throws a `TypeError` that names the follower and the flavor when the element is missing or when `initial` is not a finite number.
+
 ## Personalities
 
 A personality is one way of arriving. The engine never asks for a personality by name. It asks the personality for its traits, so a flavor can add a new personality without any change in the engine.
@@ -98,9 +130,9 @@ The glass flavor has four personalities: `drop`, `mask`, `slide`, and `fade`.
 A flavor is a plain object. Start from the type.
 
 ```ts
-import type { Flavor } from "@hannasage/armature";
+import { defineFlavor, type Flavor } from "@hannasage/armature";
 
-export const acme: Flavor = {
+export const acme: Flavor = defineFlavor({
   name: "acme",
   prefix: "acme",
   logLabel: "acme-motion",
@@ -119,7 +151,7 @@ export const acme: Flavor = {
     hoverGlow: 0.5,
     feels: {},
   },
-};
+});
 ```
 
 Then pass it to a controller.
@@ -130,7 +162,7 @@ import { attachSurface } from "@hannasage/armature/dom";
 attachSurface(button, { flavor: acme });
 ```
 
-A flavor with only a `surface` part is complete for a surface. A call that needs the `lens` or `reveal` part on this flavor throws a `TypeError` that says the flavor has no such part.
+A flavor with only a `surface` part is complete for a surface. A call that needs the `lens`, `reveal`, or `follower` part on this flavor throws a `TypeError` that says the flavor has no such part.
 
 ## Write your own wrapper
 

@@ -137,6 +137,9 @@ function build(element: Pick<SurfaceElement, "getBoundingClientRect">, options: 
     x: clampPercent(options.specularRest?.x ?? config.defaults.specularRest.x),
     y: clampPercent(options.specularRest?.y ?? config.defaults.specularRest.y),
   };
+  // Both effects are on unless the flavor says false.
+  const useSpecular = config.specular !== false;
+  const useGlow = config.glow !== false;
   const pressConfig = withRest(options.springs?.press ?? springOf(flavor, config.springKeys.press));
   const releaseConfig = withRest(options.springs?.release ?? springOf(flavor, config.springKeys.release));
 
@@ -271,7 +274,7 @@ function build(element: Pick<SurfaceElement, "getBoundingClientRect">, options: 
   const release_ = () => {
     pressed = false;
     scale = retarget(reconfigure(scale, releaseConfig), 1);
-    glowTarget = hovered ? config.hoverGlow : 0;
+    glowTarget = useGlow && hovered ? config.hoverGlow : 0;
     schedule();
   };
 
@@ -280,10 +283,12 @@ function build(element: Pick<SurfaceElement, "getBoundingClientRect">, options: 
     if ((event.button ?? 0) > 0 || event.isPrimary === false) return;
     pressed = true;
     pressTouched = true;
-    glowTouched = true;
-    measureNeighbors();
+    if (useGlow) {
+      glowTouched = true;
+      measureNeighbors();
+      glowTarget = 1;
+    }
     scale = retarget(reconfigure(scale, pressConfig), pressScale);
-    glowTarget = 1;
     schedule();
   };
 
@@ -294,17 +299,25 @@ function build(element: Pick<SurfaceElement, "getBoundingClientRect">, options: 
 
   const onMove = (event: SurfacePointerEvent) => {
     if (destroyed || still() || event.pointerType === "touch") return;
+    if (!useSpecular && !useGlow) {
+      hovered = true;
+      return;
+    }
     const box = element.getBoundingClientRect();
     if (!(box.width > 0) || !(box.height > 0)) return;
     if (!hovered) {
       hovered = true;
-      glowTouched = true;
-      measureNeighbors();
-      if (!pressed) glowTarget = config.hoverGlow;
+      if (useGlow) {
+        glowTouched = true;
+        measureNeighbors();
+        if (!pressed) glowTarget = config.hoverGlow;
+      }
     }
-    specTouched = true;
-    targetX = clampPercent(((event.clientX - box.left) / box.width) * 100);
-    targetY = clampPercent(((event.clientY - box.top) / box.height) * 100);
+    if (useSpecular) {
+      specTouched = true;
+      targetX = clampPercent(((event.clientX - box.left) / box.width) * 100);
+      targetY = clampPercent(((event.clientY - box.top) / box.height) * 100);
+    }
     schedule();
   };
 
@@ -315,7 +328,8 @@ function build(element: Pick<SurfaceElement, "getBoundingClientRect">, options: 
     targetY = rest.y;
     glowTarget = 0;
     if (pressed) release_();
-    else if (touched()) schedule();
+    // With the glint and the glow off, a frame is needed only while the press spring still moves. Otherwise it would run with nothing to do.
+    else if (touched() && (useSpecular || useGlow || busy())) schedule();
   };
 
   const syncNeighbors = (next: Iterable<SurfaceNeighbor>) => {
@@ -323,7 +337,7 @@ function build(element: Pick<SurfaceElement, "getBoundingClientRect">, options: 
     for (const neighbor of next) if (neighbor !== (element as unknown)) keep.add(neighbor);
     for (const old of [...neighbors]) if (!keep.has(old)) removeNeighbor(old);
     for (const neighbor of keep) neighbors.add(neighbor);
-    if (hovered || pressed) {
+    if (useGlow && (hovered || pressed)) {
       measureNeighbors();
       schedule();
     }
@@ -343,7 +357,7 @@ function build(element: Pick<SurfaceElement, "getBoundingClientRect">, options: 
     addNeighbor(neighbor) {
       if (destroyed || neighbor === (element as unknown)) return;
       neighbors.add(neighbor);
-      if (hovered || pressed) {
+      if (useGlow && (hovered || pressed)) {
         measureNeighbors();
         schedule();
       }
