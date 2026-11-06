@@ -5,7 +5,7 @@ The versions follow semantic versioning, with one note for prereleases: the API 
 
 ## 1.0.0-next.0
 
-This is the first prerelease. It is published on the npm `next` tag. The `latest` tag does not point at any version yet.
+This is the first prerelease. It is meant for the npm `next` tag. Install it with `npm install @hannasage/armature@next`, and pin the exact version.
 
 ### What is in this version
 

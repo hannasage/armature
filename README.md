@@ -74,6 +74,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 - `docs/glass-how-it-works.md` explains the numbers of the glass flavor: the spring, the displacement map, and the filter.
 - `docs/liquid-glass-readme.md` is the original guide to the glass package, from before the engine was split out. Its import paths are the old ones.
 - `docs/baseline.md` records the measurements taken at each milestone.
+- `docs/releasing.md` lists the steps to publish a prerelease.
+- `CHANGELOG.md` lists the changes in each version.
 
 ## Scripts
 
@@ -81,6 +83,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 - `npm run lint` runs ESLint.
 - `npm test` runs the tests.
 - `npm run build` builds `dist`, checks the `"use client"` lines, and checks every subpath of the exports map.
+- `npm run check:pack` packs the package, installs the tarball into a clean project, and checks the files, the size, the imports, and the types. Run `npm run build` first.
 
 ## License
 
