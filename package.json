@@ -16,11 +16,23 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "import": "./dist/index.js"
+    },
+    "./dom": {
+      "types": "./dist/dom/index.d.ts",
+      "import": "./dist/dom/index.js"
     },
     "./react": {
       "types": "./dist/react/index.d.ts",
-      "default": "./dist/react/index.js"
+      "import": "./dist/react/index.js"
+    },
+    "./glass": {
+      "types": "./dist/glass/index.d.ts",
+      "import": "./dist/glass/index.js"
+    },
+    "./glass/react": {
+      "types": "./dist/glass/react/index.d.ts",
+      "import": "./dist/glass/react/index.js"
     },
     "./styles.css": "./dist/styles.css"
   },
@@ -28,7 +40,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
-    "build": "vite build && tsc -p tsconfig.build.json && node scripts/postbuild.mjs"
+    "build": "vite build && tsc -p tsconfig.build.json && node scripts/postbuild.mjs && node scripts/check-exports.mjs"
   },
   "peerDependencies": {
     "react": ">=18"
