@@ -22,6 +22,7 @@ import { mountScrollReveal as newMountScrollReveal } from "../../src/dom/reveal-
 import * as newMotion from "../../src/dom/reveal-motion";
 import { createScrollReveal as newCreateScrollReveal, startScrollReveal as newStartScrollReveal } from "../../src/dom/reveal";
 import * as newSpring from "../../src/engine/spring";
+import * as newPresets from "../../src/glass/springs";
 import { createSurface as newCreateSurface } from "../../src/dom/surface";
 
 /** The pieces of the code the harness drives. The signatures are the ones the code had before the extraction. */
@@ -69,12 +70,12 @@ export const newPort: Port = {
   stepSpring: newSpring.stepSpring,
   retarget: newSpring.retarget,
   springs: {
-    lensX: newSpring.lensX,
-    lensWidth: newSpring.lensWidth,
-    press: newSpring.press,
-    release: newSpring.release,
-    gentle: newSpring.gentle,
-    stiff: newSpring.stiff,
+    lensX: newPresets.lensX,
+    lensWidth: newPresets.lensWidth,
+    press: newPresets.press,
+    release: newPresets.release,
+    gentle: newPresets.gentle,
+    stiff: newPresets.stiff,
     revealSlow: newMotion.revealSlow,
     revealFast: newMotion.revealFast,
     revealCalm: newMotion.revealCalm,

@@ -3,19 +3,14 @@ import {
   FIXED_STEP,
   createSpring,
   criticalDamping,
-  gentle,
   isAtRest,
-  lensWidth,
-  lensX,
-  press,
-  release,
   reconfigure,
   retarget,
   stepSpring,
-  stiff,
   type SpringConfig,
   type SpringState,
 } from "../src/engine/spring";
+import { gentle, lensWidth, lensX, press, release, stiff } from "../src/glass/springs";
 
 /** Steps in 1/60 s frames until rest. Returns the frames used, the highest value seen, and the end state. */
 function run(config: SpringConfig, from: number, to: number, frameSeconds = 1 / 60, limit = 20_000) {

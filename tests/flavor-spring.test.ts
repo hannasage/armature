@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { glassFlavor } from "../src/glass/flavor";
-import * as spring from "../src/engine/spring";
+import * as engineSpring from "../src/engine/spring";
+import * as presets from "../src/glass/springs";
 import * as legacy from "./golden/legacy/spring";
+
+// The old module held the solver and the presets. They live in two modules now, so the two are read together.
+const spring = { ...engineSpring, ...presets };
 
 describe("spring keeps its old exports", () => {
   it("has every legacy export, with the same value for each constant and preset", () => {

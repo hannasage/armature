@@ -23,12 +23,6 @@ export interface DetectionOptions {
   refraction?: RefractionSetting;
 }
 
-export interface Preferences {
-  reducedMotion: boolean;
-  reducedTransparency: boolean;
-  forcedColors: boolean;
-}
-
 /** The attribute on the root that forces refraction on or off. */
 export const REFRACTION_ATTRIBUTE = "data-lqg-refraction";
 
@@ -69,26 +63,6 @@ export function detectRefraction(env: DetectionEnvironment, options: DetectionOp
   }
   if (attribute === "on" || attribute === "off") return attribute === "on";
   return fromBrowser(env.navigator);
-}
-
-function matches(env: DetectionEnvironment, query: string): boolean {
-  try {
-    return env.matchMedia?.(query)?.matches === true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * The reader's accessibility settings. Safari has no `prefers-reduced-transparency`, so
- * `reducedTransparency` is always false there; nothing can detect it.
- */
-export function readPreferences(env: Pick<DetectionEnvironment, "matchMedia">): Preferences {
-  return {
-    reducedMotion: matches(env, "(prefers-reduced-motion: reduce)"),
-    reducedTransparency: matches(env, "(prefers-reduced-transparency: reduce)"),
-    forcedColors: matches(env, "(forced-colors: active)"),
-  };
 }
 
 /** The real browser, or an empty environment on the server. */

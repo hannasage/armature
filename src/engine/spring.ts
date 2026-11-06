@@ -8,8 +8,6 @@
  * Every function is pure. A state is never changed after it is made.
  */
 
-import { glassFlavor } from "../glass/flavor";
-
 /** The fixed slice, in seconds. */
 export const FIXED_STEP = 1 / 120;
 /**
@@ -62,22 +60,6 @@ export interface SpringState {
   /** Time left over after the last whole slice, in seconds. Internal. */
   readonly carry: number;
 }
-
-// The presets belong to the glass flavor. They stay exported here as the glass-bound values, so old call sites keep working.
-const presets = glassFlavor.springs;
-
-/** The lens position. A little overshoot, so it feels like liquid. */
-export const lensX = presets.lensX;
-/** The lens width. Looser than position, so the lens breathes as it travels. */
-export const lensWidth = presets.lensWidth;
-/** A press. Almost critically damped, so it settles without a visible bounce. */
-export const press = presets.press;
-/** Letting go of a press. Underdamped on purpose, so the surface springs a little past its rest size. */
-export const release = presets.release;
-/** A soft follow. */
-export const gentle = presets.gentle;
-/** A firm follow. */
-export const stiff = presets.stiff;
 
 /** The damping at which a spring returns fastest without overshoot: 2 sqrt(k m). */
 export function criticalDamping(stiffness: number, mass = 1): number {

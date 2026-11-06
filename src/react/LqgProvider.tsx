@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { installDelegation, type DelegateOptions, type DelegateRoot } from "../dom/delegate";
-import { browserDetectionEnvironment, detectRefraction, type DetectionEnvironment, type RefractionSetting } from "../core/detect";
+import { browserDetectionEnvironment, detectRefraction, type DetectionEnvironment, type RefractionSetting } from "../glass/detect";
 import { createBrowserEnvironment, type LqgEnvironment } from "../engine/env";
 import type { Flavor } from "../engine/flavor";
 import { guardedSetup } from "../engine/guard";

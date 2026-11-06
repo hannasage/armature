@@ -2,10 +2,12 @@
 export const LQG_PREFIX = "lqg";
 
 export * from "./engine/spring";
-export * from "./core/png";
-export * from "./core/displacement";
-export * from "./core/filter";
-export * from "./core/detect";
+export * from "./glass/springs";
+export * from "./glass/png";
+export * from "./glass/displacement";
+export * from "./glass/filter";
+export * from "./glass/detect";
+export * from "./engine/preferences";
 export * from "./engine/env";
 export * from "./engine/guard";
 export * from "./dom/lens";

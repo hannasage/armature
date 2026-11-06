@@ -3,7 +3,7 @@
 import { copyFileSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-copyFileSync("src/styles.css", "dist/styles.css");
+copyFileSync("src/glass/styles.css", "dist/styles.css");
 
 function walk(dir, ext) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

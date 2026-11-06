@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createGlassFilter } from "../src/core/filter";
+import { createGlassFilter } from "../src/glass/filter";
 import { LqgFilter, LqgProvider, MODE_ATTRIBUTE, useLqgLens, useLqgSurface } from "../src/react";
 import { FakeRoot } from "./helpers/fake-dom";
 import { FakeEnv } from "./helpers/fake-env";
