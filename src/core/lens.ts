@@ -1,5 +1,7 @@
+import { cssVar, dataAttr, requireLens, springOf, type Flavor } from "../engine/flavor";
+import { glassFlavor } from "../glass/flavor";
 import { createBrowserEnvironment, prefersReducedMotion, type LqgEnvironment, type LqgTarget } from "./env";
-import { createSpring, isAtRest, lensWidth, lensX, retarget, stepSpring, type SpringConfig, type SpringState } from "./spring";
+import { createSpring, isAtRest, MAX_FRAME, retarget, stepSpring, type SpringConfig, type SpringState } from "./spring";
 
 /** A box in the container's own coordinates, like `offsetLeft`, `offsetTop`, `offsetWidth`, and `offsetHeight`. */
 export interface LensBox {
@@ -19,18 +21,20 @@ export interface LensJumpRules {
 }
 
 export interface LensOptions {
-  /** Receives the `--lqg-lens-*` variables and the `data-lqg-lens` attribute. */
+  /** Receives the lens variables and the lens attribute (`--lqg-lens-*` and `data-lqg-lens` for glass). */
   container: LqgTarget;
   /** Measures the current item. Return null when there is none or it cannot be measured (hidden, or no size). */
   measure(): LensBox | null;
   /** Defaults to the real browser. A test passes a fake. */
   env?: LqgEnvironment;
+  /** The names, springs, and numbers to use. Default: the glass flavor. It needs a lens part. */
+  flavor?: Flavor;
   jumpRules?: LensJumpRules;
-  /** Springs for the position and the width. Defaults: `lensX` and `lensWidth`, with pixel rest thresholds. */
+  /** Springs for the position and the width. Defaults: the flavor's two lens springs (`lensX` and `lensWidth` for glass), with pixel rest thresholds. */
   springs?: { x?: SpringConfig; width?: SpringConfig };
-  /** Speed, in pixels per second, that adds 100 percent of stretch. Default 10000, so 1200 px/s reaches the 12 percent cap. */
+  /** Speed, in pixels per second, that adds 100 percent of stretch. Default 10000 for glass, so 1200 px/s reaches the 12 percent cap. */
   stretchVelocity?: number;
-  /** The most the lens stretches along x, as a fraction. Default 0.12. 0 turns stretch off. */
+  /** The most the lens stretches along x, as a fraction. Default 0.12 for glass. 0 turns stretch off. */
   maxStretch?: number;
 }
 
@@ -66,13 +70,6 @@ export interface Lens {
   destroy(): void;
 }
 
-const DEFAULT_STRETCH_VELOCITY = 10_000;
-const DEFAULT_MAX_STRETCH = 0.12;
-const MAX_FRAME_SECONDS = 0.1;
-
-// Pixels need only to look still: a twentieth of a pixel and a pixel a second.
-const withPixelRest = (config: SpringConfig): SpringConfig => ({ restDelta: 0.05, restSpeed: 1, ...config });
-
 const finiteBox = (box: LensBox | null | undefined): box is LensBox =>
   !!box && [box.x, box.y, box.w, box.h].every(Number.isFinite) && box.w > 0 && box.h > 0;
 
@@ -88,11 +85,24 @@ const ratio = (value: number) => String(Number(value.toFixed(4)));
  */
 export function createLens(options: LensOptions): Lens {
   const env = options.env ?? createBrowserEnvironment();
+  const flavor = options.flavor ?? glassFlavor;
+  const config = requireLens(flavor);
+  const varNames = {
+    x: cssVar(flavor, config.vars.x),
+    y: cssVar(flavor, config.vars.y),
+    w: cssVar(flavor, config.vars.w),
+    h: cssVar(flavor, config.vars.h),
+    sx: cssVar(flavor, config.vars.sx),
+    sy: cssVar(flavor, config.vars.sy),
+  };
+  const readyAttribute = dataAttr(flavor, config.readyAttribute);
+  // Pixels need only to look still. For glass: a twentieth of a pixel and a pixel a second.
+  const withPixelRest = (spring: SpringConfig): SpringConfig => ({ restDelta: config.pixelRest.restDelta, restSpeed: config.pixelRest.restSpeed, ...spring });
   const rules = { first: true, reducedMotion: true, keyboard: true, ...options.jumpRules };
-  const xConfig = withPixelRest(options.springs?.x ?? lensX);
-  const wConfig = withPixelRest(options.springs?.width ?? lensWidth);
-  const stretchVelocity = Number.isFinite(options.stretchVelocity) && options.stretchVelocity! > 0 ? options.stretchVelocity! : DEFAULT_STRETCH_VELOCITY;
-  const maxStretch = Number.isFinite(options.maxStretch) && options.maxStretch! >= 0 ? options.maxStretch! : DEFAULT_MAX_STRETCH;
+  const xConfig = withPixelRest(options.springs?.x ?? springOf(flavor, config.springKeys.x));
+  const wConfig = withPixelRest(options.springs?.width ?? springOf(flavor, config.springKeys.width));
+  const stretchVelocity = Number.isFinite(options.stretchVelocity) && options.stretchVelocity! > 0 ? options.stretchVelocity! : config.stretchVelocity;
+  const maxStretch = Number.isFinite(options.maxStretch) && options.maxStretch! >= 0 ? options.maxStretch! : config.maxStretch;
 
   let xs: SpringState | null = null;
   let ws: SpringState | null = null;
@@ -124,12 +134,12 @@ export function createLens(options: LensOptions): Lens {
   const write = () => {
     if (!xs || !ws) return;
     const { sx, sy } = stretch();
-    set("--lqg-lens-x", pixels(xs.value));
-    set("--lqg-lens-y", pixels(y));
-    set("--lqg-lens-w", pixels(ws.value));
-    set("--lqg-lens-h", pixels(h));
-    set("--lqg-lens-sx", ratio(sx));
-    set("--lqg-lens-sy", ratio(sy));
+    set(varNames.x, pixels(xs.value));
+    set(varNames.y, pixels(y));
+    set(varNames.w, pixels(ws.value));
+    set(varNames.h, pixels(h));
+    set(varNames.sx, ratio(sx));
+    set(varNames.sy, ratio(sy));
   };
 
   const stopFrame = () => {
@@ -144,7 +154,7 @@ export function createLens(options: LensOptions): Lens {
   const tick = (time: number) => {
     frame = 0;
     if (destroyed || !xs || !ws || !target) return;
-    const dt = Math.min(MAX_FRAME_SECONDS, Math.max(0, (time - last) / 1000));
+    const dt = Math.min(MAX_FRAME, Math.max(0, (time - last) / 1000));
     last = time;
     xs = stepSpring(xs, target.x, dt);
     ws = stepSpring(ws, target.w, dt);
@@ -170,7 +180,7 @@ export function createLens(options: LensOptions): Lens {
     ws = null;
     target = null;
     written = {};
-    env.setAttribute(options.container, "data-lqg-lens", null);
+    env.setAttribute(options.container, readyAttribute, null);
   };
 
   const jumpTo = (box: LensBox) => {
@@ -181,7 +191,7 @@ export function createLens(options: LensOptions): Lens {
     h = box.h;
     target = box;
     write();
-    env.setAttribute(options.container, "data-lqg-lens", "ready");
+    env.setAttribute(options.container, readyAttribute, config.readyValue);
   };
 
   const place = (box: LensBox, keyboard: boolean) => {
