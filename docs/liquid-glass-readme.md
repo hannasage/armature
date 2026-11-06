@@ -304,7 +304,7 @@ Classes: `.lqg-surface`, `.lqg-lens`. Attributes: `data-lqg`, `data-lqg-group`, 
 
 ## More
 
-`docs/how-it-works.md` explains the numbers: the spring, the displacement map, and the filter.
+`docs/glass-how-it-works.md` explains the numbers: the spring, the displacement map, and the filter.
 
 ## License
 
