@@ -27,7 +27,7 @@ Fix: the `follower` part and the `createFollower` controller. See "What was adde
 
 `src/dom/surface.ts` ran three motions with no way to stop two of them: the press scale, the specular glint, and the glow.
 The first Projection flavor set the flex, the neighbor share, and the hover glow to 0, and the engine still wrote the glint and glow variables.
-One hover move wrote all three variables and asked for 35 frames. The Projection stylesheet never reads them, so this was wasted work on every Button hover.
+One hover move wrote all three variables and, in the fake environment at 60 Hz, asked for 35 frames until the glint settled. The Projection stylesheet never reads them, so this was wasted work on every Button hover.
 
 Fix: the surface part has two optional switches, `specular` and `glow`, both true by default.
 When a switch is off, the surface writes none of that effect's variables and asks for no frame because of it.
@@ -114,7 +114,8 @@ The engine has no branch on a flavor name. A search of `src/engine`, `src/dom`, 
   The `./react` entry has hooks for the surface, the lens, and the reveal only.
 - No delegation with a real second attribute set. See item 5.
 - No browser. Every test uses the fake environment. No frame, style write, or `matchMedia` change ran in a real browser.
-- No live change of the reduced-motion setting. A follower reads it at each call of `setTarget`. It does not read it on every frame.
+- Live change of the reduced-motion setting is tested for the follower only. A follower checks the setting on every frame and at each call of `setTarget`, and it jumps to its target when the setting turns on in flight.
+  The surface and the lens check it on pointer events and on `update` calls, and no test flips the setting in the middle of a move for them.
 - No server render of a follower. A follower needs an element, so a server cannot run it.
   Only the initial variable matters on the server, and the Projection stylesheet sets its own default.
 - No real Projection UI component. The five Milestone 3 candidates (Toggle, Button, Toast, Modal, Slider) were not changed.
