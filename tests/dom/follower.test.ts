@@ -495,12 +495,11 @@ describe("a follower destroy", () => {
     const env = new FakeEnv();
     const original = env.setCSSVariable;
     let destroyAt = -1;
-    let follower: ReturnType<typeof createFollower> | undefined;
     env.setCSSVariable = (target, name, value) => {
       original(target, name, value);
-      if (env.writes.length === destroyAt) follower?.destroy();
+      if (env.writes.length === destroyAt) follower.destroy();
     };
-    follower = createFollower({}, { flavor, name: "grow", env });
+    const follower = createFollower({}, { flavor, name: "grow", env });
     follower.setTarget(1);
     env.tick();
     destroyAt = env.writes.length + 1;
