@@ -180,26 +180,68 @@ function missing(flavor: Flavor, part: string): never {
   throw new TypeError(`The flavor "${flavor.name}" has no ${part} part.`);
 }
 
-/** The surface part of a flavor. Throws a clear error when the flavor has none. */
+const hasOwn = (object: object, key: string) => Object.prototype.hasOwnProperty.call(object, key);
+
+function missingSpring(flavor: Flavor, key: string): never {
+  throw new TypeError(`The flavor "${flavor.name}" has no spring named "${key}".`);
+}
+
+const PREFIX = /^[a-z][a-z0-9-]*$/;
+const checked = new WeakSet<object>();
+
+/**
+ * Checks that a flavor holds together, and throws a TypeError that names the flavor when it does not:
+ * the prefix is lowercase letters, digits, and hyphens and starts with a letter, the log label is not empty,
+ * the reveal fallback is one of the reveal personalities, and every spring key names a spring in `springs`.
+ * The require helpers call it, and a flavor that passes is not checked again.
+ */
+export function validateFlavor(flavor: Flavor): void {
+  assertFlavor(flavor);
+  if (checked.has(flavor)) return;
+  const label = `The flavor "${flavor.name}"`;
+  if (typeof flavor.prefix !== "string" || !PREFIX.test(flavor.prefix)) {
+    throw new TypeError(`${label} has the prefix ${JSON.stringify(flavor.prefix)}. A prefix is lowercase letters, digits, and hyphens, and starts with a letter.`);
+  }
+  if (typeof flavor.logLabel !== "string" || flavor.logLabel === "") throw new TypeError(`${label} has an empty log label.`);
+  if (typeof flavor.springs !== "object" || flavor.springs === null) throw new TypeError(`${label} has no springs object.`);
+  const reveal = flavor.reveal;
+  if (reveal && !hasOwn(reveal.personalities, reveal.fallback)) {
+    throw new TypeError(`${label} has the reveal fallback "${reveal.fallback}", which is not one of its personalities.`);
+  }
+  const keys = [...Object.values(flavor.surface?.springKeys ?? {}), ...Object.values(flavor.lens?.springKeys ?? {})];
+  for (const key of keys) if (!hasOwn(flavor.springs, key)) missingSpring(flavor, key);
+  checked.add(flavor);
+}
+
+/** Throws a clear TypeError when the argument is not an object. A number here usually means a function that takes a flavor was passed to `map`. */
+function assertFlavor(flavor: unknown): asserts flavor is Flavor {
+  if (typeof flavor !== "object" || flavor === null) {
+    throw new TypeError(`Expected a flavor object, got ${flavor === null ? "null" : typeof flavor}. Check that a function that takes a flavor was not passed straight to map.`);
+  }
+}
+
+/** The surface part of a flavor. Throws a clear error when the flavor has none or does not hold together. */
 export function requireSurface(flavor: Flavor): SurfaceFlavor {
+  validateFlavor(flavor);
   return flavor.surface ?? missing(flavor, "surface");
 }
 
-/** The lens part of a flavor. Throws a clear error when the flavor has none. */
+/** The lens part of a flavor. Throws a clear error when the flavor has none or does not hold together. */
 export function requireLens(flavor: Flavor): LensFlavor {
+  validateFlavor(flavor);
   return flavor.lens ?? missing(flavor, "lens");
 }
 
-/** The reveal part of a flavor. Throws a clear error when the flavor has none. */
+/** The reveal part of a flavor. Throws a clear error when the flavor has none or does not hold together. */
 export function requireReveal<P extends string>(flavor: Flavor<P>): RevealFlavor<P> {
+  validateFlavor(flavor);
   return flavor.reveal ?? missing(flavor, "reveal");
 }
 
 /** A named spring from a flavor. Throws a clear error when the flavor has no spring with that key. */
 export function springOf(flavor: Flavor, key: string): Readonly<SpringConfig> {
-  if (!Object.prototype.hasOwnProperty.call(flavor.springs, key)) {
-    throw new TypeError(`The flavor "${flavor.name}" has no spring named "${key}".`);
-  }
+  assertFlavor(flavor);
+  if (!hasOwn(flavor.springs, key)) missingSpring(flavor, key);
   return flavor.springs[key];
 }
 

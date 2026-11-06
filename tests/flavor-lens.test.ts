@@ -93,7 +93,9 @@ describe("a lens with another flavor", () => {
   });
 
   it("fails with a clear error when a named spring is missing", () => {
-    const broken: Flavor = { ...acme, springs: {} };
+    const { slideX: _removed, ...springs } = acme.springs;
+    void _removed;
+    const broken: Flavor = { ...acme, springs: { ...springs, tap: acme.springs.tap, letgo: acme.springs.letgo } };
     expect(() => createLens({ container: {}, env: new FakeEnv(), measure: () => null, flavor: broken })).toThrow('The flavor "acme" has no spring named "slideX".');
   });
 });

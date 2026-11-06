@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { cssVar, dataAttr, logTag, personalityOf, requireLens, requireReveal, requireSurface, springOf, type Flavor, type PersonalitySpec, type RevealFlavor } from "../src/engine/flavor";
+import { validateFlavor, cssVar, dataAttr, logTag, personalityOf, requireLens, requireReveal, requireSurface, springOf, type Flavor, type PersonalitySpec, type RevealFlavor } from "../src/engine/flavor";
 import { clamp, lerp } from "../src/engine/math";
+import { glassFlavor } from "../src/glass/flavor";
+import { acme } from "./helpers/other-flavor";
 
 const bare: Flavor = { name: "bare", prefix: "zz", logLabel: "bare-lib", springs: { soft: { stiffness: 100, damping: 10 } } };
 
@@ -35,13 +37,64 @@ describe("the require helpers", () => {
     expect(() => requireSurface(bare)).toThrow(TypeError);
   });
   it("return the part when it is there", () => {
-    const surface = {} as NonNullable<Flavor["surface"]>;
-    const lens = {} as NonNullable<Flavor["lens"]>;
-    const reveal = {} as RevealFlavor;
-    const full: Flavor = { ...bare, surface, lens, reveal };
-    expect(requireSurface(full)).toBe(surface);
-    expect(requireLens(full)).toBe(lens);
-    expect(requireReveal(full)).toBe(reveal);
+    const full: Flavor = { ...bare, surface: acme.surface, lens: acme.lens, reveal: acme.reveal, springs: acme.springs };
+    expect(requireSurface(full)).toBe(acme.surface);
+    expect(requireLens(full)).toBe(acme.lens);
+    expect(requireReveal(full)).toBe(acme.reveal);
+  });
+  it("throw a clear TypeError when the argument is not an object", () => {
+    // `values.map(parseDelay)` passes the array index where the flavor goes.
+    for (const value of [0, 1, "glass", undefined, null, true]) {
+      expect(() => requireSurface(value as never), String(value)).toThrow(TypeError);
+      expect(() => requireLens(value as never), String(value)).toThrow(/Expected a flavor object/);
+      expect(() => requireReveal(value as never), String(value)).toThrow(/Expected a flavor object/);
+      expect(() => springOf(value as never, "x"), String(value)).toThrow(/Expected a flavor object/);
+    }
+    expect(() => requireReveal(null as never)).toThrow("got null");
+    expect(() => requireReveal(3 as never)).toThrow("got number");
+  });
+});
+
+describe("validateFlavor", () => {
+  const withAcme = (patch: Partial<Flavor>): Flavor => ({ ...acme, ...patch });
+  it("accepts the glass flavor and a second flavor", () => {
+    expect(() => validateFlavor(glassFlavor)).not.toThrow();
+    expect(() => validateFlavor(acme)).not.toThrow();
+    expect(() => validateFlavor(bare)).not.toThrow();
+  });
+  it("rejects a bad prefix and names the flavor", () => {
+    for (const prefix of ["", "Lqg", "1abc", "a b", "a_b", "-a", "a.b", "é"]) {
+      expect(() => validateFlavor(withAcme({ prefix })), prefix).toThrow(TypeError);
+      expect(() => validateFlavor(withAcme({ prefix })), prefix).toThrow('The flavor "acme" has the prefix');
+    }
+    for (const prefix of ["a", "lqg", "acme-2", "a1-b2"]) expect(() => validateFlavor(withAcme({ prefix })), prefix).not.toThrow();
+  });
+  it("rejects an empty log label", () => {
+    expect(() => validateFlavor(withAcme({ logLabel: "" }))).toThrow('The flavor "acme" has an empty log label.');
+  });
+  it("rejects a reveal fallback that is not a personality, including names Object has", () => {
+    const reveal = { ...acme.reveal, fallback: "nope" as never };
+    expect(() => validateFlavor(withAcme({ reveal }))).toThrow('The flavor "acme" has the reveal fallback "nope"');
+    expect(() => validateFlavor(withAcme({ reveal: { ...acme.reveal, fallback: "constructor" as never } }))).toThrow(TypeError);
+  });
+  it("rejects a spring key that is missing from springs, for the surface and for the lens", () => {
+    const { tap: _tap, ...noTap } = acme.springs;
+    void _tap;
+    expect(() => validateFlavor(withAcme({ springs: noTap }))).toThrow('The flavor "acme" has no spring named "tap".');
+    const { slideW: _slideW, ...noSlideW } = acme.springs;
+    void _slideW;
+    expect(() => validateFlavor(withAcme({ springs: noSlideW }))).toThrow('The flavor "acme" has no spring named "slideW".');
+  });
+  it("is run by the require helpers", () => {
+    expect(() => requireReveal(withAcme({ prefix: "Bad" }) as never)).toThrow('The flavor "acme" has the prefix');
+    expect(() => requireSurface(withAcme({ logLabel: "" }))).toThrow("empty log label");
+    expect(() => requireLens(withAcme({ springs: {} }))).toThrow(TypeError);
+  });
+  it("checks a flavor once: a flavor that passed is not read again", () => {
+    const flavor = withAcme({});
+    validateFlavor(flavor);
+    (flavor as { prefix: string }).prefix = "Bad";
+    expect(() => validateFlavor(flavor)).not.toThrow();
   });
 });
 
