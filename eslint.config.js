@@ -3,7 +3,10 @@ import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
 
 export default defineConfig(
-  { ignores: ["dist/**", "coverage/**", "node_modules/**"] },
+  {
+    // tests/golden/legacy is a frozen copy of the first version of the code. Nobody edits it, so lint skips it.
+    ignores: ["dist/**", "coverage/**", "node_modules/**", "tests/golden/legacy/**"],
+  },
   js.configs.recommended,
   tseslint.configs.recommended,
   {

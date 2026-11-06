@@ -1,7 +1,7 @@
-import type { LqgScrollEnvironment, ScrollElement, ScrollEntry, ScrollObserver, ScrollRoot } from "../../src/core/scroll-env";
+import type { ArmatureScrollEnvironment, ScrollElement, ScrollEntry, ScrollObserver, ScrollRoot } from "../../src/engine/scroll-env";
 
 /** A page stand-in for the scroll controllers: a manual clock and frame queue, a scroll position, and a record of every write. */
-export class FakeScrollEnv implements LqgScrollEnvironment {
+export class FakeScrollEnv implements ArmatureScrollEnvironment {
   time = 0;
   y = 0;
   height = 900;
@@ -106,7 +106,7 @@ export class FakeScrollEnv implements LqgScrollEnvironment {
   };
   clearTimeout = (id: number) => { this.timers.delete(id); };
 
-  private makeObserverFactory(): LqgScrollEnvironment["createIntersectionObserver"] {
+  private makeObserverFactory(): ArmatureScrollEnvironment["createIntersectionObserver"] {
     return (deliver, rootMargin) => {
       this.observerCreated += 1;
       this.deliver = deliver;
