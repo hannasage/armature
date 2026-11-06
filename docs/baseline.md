@@ -145,3 +145,19 @@ Each subpath has a `types` file and an `import` file. `scripts/check-exports.mjs
 
 The `"use client"` line is on exactly ten files, the ones that use a hook. Five are the generic files in `src/react`: `ArmatureProvider`, `ArmatureRevealProvider`, `useArmatureLens`, `useArmatureReveal`, and `useArmatureSurface`. Five are the glass wrappers in `src/glass/react`: `LqgProvider`, `LqgRevealProvider`, `useLqgLens`, `useLqgReveal`, and `useLqgSurface`. `LqgFilter` has none. The build checks this.
 The type files carry the `.js` extension on every relative import, so TypeScript with Node16 or NodeNext resolution can follow them.
+
+## First prerelease: 1.0.0-next.0
+
+Date: 2026-11-06 (UTC).
+This records the size of the package as npm packs it, measured with `npm pack --json` after `npm run build`.
+
+- Tarball: 137,188 bytes.
+- Unpacked: 476,597 bytes in 122 files.
+- By kind: 254,318 bytes of sourcemaps (36 files), 131,540 bytes of JavaScript, 79,516 bytes of type declarations.
+- The tarball holds `dist`, `README.md`, `LICENSE`, and `package.json`, and nothing else.
+
+`npm run check:pack` fails when the tarball is larger than 1.5 times this size, which is 205,782 bytes.
+The measured size is the constant `MEASURED_SIZE` in `scripts/pack-rules.mjs`. Change it only when a maintainer accepts a new size and records the new number here.
+The same check lists the tarball files, installs the tarball into a clean project with React as the peer, imports every subpath by package name, type-checks a consumer file under `nodenext` and `bundler`, and resolves the stylesheet.
+
+The sourcemaps carry the full source text. They are a little over half of the unpacked size. A maintainer may drop them from `dist` by turning off `build.sourcemap` in `vite.config.ts`. That would shrink the tarball and would stop the package from shipping its source text.

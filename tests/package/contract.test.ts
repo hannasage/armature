@@ -11,6 +11,7 @@ const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as Reco
   exports: Record<string, unknown>;
   files: string[];
   publishConfig: Record<string, unknown>;
+  scripts: Record<string, string>;
 };
 
 describe("package contract", () => {
@@ -58,6 +59,12 @@ describe("package contract", () => {
   it("keeps React an optional peer", () => {
     expect(pkg.peerDependencies).toEqual({ react: ">=18" });
     expect(pkg.peerDependenciesMeta).toEqual({ react: { optional: true } });
+  });
+
+  it("runs the pack check, after the other gates, before every publish", () => {
+    const { scripts } = pkg;
+    expect(scripts["check:pack"]).toBe("node scripts/check-pack.mjs");
+    expect(scripts.prepublishOnly).toBe("npm run typecheck && npm run lint && npm test && npm run build && npm run check:pack");
   });
 
   it("marks the stylesheet as the only file with side effects", () => {
