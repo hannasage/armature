@@ -82,8 +82,8 @@ No Projection delegation test was written for this reason.
   It uses the fixed step.
   It ignores `NaN` and `Infinity`.
   It takes an injected `env`.
-- New public names: `requireFollower`, `FollowerSpec`, and `FollowerFlavor` from `@hannasage/armature`, and `createFollower`, `FollowerOptions`, `FollowerState`, and `Follower` from `@hannasage/armature/dom`.
-  The lists are in `scripts/check-exports.mjs`. The `.` entry now has 28 runtime names and 17 type names. The `./dom` entry has 25 runtime names and 10 type names.
+- New public names: `requireFollower`, `defineFlavor`, `FollowerSpec`, and `FollowerFlavor` from `@hannasage/armature`, and `createFollower`, `FollowerOptions`, `FollowerState`, and `Follower` from `@hannasage/armature/dom`.
+  The lists are in `scripts/check-exports.mjs`. The `.` entry now has 29 runtime names and 17 type names. The `./dom` entry has 25 runtime names and 10 type names.
 - The optional `specular` and `glow` switches in the surface part (`src/engine/flavor.ts`, `src/dom/surface.ts`). They default to true. They add no public name.
 - `docs/flavors.md` describes the follower part.
 - The glass flavor has no follower part. All 527 earlier tests pass unchanged.

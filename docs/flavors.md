@@ -22,6 +22,12 @@ Every name in a flavor is a suffix. The flavor has one prefix, and two helpers b
 
 The prefix is lowercase letters, digits, and hyphens, and it starts with a letter. `validateFlavor` checks this.
 
+## Flavors are validated once and must not change
+
+`validateFlavor` checks a flavor once and remembers the result. A change made after that check goes unseen. So a flavor must not change after it is made.
+
+`defineFlavor(flavor)` makes this safe. It validates the flavor, freezes it at every level, and returns it. After that, a change throws a `TypeError` in strict code. A function inside the flavor, such as the `start` of a personality, is not frozen. The glass flavor is already frozen. Use `defineFlavor` for your own flavor.
+
 ## A flavor has five parts
 
 Only the top level is needed by every flavor. The other four parts are optional. A controller asks for the part it needs. If the part is missing, the controller throws a `TypeError` that names the flavor.
@@ -124,9 +130,9 @@ The glass flavor has four personalities: `drop`, `mask`, `slide`, and `fade`.
 A flavor is a plain object. Start from the type.
 
 ```ts
-import type { Flavor } from "@hannasage/armature";
+import { defineFlavor, type Flavor } from "@hannasage/armature";
 
-export const acme: Flavor = {
+export const acme: Flavor = defineFlavor({
   name: "acme",
   prefix: "acme",
   logLabel: "acme-motion",
@@ -145,7 +151,7 @@ export const acme: Flavor = {
     hoverGlow: 0.5,
     feels: {},
   },
-};
+});
 ```
 
 Then pass it to a controller.

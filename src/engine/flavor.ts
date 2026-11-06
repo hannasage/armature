@@ -312,6 +312,24 @@ function checkRest(label: string, what: string, rest: unknown): void {
   }
 }
 
+function deepFreeze(value: unknown, seen: Set<object>): void {
+  if (typeof value !== "object" || value === null || seen.has(value)) return;
+  seen.add(value);
+  for (const item of Object.values(value)) deepFreeze(item, seen);
+  Object.freeze(value);
+}
+
+/**
+ * Validates a flavor, freezes it at every level, and returns it. Use it to make a flavor.
+ * A flavor is checked once, and the check is remembered, so a later change would go unseen. A frozen flavor cannot change.
+ * A function in the flavor, such as the `start` of a personality, is left as it is. Nothing is frozen if the flavor does not hold together.
+ */
+export function defineFlavor<F extends Flavor>(flavor: F): F {
+  validateFlavor(flavor);
+  deepFreeze(flavor, new Set());
+  return flavor;
+}
+
 /** Throws a clear TypeError when the argument is not an object. A number here usually means a function that takes a flavor was passed to `map`. */
 function assertFlavor(flavor: unknown): asserts flavor is Flavor {
   if (typeof flavor !== "object" || flavor === null) {

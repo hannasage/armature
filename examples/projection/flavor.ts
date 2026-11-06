@@ -7,7 +7,7 @@
  * The prefix is `pui`. Projection UI names its own tokens `--ui-*` and its theme attribute `data-ui-theme`, so the two
  * sets of names cannot meet.
  */
-import { criticalDamping, type Flavor, type FollowerFlavor, type SurfaceFlavor } from "@hannasage/armature";
+import { criticalDamping, defineFlavor, type Flavor, type FollowerFlavor, type SurfaceFlavor } from "@hannasage/armature";
 
 // ---- springs ----
 
@@ -58,11 +58,11 @@ const follower: FollowerFlavor = {
 };
 
 /** There is no lens part and no reveal part. Projection UI has neither a travelling indicator nor a scroll reveal. */
-export const projection: Flavor & { surface: SurfaceFlavor; follower: FollowerFlavor } = {
+export const projection = defineFlavor<Flavor & { surface: SurfaceFlavor; follower: FollowerFlavor }>({
   name: "projection",
   prefix: "pui",
   logLabel: "projection-ui",
   springs: { mechanical, settle },
   surface,
   follower,
-};
+});

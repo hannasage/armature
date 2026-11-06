@@ -28,7 +28,7 @@ const API = {
     values: [
       "FIXED_STEP", "MAX_FRAME", "REDUCED_MOTION_QUERY", "VELOCITY_MAX", "VELOCITY_REST", "VELOCITY_SMOOTHING_MS",
       "createBrowserEnvironment", "createBrowserScrollEnvironment", "createScrollVelocity", "createSpring", "criticalDamping", "cssVar",
-      "dataAttr", "guardedSetup", "isAtRest", "logTag", "personalityOf", "prefersReducedMotion", "readPreferences", "reconfigure",
+      "dataAttr", "defineFlavor", "guardedSetup", "isAtRest", "logTag", "personalityOf", "prefersReducedMotion", "readPreferences", "reconfigure",
       "requireFollower", "requireLens", "requireReveal", "requireSurface", "retarget", "springOf", "stepSpring", "validateFlavor"
     ],
     types: [
