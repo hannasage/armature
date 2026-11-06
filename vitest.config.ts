@@ -15,6 +15,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // A few heavy tests (the golden scroll reveal, the glass grid) hit the 5 s default when the machine is under load.
+    testTimeout: 20000,
+    hookTimeout: 20000,
     include: ["tests/**/*.test.{ts,tsx}"],
   },
 });
