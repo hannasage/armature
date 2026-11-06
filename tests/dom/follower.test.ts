@@ -491,6 +491,31 @@ describe("a follower destroy", () => {
     expect(env.pending).toBe(0);
   });
 
+  it("is safe from inside the style write of a frame: no later frame, no later write, no throw", () => {
+    const env = new FakeEnv();
+    const original = env.setCSSVariable;
+    let destroyAt = -1;
+    let follower: ReturnType<typeof createFollower> | undefined;
+    env.setCSSVariable = (target, name, value) => {
+      original(target, name, value);
+      if (env.writes.length === destroyAt) follower?.destroy();
+    };
+    follower = createFollower({}, { flavor, name: "grow", env });
+    follower.setTarget(1);
+    env.tick();
+    destroyAt = env.writes.length + 1;
+    expect(() => env.tick()).not.toThrow();
+    const writes = env.writes.length;
+    expect(follower.getState().destroyed).toBe(true);
+    expect(env.pending).toBe(0);
+    env.tick();
+    follower.setTarget(0);
+    follower.snap(3);
+    env.tick();
+    expect(env.writes.length).toBe(writes);
+    expect(env.pending).toBe(0);
+  });
+
   it("is safe to call twice, and on a follower that never moved", () => {
     const { follower } = make();
     follower.destroy();
