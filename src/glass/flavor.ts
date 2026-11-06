@@ -4,7 +4,7 @@
  * The prefix is `lqg`, so every CSS variable, data attribute, and class keeps the name it always had.
  * A value here is a copy of the constant it replaced, and a test pins each one to the frozen legacy code.
  *
- * This file imports types only, apart from `lerp`, so the engine can import it without a cycle.
+ * This file imports types and the `lerp` helper from the engine. The engine and the DOM code import nothing from this file.
  */
 import type { FeelOptions, Flavor, LensFlavor, PersonalitySpec, RevealFlavor, StartContext, StartInput, SurfaceFlavor } from "../engine/flavor";
 import { lerp } from "../engine/math";

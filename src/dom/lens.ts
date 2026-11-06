@@ -20,7 +20,7 @@ export interface LensJumpRules {
 }
 
 export interface LensOptions {
-  /** Receives the lens variables and the lens attribute (`--lqg-lens-*` and `data-lqg-lens` for glass). */
+  /** Receives the lens variables and the lens attribute (their names come from the flavor). */
   container: ArmatureTarget;
   /** Measures the current item. Return null when there is none or it cannot be measured (hidden, or no size). */
   measure(): LensBox | null;
@@ -29,11 +29,11 @@ export interface LensOptions {
   /** The names, springs, and numbers to use. Required. It needs a lens part. */
   flavor: Flavor;
   jumpRules?: LensJumpRules;
-  /** Springs for the position and the width. Defaults: the flavor's two lens springs (`lensX` and `lensWidth` for glass), with pixel rest thresholds. */
+  /** Springs for the position and the width. Defaults: the flavor's two lens springs, with pixel rest thresholds. */
   springs?: { x?: SpringConfig; width?: SpringConfig };
-  /** Speed, in pixels per second, that adds 100 percent of stretch. Default 10000 for glass, so 1200 px/s reaches the 12 percent cap. */
+  /** Speed, in pixels per second, that adds 100 percent of stretch. The default comes from the flavor. */
   stretchVelocity?: number;
-  /** The most the lens stretches along x, as a fraction. Default 0.12 for glass. 0 turns stretch off. */
+  /** The most the lens stretches along x, as a fraction. The default comes from the flavor. 0 turns stretch off. */
   maxStretch?: number;
 }
 
@@ -95,7 +95,7 @@ export function createLens(options: LensOptions): Lens {
     sy: cssVar(flavor, config.vars.sy),
   };
   const readyAttribute = dataAttr(flavor, config.readyAttribute);
-  // Pixels need only to look still. For glass: a twentieth of a pixel and a pixel a second.
+  // Pixels need only to look still. The flavor sets the thresholds.
   const withPixelRest = (spring: SpringConfig): SpringConfig => ({ restDelta: config.pixelRest.restDelta, restSpeed: config.pixelRest.restSpeed, ...spring });
   const rules = { first: true, reducedMotion: true, keyboard: true, ...options.jumpRules };
   const xConfig = withPixelRest(options.springs?.x ?? springOf(flavor, config.springKeys.x));

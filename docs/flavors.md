@@ -4,7 +4,10 @@ A flavor is the data that makes the engine feel like one product.
 The engine holds the physics and the browser plumbing.
 A flavor holds the names, the numbers, and the spring presets.
 
-The engine never names a flavor. Every DOM controller and every generic React hook takes the flavor as a required argument. If you leave it out, the call fails with a clear `TypeError`.
+The engine never names a flavor. Every DOM controller and every generic React hook takes the flavor as a required argument. A call that leaves it out ends in one of two ways.
+
+- The DOM controllers throw a clear `TypeError`. These are `createSurface`, `attachSurface`, `createLens`, `installDelegation`, and `createScrollReveal`. The pure helpers, such as `velocityBlend`, throw the same error. The error is clear when the call has an options object. A call with no options object at all fails with the plain JavaScript error for reading a property of `undefined`.
+- The React hooks, `ArmatureProvider`, `mountScrollReveal`, `startScrollReveal`, and `guardedSetup` do not throw. They log the failure with the label `[armature]` and skip the start, so a mistake cannot reach a React error boundary. A hook called with no options object counts as a call with no flavor.
 
 The glass flavor is `glassFlavor`, exported from `@hannasage/armature/glass`. It is the one complete example.
 

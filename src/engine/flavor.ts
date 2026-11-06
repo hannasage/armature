@@ -3,8 +3,8 @@
  * browser plumbing. A flavor holds the names, the numbers, and the spring presets.
  *
  * Every name in a flavor is a suffix. The flavor has one prefix, and two helpers build the full names:
- * `cssVar(flavor, "press")` gives `--lqg-press` for a flavor with the prefix `lqg`, and
- * `dataAttr(flavor, "group")` gives `data-lqg-group`.
+ * `cssVar(flavor, "press")` gives `--<prefix>-press`, and
+ * `dataAttr(flavor, "group")` gives `data-<prefix>-group`.
  *
  * This file holds types and small pure helpers only.
  */

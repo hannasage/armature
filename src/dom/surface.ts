@@ -20,7 +20,7 @@ export interface SurfaceElement {
   getBoundingClientRect(): SurfaceRect;
 }
 
-/** A neighbour only needs a rectangle. It receives the glow variable (`--lqg-glow` for glass). */
+/** A neighbour only needs a rectangle. It receives the glow variable. Its name comes from the flavor. */
 export interface SurfaceNeighbor {
   getBoundingClientRect(): SurfaceRect;
 }

@@ -42,7 +42,7 @@ const LISTENER_OPTIONS = { passive: true } as const;
 const LEAVE_OPTIONS = { passive: true, capture: true } as const;
 
 /**
- * Listens once on the document for every element that carries `data-lqg` (the surface attribute of the flavor), so markup rendered on the server
+ * Listens once on the document for every element that carries the surface attribute of the flavor, so markup rendered on the server
  * works with no client wrapper around it, and does nothing at all when script is absent. It makes one surface
  * per element the first time the pointer meets it.
  *

@@ -1,16 +1,16 @@
 /**
  * The scroll reveal and the scroll drag (GI-70), as one controller on an injected environment.
  *
- * Reveal. The controller registers the elements under a root that carry `data-lqg-reveal`. Nothing is hidden until `start()` has
+ * Reveal. The controller registers the elements under a root that carry the reveal attribute of the flavor. Nothing is hidden until `start()` has
  * armed it: the markup, a page with no script, and reduced motion all show every element. When it arms, an element in view (or
  * above it) is shown at once with no entry. An element below the fold waits hidden (opacity 0 and its start offset). When it enters
  * the viewport, a spring runs it in with the individual properties `translate`, `scale`, `rotate`, and `opacity` (and `clip-path`
  * for a `mask`), never `transform`, blur, or a shadow. How far it starts, and how lively the spring is, depend on how fast the page is
- * scrolling at that moment (`scroll-motion.ts`). Each element reveals once. Its personality is the value of `data-lqg-reveal`:
- * `drop`, `mask`, `slide`, or `fade`.
+ * scrolling at that moment (`reveal-motion.ts`). Each element reveals once. Its personality is the value of the reveal attribute,
+ * and the flavor says which personalities exist.
  *
- * Drag. While the page scrolls, a revealed element that carries `data-lqg-drag` trails the scroll a little, like cloth, by a shift and a
- * turn proportional to the speed and scaled by its `data-lqg-depth`. When the scroll stops, a spring settles it back to exactly 0.
+ * Drag. While the page scrolls, a revealed element that carries the drag attribute trails the scroll a little, like cloth, by a shift and a
+ * turn proportional to the speed and scaled by its depth attribute. When the scroll stops, a spring settles it back to exactly 0.
  *
  * Cost. One IntersectionObserver, one frame loop, and one scroll listener, which wakes the loop. The loop runs only while something
  * moves: a reveal in flight, a non-zero scroll speed, or a drag that has not settled. A frame reads no layout. Geometry is read once,
@@ -47,17 +47,17 @@ export interface ScrollRevealOptions {
   flavor: Flavor;
   /** Defaults to the real browser, made when the controller is made. A test passes a fake. */
   env?: ArmatureScrollEnvironment;
-  /** Which elements are reveal targets. Default `[data-lqg-reveal]`. A site that keeps its own attributes lists them here. */
+  /** Which elements are reveal targets. The default selector comes from the flavor's reveal attribute. A site that keeps its own attributes lists them here. */
   selector?: string;
-  /** Which ancestor groups siblings for the stagger. Default `[data-lqg-reveal-group]`. */
+  /** Which ancestor groups siblings for the stagger. The default comes from the flavor's group attribute. */
   groupSelector?: string;
-  /** Which elements drag. Default `[data-lqg-drag]`. */
+  /** Which elements drag. The default comes from the flavor's drag attribute. */
   dragSelector?: string;
-  /** The attribute that records a decision. Default `data-lqg-revealed`. An element that already has it is left alone. */
+  /** The attribute that records a decision. The default is the flavor's revealed attribute. An element that already has it is left alone. */
   revealedAttribute?: string;
-  /** The personality of an element, or null when it is not a target. Default reads `data-lqg-reveal`. */
+  /** The personality of an element, or null when it is not a target. The default reads the flavor's reveal attribute. */
   personalityOf?(element: ScrollElement): string | null;
-  /** The extra delay of an element in ms, added to the stagger. Default reads `data-lqg-reveal-delay`. */
+  /** The extra delay of an element in ms, added to the stagger. The default reads the flavor's delay attribute. */
   delayOf?(element: ScrollElement): number;
   /** Says whether an element should use the spring path at all. Default true. An element that says false is left as it is. */
   accepts?(element: ScrollElement): boolean;
