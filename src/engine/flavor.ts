@@ -9,7 +9,7 @@
  * This file holds types and small pure helpers only.
  */
 import type { SpringConfig } from "./spring";
-import type { SurfaceOptions } from "../core/surface";
+import type { SurfaceOptions } from "../dom/surface";
 
 /** The options one named feel sets for a surface. */
 export type FeelOptions = Omit<SurfaceOptions, "env" | "neighbors" | "flavor">;

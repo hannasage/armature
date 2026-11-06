@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createScrollReveal, startScrollReveal, type ScrollRevealOptions } from "../src/core/scroll-reveal";
+import { createScrollReveal, startScrollReveal, type ScrollRevealOptions } from "../src/dom/reveal";
 import type { ScrollElement } from "../src/engine/scroll-env";
 import { FakeElement, FakeRoot, FakeScrollEnv } from "./helpers/fake-scroll-env";
 

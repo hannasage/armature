@@ -7,7 +7,7 @@
 import { dataAttr, requireReveal, type Flavor } from "../engine/flavor";
 import { clamp } from "../engine/math";
 import { glassFlavor } from "../glass/flavor";
-import type { RevealPersonality } from "./scroll-motion";
+import type { RevealPersonality } from "./reveal-motion";
 
 export type LqgRevealAttributes = Record<string, string>;
 

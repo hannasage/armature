@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type RefObject } from "react";
 import { guardedSetup } from "../engine/guard";
-import { attachSurface, type Surface, type SurfaceOptions } from "../core/surface";
+import { attachSurface, type Surface, type SurfaceOptions } from "../dom/surface";
 
 /**
  * Gives one element the surface behaviour from `attachSurface`, and removes it on unmount. Returns a ref to the

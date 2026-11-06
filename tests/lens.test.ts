@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createLens, type LensBox } from "../src/core/lens";
+import { createLens, type LensBox } from "../src/dom/lens";
 import { FakeEnv } from "./helpers/fake-env";
 
 const container = { id: "row" };

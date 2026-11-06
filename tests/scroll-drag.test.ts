@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createScrollReveal } from "../src/core/scroll-reveal";
+import { createScrollReveal } from "../src/dom/reveal";
 import type { ScrollElement } from "../src/engine/scroll-env";
 import { FakeElement, FakeRoot, FakeScrollEnv } from "./helpers/fake-scroll-env";
 

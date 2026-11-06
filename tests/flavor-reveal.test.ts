@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mountScrollReveal } from "../src/core/scroll-mount";
-import * as attrs from "../src/core/scroll-attrs";
-import * as reveal from "../src/core/scroll-reveal";
+import { mountScrollReveal } from "../src/dom/reveal-mount";
+import * as attrs from "../src/dom/reveal-attrs";
+import * as reveal from "../src/dom/reveal";
 import { glassFlavor } from "../src/glass/flavor";
 import type { Flavor } from "../src/engine/flavor";
 import * as legacyAttrs from "./golden/legacy/scroll-attrs";

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, type RefObject } from "react";
 import { guardedSetup } from "../engine/guard";
-import { createLens, type Lens, type LensOptions } from "../core/lens";
+import { createLens, type Lens, type LensOptions } from "../dom/lens";
 
 export interface LensHandle {
   /** The current item may have changed. Call it from an effect that depends on the active item. */

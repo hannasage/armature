@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { glassFlavor } from "../src/glass/flavor";
-import * as motion from "../src/core/scroll-motion";
+import * as motion from "../src/dom/reveal-motion";
 import * as legacy from "./golden/legacy/scroll-motion";
 import { acme } from "./helpers/other-flavor";
 import type { Flavor } from "../src/engine/flavor";

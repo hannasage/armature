@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { installDelegation } from "../src/core/delegate";
+import { installDelegation } from "../src/dom/delegate";
 import { FakeNode, FakeRoot } from "./helpers/fake-dom";
 import { FakeEnv } from "./helpers/fake-env";
 

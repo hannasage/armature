@@ -17,12 +17,12 @@ import { createScrollReveal, startScrollReveal } from "./legacy/scroll-reveal";
 import * as spring from "./legacy/spring";
 import { createSurface } from "./legacy/surface";
 import { guardedSetup as newGuardedSetup } from "../../src/engine/guard";
-import { createLens as newCreateLens } from "../../src/core/lens";
-import { mountScrollReveal as newMountScrollReveal } from "../../src/core/scroll-mount";
-import * as newMotion from "../../src/core/scroll-motion";
-import { createScrollReveal as newCreateScrollReveal, startScrollReveal as newStartScrollReveal } from "../../src/core/scroll-reveal";
+import { createLens as newCreateLens } from "../../src/dom/lens";
+import { mountScrollReveal as newMountScrollReveal } from "../../src/dom/reveal-mount";
+import * as newMotion from "../../src/dom/reveal-motion";
+import { createScrollReveal as newCreateScrollReveal, startScrollReveal as newStartScrollReveal } from "../../src/dom/reveal";
 import * as newSpring from "../../src/engine/spring";
-import { createSurface as newCreateSurface } from "../../src/core/surface";
+import { createSurface as newCreateSurface } from "../../src/dom/surface";
 
 /** The pieces of the code the harness drives. The signatures are the ones the code had before the extraction. */
 export interface Port {

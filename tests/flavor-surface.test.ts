@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attachSurface, createSurface } from "../src/core/surface";
+import { attachSurface, createSurface } from "../src/dom/surface";
 import type { Flavor } from "../src/engine/flavor";
 import { FakeEnv } from "./helpers/fake-env";
 import { acme } from "./helpers/other-flavor";

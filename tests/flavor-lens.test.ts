@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createLens, type LensBox } from "../src/core/lens";
+import { createLens, type LensBox } from "../src/dom/lens";
 import type { Flavor } from "../src/engine/flavor";
 import { FakeEnv } from "./helpers/fake-env";
 import { acme } from "./helpers/other-flavor";

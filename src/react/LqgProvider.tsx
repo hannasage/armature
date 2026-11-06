@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { installDelegation, type DelegateOptions, type DelegateRoot } from "../core/delegate";
+import { installDelegation, type DelegateOptions, type DelegateRoot } from "../dom/delegate";
 import { browserDetectionEnvironment, detectRefraction, type DetectionEnvironment, type RefractionSetting } from "../core/detect";
 import { createBrowserEnvironment, type LqgEnvironment } from "../engine/env";
 import type { Flavor } from "../engine/flavor";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import * as delegate from "../src/core/delegate";
-import { installDelegation, type DelegateOptions } from "../src/core/delegate";
+import * as delegate from "../src/dom/delegate";
+import { installDelegation, type DelegateOptions } from "../src/dom/delegate";
 import type { LqgProviderProps } from "../src/react";
 import type { Flavor } from "../src/engine/flavor";
 import * as legacy from "./golden/legacy/delegate";

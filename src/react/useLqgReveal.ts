@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
-import { mountScrollReveal, type MountScrollRevealOptions } from "../core/scroll-mount";
+import { mountScrollReveal, type MountScrollRevealOptions } from "../dom/reveal-mount";
 
 export type UseLqgRevealOptions = MountScrollRevealOptions;
 

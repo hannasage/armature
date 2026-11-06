@@ -5,7 +5,7 @@
  */
 import { logTag } from "../engine/flavor";
 import { glassFlavor } from "../glass/flavor";
-import { createScrollReveal, startScrollReveal, type GuardedStartOptions, type ScrollRevealOptions } from "./scroll-reveal";
+import { createScrollReveal, startScrollReveal, type GuardedStartOptions, type ScrollRevealOptions } from "./reveal";
 import type { ScrollRoot } from "../engine/scroll-env";
 
 /** The element the reveal watches. An `HTMLElement` fits. */

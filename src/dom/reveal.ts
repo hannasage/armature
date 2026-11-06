@@ -28,7 +28,7 @@ import { createBrowserScrollEnvironment, type LqgScrollEnvironment, type ScrollE
 import {
   dragTarget, parseDelay, parseDepth, parsePersonality, revealPose, revealSpring, revealStart, staggerDelayFor,
   REST_POSE, type RevealPose, type RevealStart,
-} from "./scroll-motion";
+} from "./reveal-motion";
 import { createScrollVelocity, type ScrollVelocity } from "../engine/scroll-velocity";
 
 // The names and numbers below are the glass values, kept as exports so old call sites keep working.
