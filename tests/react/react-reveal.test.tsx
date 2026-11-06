@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LqgRevealProvider, useLqgReveal } from "../../src/react";
+import { LqgRevealProvider, useLqgReveal } from "../../src/glass/react";
 import { FakeElement, FakeRoot, FakeScrollEnv } from "../helpers/fake-scroll-env";
 
 // Vitest here is Node only, so React's hook runtime cannot run effects. These stand-ins keep each hook's state and collect its

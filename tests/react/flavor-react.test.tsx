@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Flavor } from "../../src/engine/flavor";
-import { LqgProvider, MODE_ATTRIBUTE, useLqgLens, useLqgReveal, useLqgSurface } from "../../src/react";
+import { LqgProvider, MODE_ATTRIBUTE, useLqgLens, useLqgReveal, useLqgSurface } from "../../src/glass/react";
 import { FakeRoot } from "../helpers/fake-dom";
 import { FakeEnv } from "../helpers/fake-env";
 import { acme } from "../helpers/other-flavor";
@@ -94,7 +94,7 @@ describe("LqgProvider with another flavor", () => {
     LqgProvider({ root: broken, env: new FakeEnv(), rootElement: {}, detection: CHROME });
     commit();
     expect(spy.mock.calls.map((call) => call[0])).toEqual([
-      "[acme-motion] glass delegation failed to start and was skipped.",
+      "[acme-motion] acme delegation failed to start and was skipped.",
       "[liquid-glass] glass delegation failed to start and was skipped.",
     ]);
     spy.mockRestore();
@@ -146,7 +146,7 @@ describe("the hooks with a flavor that lacks the part they need", () => {
     expect(() => { cleanups = commit(); }).not.toThrow();
     expect(surface.current).toBeNull();
     expect(target.listenerCount).toBe(0);
-    expect(spy.mock.calls[0]?.[0]).toBe("[bare-lib] glass surface failed to start and was skipped.");
+    expect(spy.mock.calls[0]?.[0]).toBe("[bare-lib] bare surface failed to start and was skipped.");
     expect(() => cleanups.forEach((cleanup) => cleanup())).not.toThrow();
   });
 
@@ -158,7 +158,7 @@ describe("the hooks with a flavor that lacks the part they need", () => {
     expect(() => { cleanups = commit(); }).not.toThrow();
     expect(() => { handle.update(); handle.jump(); handle.refit(); }).not.toThrow();
     expect(env.writes).toEqual([]);
-    expect(spy.mock.calls[0]?.[0]).toBe("[bare-lib] glass lens failed to start and was skipped.");
+    expect(spy.mock.calls[0]?.[0]).toBe("[bare-lib] bare lens failed to start and was skipped.");
     expect(() => cleanups.forEach((cleanup) => cleanup())).not.toThrow();
   });
 });

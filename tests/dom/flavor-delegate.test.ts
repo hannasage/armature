@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as glassConstants from "../../src/glass/constants";
 import * as glassBound from "../helpers/glass";
 import { installDelegation, type DelegateOptions } from "../../src/dom/delegate";
-import type { LqgProviderProps } from "../../src/react";
+import type { LqgProviderProps } from "../../src/glass/react";
 import type { Flavor } from "../../src/engine/flavor";
 import * as legacy from "../golden/legacy/delegate";
 import { FakeEnv } from "../helpers/fake-env";
@@ -117,7 +117,7 @@ describe("a delegate with another flavor", () => {
 describe("the surface option cannot carry a flavor", () => {
   it("is a type error on DelegateOptions.surface and on the LqgProvider surface prop", () => {
     // @ts-expect-error A flavor in the surface options would be silently overwritten by the delegate flavor.
-    const viaDelegate: DelegateOptions = { surface: { flavor: acme } };
+    const viaDelegate: DelegateOptions = { flavor: acme, surface: { flavor: acme } };
     // @ts-expect-error The same rule holds for the provider prop.
     const viaProvider: LqgProviderProps = { surface: { flavor: acme } };
     expect([viaDelegate, viaProvider]).toHaveLength(2);

@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { installDelegation } from "../../src/dom/delegate";
 import { createLens } from "../../src/dom/lens";
-import { createScrollReveal, belowFold, revealRootMargin } from "../../src/dom/reveal";
+import { createScrollReveal, belowFold, revealRootMargin, startScrollReveal } from "../../src/dom/reveal";
+import { guardedSetup } from "../../src/engine/guard";
 import { dragTarget, parseDelay, parseDepth, parsePersonality, revealPose, revealSpring, velocityBlend } from "../../src/dom/reveal-motion";
 import { attachSurface, createSurface } from "../../src/dom/surface";
 import { revealAttributes } from "../../src/dom/reveal-attrs";
@@ -39,5 +40,21 @@ describe("a call with no flavor fails clearly", () => {
     expect(() => revealRootMargin(undefined as never)).toThrow(MISSING);
     expect(() => belowFold(1, 1, undefined as never)).toThrow(MISSING);
     expect(() => revealAttributes("drop", undefined, undefined as never)).toThrow(MISSING);
+  });
+});
+
+describe("a failure reported with no flavor", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("guardedSetup logs with the engine's own label and does not throw", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(() => guardedSetup("x", () => { throw new Error("boom"); }, undefined, undefined as never)()).not.toThrow();
+    expect(spy.mock.calls[0]?.[0]).toBe("[armature] x failed to start and was skipped.");
+  });
+
+  it("startScrollReveal logs with the engine's own label and does not throw", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(startScrollReveal(() => { throw new Error("boom"); }, {} as never)).toBeNull();
+    expect(spy.mock.calls[0]?.[0]).toBe("[armature] scroll reveal failed to start; every element is shown instead.");
   });
 });

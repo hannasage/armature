@@ -171,9 +171,12 @@ export function dataAttr(flavor: Pick<Flavor, "prefix">, suffix = ""): string {
   return suffix === "" ? `data-${flavor.prefix}` : `data-${flavor.prefix}-${suffix}`;
 }
 
-/** The label that starts a logged error: `[<logLabel>]`. */
-export function logTag(flavor: Pick<Flavor, "logLabel">): string {
-  return `[${flavor.logLabel}]`;
+/**
+ * The label that starts a logged error: `[<logLabel>]`. A missing flavor gives `[armature]`, so a call that forgot the flavor
+ * can still log its own failure and does not throw while it reports one.
+ */
+export function logTag(flavor: Pick<Flavor, "logLabel"> | undefined): string {
+  return `[${flavor?.logLabel ?? "armature"}]`;
 }
 
 function missing(flavor: Flavor, part: string): never {

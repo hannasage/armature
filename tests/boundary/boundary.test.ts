@@ -3,12 +3,13 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// The engine and the DOM controllers must not know about any flavor. This is a static scan of the source text:
-// it finds every import and re-export specifier in src/engine and src/dom and fails when one points into src/glass.
+// The engine, the DOM controllers, and the generic React layer must not know about any flavor. This is a static scan of the source text:
+// it finds every import and re-export specifier in src/engine, src/dom, and src/react and fails when one points into src/glass.
+// The glass-bound React wrappers are in src/glass/react, so the generic src/react holds no glass code.
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const glassDir = join(root, "src", "glass");
-const scanned = ["src/engine", "src/dom"];
+const scanned = ["src/engine", "src/dom", "src/react"];
 
 /** Every module specifier in a source text: static imports, re-exports, side-effect imports, dynamic imports, and require calls. */
 export function specifiersOf(text: string): string[] {
