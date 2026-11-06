@@ -1,23 +1,26 @@
+import { dataAttr, requireSurface, type Flavor } from "../engine/flavor";
+import { glassFlavor } from "../glass/flavor";
 import { createBrowserEnvironment, type LqgEnvironment } from "./env";
 import { createSurface, type SurfaceController, type SurfaceNeighbor, type SurfaceOptions, type SurfacePointerEvent } from "./surface";
 
+// The names below are the glass values, kept as exports so old call sites keep working.
+// A delegate reads its own flavor, which is glass unless `options.flavor` says otherwise.
+const glass = glassFlavor.surface;
+
 /** The attribute that marks an element as a glass surface. */
-export const SURFACE_ATTRIBUTE = "data-lqg";
+export const SURFACE_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.surface);
 /** Elements in one group light each other. The value is a name of letters, digits, `-` and `_`. */
-export const GROUP_ATTRIBUTE = "data-lqg-group";
+export const GROUP_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.group);
 
 /** Names a quieter or livelier way for one element to move. The value is a key of `FEELS`; an unknown name is ignored. */
-export const FEEL_ATTRIBUTE = "data-lqg-feel";
+export const FEEL_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.feel);
 
 /**
  * Named motion settings for one element, so a page can calm a few surfaces and leave the rest as they are.
  * `calm` is a lighter press (0.985), a release that overshoots less, and a glow that reaches a neighbour at half strength.
  */
-export const FEELS: Readonly<Record<string, Omit<SurfaceOptions, "env" | "neighbors">>> = Object.freeze({
-  calm: Object.freeze({ pressScale: 0.985, neighborShare: 0.5, springs: Object.freeze({ release: Object.freeze({ stiffness: 300, damping: 17 }) }) }),
-});
+export const FEELS: Readonly<Record<string, Omit<SurfaceOptions, "env" | "neighbors">>> = glass.feels;
 
-const SURFACE_SELECTOR = `[${SURFACE_ATTRIBUTE}]`;
 const GROUP_NAME = /^[\w-]+$/;
 
 type DomListener = (event: DelegatedEvent) => void;
@@ -41,6 +44,8 @@ export interface DelegatedEvent extends SurfacePointerEvent {
 export interface DelegateOptions {
   /** Defaults to the real browser. A test passes a fake. */
   env?: LqgEnvironment;
+  /** The attribute names and feels to use. Default: the glass flavor. It needs a surface part. Every surface the delegate makes gets it. */
+  flavor?: Flavor;
   /** Options for every surface the delegate makes. `neighbors` is ignored: groups pick the neighbours. */
   surface?: Omit<SurfaceOptions, "env" | "neighbors">;
 }
@@ -55,14 +60,8 @@ export interface Delegate {
 const LISTENER_OPTIONS = { passive: true } as const;
 const LEAVE_OPTIONS = { passive: true, capture: true } as const;
 
-const hostOf = (target: unknown): SurfaceTarget | null => {
-  const node = target as SurfaceTarget | null | undefined;
-  if (!node || typeof node.closest !== "function") return null;
-  return node.closest(SURFACE_SELECTOR);
-};
-
 /**
- * Listens once on the document for every element that carries `data-lqg`, so markup rendered on the server
+ * Listens once on the document for every element that carries `data-lqg` (the surface attribute of the flavor), so markup rendered on the server
  * works with no client wrapper around it, and does nothing at all when script is absent. It makes one surface
  * per element the first time the pointer meets it.
  *
@@ -70,10 +69,22 @@ const hostOf = (target: unknown): SurfaceTarget | null => {
  */
 export function installDelegation(root: DelegateRoot, options: DelegateOptions = {}): Delegate {
   const env = options.env ?? createBrowserEnvironment();
+  const flavor = options.flavor ?? glassFlavor;
+  const config = requireSurface(flavor);
+  const surfaceAttribute = dataAttr(flavor, config.attributes.surface);
+  const groupAttribute = dataAttr(flavor, config.attributes.group);
+  const feelAttribute = dataAttr(flavor, config.attributes.feel);
+  const surfaceSelector = `[${surfaceAttribute}]`;
   const surfaces = new Map<SurfaceTarget, SurfaceController>();
   let hovered: SurfaceTarget | null = null;
   let pressed: SurfaceTarget | null = null;
   let destroyed = false;
+
+  const hostOf = (target: unknown): SurfaceTarget | null => {
+    const node = target as SurfaceTarget | null | undefined;
+    if (!node || typeof node.closest !== "function") return null;
+    return node.closest(surfaceSelector);
+  };
 
   const prune = () => {
     for (const [host, surface] of surfaces) {
@@ -90,17 +101,17 @@ export function installDelegation(root: DelegateRoot, options: DelegateOptions =
     const found = surfaces.get(host);
     if (found) return found;
     prune();
-    const name = host.getAttribute?.(FEEL_ATTRIBUTE);
-    const feel = name && Object.prototype.hasOwnProperty.call(FEELS, name) ? FEELS[name] : undefined;
-    const created = createSurface(host, { ...options.surface, ...feel, env });
+    const name = host.getAttribute?.(feelAttribute);
+    const feel = name && Object.prototype.hasOwnProperty.call(config.feels, name) ? config.feels[name] : undefined;
+    const created = createSurface(host, { ...options.surface, ...feel, env, flavor });
     surfaces.set(host, created);
     return created;
   };
 
   const syncGroup = (host: SurfaceTarget, surface: SurfaceController) => {
-    const name = host.getAttribute?.(GROUP_ATTRIBUTE);
+    const name = host.getAttribute?.(groupAttribute);
     if (!name || !GROUP_NAME.test(name) || !root.querySelectorAll) return;
-    const members = root.querySelectorAll(`${SURFACE_SELECTOR}[${GROUP_ATTRIBUTE}="${name}"]`);
+    const members = root.querySelectorAll(`${surfaceSelector}[${groupAttribute}="${name}"]`);
     surface.setNeighbors(members);
   };
 
