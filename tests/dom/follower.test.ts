@@ -194,6 +194,24 @@ describe("a follower and reduced motion", () => {
   });
 });
 
+describe("a follower and reduced motion that starts in flight", () => {
+  it("jumps to the target on the next frame when the setting flips, with no new setTarget", () => {
+    const { env, element, follower } = make();
+    follower.setTarget(1);
+    env.tick();
+    env.tick();
+    expect(follower.getState().moving).toBe(true);
+    env.reduced = true;
+    env.tick();
+    expect(env.pending).toBe(0);
+    expect(env.read(element, "--acme-grow")).toBe("1");
+    expect(follower.getState()).toMatchObject({ value: 1, velocity: 0, target: 1, moving: false });
+    const requested = env.requested;
+    env.tick();
+    expect(env.requested).toBe(requested);
+  });
+});
+
 describe("a follower snap", () => {
   it("jumps to a value, clears the velocity, and cancels the frame", () => {
     const { env, element, follower } = make();

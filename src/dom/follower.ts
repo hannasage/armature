@@ -78,6 +78,11 @@ export function createFollower(target: ArmatureTarget, options: FollowerOptions)
   const tick = (time: number) => {
     frame = 0;
     if (destroyed) return;
+    // The reader may have asked for less motion while the spring was moving.
+    if (prefersReducedMotion(env)) {
+      jumpTo(spring.target);
+      return;
+    }
     const dt = Math.min(MAX_FRAME, Math.max(0, (time - last) / 1000));
     last = time;
     spring = stepSpring(spring, spring.target, dt);
