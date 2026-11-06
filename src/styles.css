@@ -1,0 +1,120 @@
+/*
+ * @hannasage/liquid-glass baseline styles.
+ *
+ * Generic on purpose: it carries no site color. Set the --lqg-* properties on :root or on one element to
+ * theme it. Every class, custom property, and data attribute here starts with lqg.
+ *
+ * The scripts write these properties, and nothing else:
+ *   surface: --lqg-press, --lqg-flex, --lqg-spec-x, --lqg-spec-y, --lqg-glow
+ *   lens:    --lqg-lens-x, --lqg-lens-y, --lqg-lens-w, --lqg-lens-h, --lqg-lens-sx, --lqg-lens-sy
+ * Without script none of them is ever set, and the defaults below leave the element still.
+ */
+
+/* Registered so a nested surface does not inherit its parent's press or glow. Browsers without @property fall back to the var() defaults. */
+@property --lqg-press { syntax: "<number>"; inherits: false; initial-value: 1; }
+@property --lqg-flex { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --lqg-glow { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --lqg-spec-x { syntax: "<percentage>"; inherits: false; initial-value: 50%; }
+@property --lqg-spec-y { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
+
+:root {
+  --lqg-blur: 16px;
+  --lqg-fill: rgb(255 255 255 / 0.12);
+  --lqg-rim: rgb(255 255 255 / 0.35);
+  --lqg-spec-strength: 0.35;
+  --lqg-glow-radius: 28px;
+  --lqg-glow-strength: 0.4;
+  /* The opaque fill used by every fallback below. A system color follows the reader's own theme. */
+  --lqg-fallback-fill: Canvas;
+}
+
+.lqg-surface,
+.lqg-lens {
+  background-color: var(--lqg-fill);
+  -webkit-backdrop-filter: blur(var(--lqg-blur));
+  backdrop-filter: var(--lqg-backdrop, blur(var(--lqg-blur)));
+  box-shadow: inset 0 0 0 1px var(--lqg-rim);
+}
+
+/* Where the browser draws SVG refraction, the provider sets data-lqg-mode="refract", and the filter replaces plain blur. */
+[data-lqg-mode="refract"] .lqg-surface,
+[data-lqg-mode="refract"] .lqg-lens {
+  backdrop-filter: var(--lqg-backdrop-refract, var(--lqg-backdrop, blur(var(--lqg-blur))));
+}
+
+/* A pressable surface. The press scale, its squash, the pointer glint, and the glow all come from variables. */
+.lqg-surface {
+  position: relative;
+  isolation: isolate;
+  transform-origin: center;
+  transform: scale(
+    calc(var(--lqg-press, 1) * (1 + var(--lqg-flex, 0))),
+    calc(var(--lqg-press, 1) * (1 - var(--lqg-flex, 0)))
+  );
+  background-image: radial-gradient(
+    circle at var(--lqg-spec-x, 50%) var(--lqg-spec-y, 0%),
+    rgb(255 255 255 / calc(var(--lqg-spec-strength) * var(--lqg-glow, 0))),
+    transparent 60%
+  );
+  box-shadow:
+    inset 0 0 0 1px var(--lqg-rim),
+    0 0 calc(var(--lqg-glow-radius) * var(--lqg-glow, 0)) rgb(255 255 255 / calc(var(--lqg-glow-strength) * var(--lqg-glow, 0)));
+}
+
+/* A travelling lens. Put it inside the row the lens controller watches, which carries data-lqg-lens="ready" once it has a place. */
+.lqg-lens {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--lqg-lens-w, 0px);
+  height: var(--lqg-lens-h, 0px);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transform-origin: center;
+  transform: translate(var(--lqg-lens-x, 0px), var(--lqg-lens-y, 0px)) scale(var(--lqg-lens-sx, 1), var(--lqg-lens-sy, 1));
+}
+
+[data-lqg-lens="ready"] .lqg-lens {
+  opacity: 1;
+}
+
+/* Fallback 1: the reader asked for less transparency. Opaque fill, no blur. Safari does not report this setting. */
+@media (prefers-reduced-transparency: reduce) {
+  .lqg-surface,
+  .lqg-lens {
+    background-color: var(--lqg-fallback-fill);
+    background-image: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Fallback 2: forced colors, such as Windows contrast themes. System colors and a real border. */
+@media (forced-colors: active) {
+  .lqg-surface,
+  .lqg-lens {
+    background-color: Canvas;
+    background-image: none;
+    color: CanvasText;
+    border: 1px solid CanvasText;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Fallback 3: no backdrop-filter at all. Opaque fill. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .lqg-surface,
+  .lqg-lens {
+    background-color: var(--lqg-fallback-fill);
+  }
+}
+
+/* Belt and braces: the scripts already do nothing under reduced motion, so a stale variable can never move the element. */
+@media (prefers-reduced-motion: reduce) {
+  .lqg-surface {
+    transform: none;
+  }
+}
