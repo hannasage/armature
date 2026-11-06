@@ -10,7 +10,6 @@
  */
 import type { SpringConfig } from "../core/spring";
 import type { SurfaceOptions } from "../core/surface";
-import type { RevealStart } from "../core/scroll-motion";
 
 /** The options one named feel sets for a surface. */
 export type FeelOptions = Omit<SurfaceOptions, "env" | "neighbors" | "flavor">;
@@ -68,6 +67,16 @@ export interface LensFlavor {
   readonly stretchVelocity: number;
   /** The most the lens stretches along x, as a fraction. */
   readonly maxStretch: number;
+}
+
+/** The start pose of one piece. All the numbers are at progress 0. */
+export interface RevealStart {
+  /** Pixels. */
+  x: number;
+  y: number;
+  scale: number;
+  /** Degrees. */
+  rotate: number;
 }
 
 /** What a personality is told about the scroll when it computes its start pose. */
