@@ -1,17 +1,32 @@
 {
   "name": "@hannasage/armature",
-  "version": "0.0.0",
+  "version": "1.0.0-next.0",
   "description": "A physics motion engine for the web. One engine, many flavors.",
   "license": "MIT",
   "author": "Hanna Sage",
-  "private": true,
+  "keywords": [
+    "animation",
+    "motion",
+    "spring",
+    "physics",
+    "liquid-glass",
+    "react",
+    "esm",
+    "typescript"
+  ],
   "type": "module",
   "sideEffects": [
     "./dist/styles.css"
   ],
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "next"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -39,7 +54,9 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
-    "build": "vite build && tsc -p tsconfig.build.json && node scripts/postbuild.mjs && node scripts/check-exports.mjs"
+    "build": "vite build && tsc -p tsconfig.build.json && node scripts/postbuild.mjs && node scripts/check-exports.mjs",
+    "check:pack": "node scripts/check-pack.mjs",
+    "prepublishOnly": "npm run typecheck && npm run lint && npm test && npm run build && npm run check:pack"
   },
   "peerDependencies": {
     "react": ">=18"
