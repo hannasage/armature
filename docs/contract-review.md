@@ -121,6 +121,10 @@ The engine has no branch on a flavor name. A search of `src/engine`, `src/dom`, 
   The flavor is tested against the engine and not against Projection UI markup.
 - No spring pair tested for retargeting between two springs. See item 3.
 
+## Solver accuracy
+
+The semi-implicit Euler solver at 1/120 s measures a lower overshoot than the closed form gives. At damping 30, the solver measured 6.5 percent against 8.8 percent from the closed form. At damping 28 it measures 9.0 percent against 11.2 percent. So the docs must show solver-measured numbers, and the formula alone is not enough to choose a spring. An exact per-step solution of the linear spring is an open option for a later version. It would remove the gap, but it would change the glass numbers that the golden test pins, so it needs its own decision and a new golden run.
+
 ## Recommendation
 
 Do not mark the API stable yet. The follower part works and has tests, but three things are open.
