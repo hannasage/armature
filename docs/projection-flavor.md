@@ -25,7 +25,7 @@ It updates the velocity first, and then the position with the new velocity.
 
 ## Natural frequency and damping ratio
 
-The natural frequency is how fast the spring would swing with no damping:
+The natural frequency is how fast the spring swings when it has no damping:
 
 ```
 ω0 = sqrt(k / m)
@@ -85,7 +85,7 @@ The cause is the solver, not the spring.
 
 Each 1/120 s slice multiplies the velocity by `1 - c h / m`, which is 0.75 for `mechanical`.
 The exact decay over one slice is `exp(-c h / m)`, which is 0.78.
-The solver therefore removes slightly more energy than the real spring would, so the swing is smaller and it settles sooner than the exact curve.
+The solver therefore removes slightly more energy than the exact spring removes. The swing is smaller, and the spring settles sooner than the exact curve.
 For `settle`, the same extra damping makes the return a little slower than the exact curve.
 
 This is a property of the Armature solver, and every flavor shares it.
@@ -101,6 +101,6 @@ Choose a spring from the measured numbers on this page, not from the formula alo
 - Any exit, such as a Toast leaving: the `exit` follower. Spring: `settle`.
 - Modal dialog, in and out: the `dialog` follower. Spring: `settle`.
 
-An opacity cannot go above 1, so a stylesheet that uses an `enter` value for opacity should clamp it.
+An opacity cannot go above 1. A stylesheet that uses an `enter` value for opacity clamps it.
 
 The Skeleton and the spinner are constant loops and use no spring.
