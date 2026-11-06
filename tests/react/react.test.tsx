@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createGlassFilter } from "../src/glass/filter";
-import { LqgFilter, LqgProvider, MODE_ATTRIBUTE, useLqgLens, useLqgSurface } from "../src/react";
-import { FakeRoot } from "./helpers/fake-dom";
-import { FakeEnv } from "./helpers/fake-env";
+import { createGlassFilter } from "../../src/glass/filter";
+import { LqgFilter, LqgProvider, MODE_ATTRIBUTE, useLqgLens, useLqgSurface } from "../../src/react";
+import { FakeRoot } from "../helpers/fake-dom";
+import { FakeEnv } from "../helpers/fake-env";
 
 // Vitest here is Node only, with no DOM, so React's own hook runtime cannot run effects. These stand-ins keep
 // each hook's state in a table and collect its effects, and the tests run them by hand, as React would after

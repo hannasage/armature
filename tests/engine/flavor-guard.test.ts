@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { guardedSetup } from "../src/engine/guard";
-import { glassFlavor } from "../src/glass/flavor";
-import { guardedSetup as legacyGuardedSetup } from "./golden/legacy/guard";
-import { acme } from "./helpers/other-flavor";
+import { guardedSetup } from "../../src/engine/guard";
+import { glassFlavor } from "../../src/glass/flavor";
+import { guardedSetup as legacyGuardedSetup } from "../golden/legacy/guard";
+import { acme } from "../helpers/other-flavor";
 
 afterEach(() => vi.restoreAllMocks());
 

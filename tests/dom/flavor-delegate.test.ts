@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import * as delegate from "../src/dom/delegate";
-import { installDelegation, type DelegateOptions } from "../src/dom/delegate";
-import type { LqgProviderProps } from "../src/react";
-import type { Flavor } from "../src/engine/flavor";
-import * as legacy from "./golden/legacy/delegate";
-import { FakeEnv } from "./helpers/fake-env";
-import { acme } from "./helpers/other-flavor";
+import * as delegate from "../../src/dom/delegate";
+import { installDelegation, type DelegateOptions } from "../../src/dom/delegate";
+import type { LqgProviderProps } from "../../src/react";
+import type { Flavor } from "../../src/engine/flavor";
+import * as legacy from "../golden/legacy/delegate";
+import { FakeEnv } from "../helpers/fake-env";
+import { acme } from "../helpers/other-flavor";
 
 /** A node that knows the acme attributes. The shared fake knows only `data-lqg`. */
 class AcmeNode {

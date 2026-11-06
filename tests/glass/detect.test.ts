@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { detectRefraction, type DetectionEnvironment } from "../src/glass/detect";
-import { readPreferences } from "../src/engine/preferences";
+import { detectRefraction, type DetectionEnvironment } from "../../src/glass/detect";
+import { readPreferences } from "../../src/engine/preferences";
 
 const CHROME_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 const EDGE_UA = `${CHROME_UA} Edg/131.0.0.0`;

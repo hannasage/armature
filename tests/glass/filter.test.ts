@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { computeDisplacementMap, computeSpecularMap } from "../src/glass/displacement";
-import { applyFilterScale, createGlassFilter, updateGlassFilter, type GlassFilter, type GlassFilterEngine } from "../src/glass/filter";
+import { computeDisplacementMap, computeSpecularMap } from "../../src/glass/displacement";
+import { applyFilterScale, createGlassFilter, updateGlassFilter, type GlassFilter, type GlassFilterEngine } from "../../src/glass/filter";
 
 /** A small well-formedness check: balanced tags, quoted attributes, no stray angle brackets or ampersands. */
 function assertWellFormed(markup: string) {

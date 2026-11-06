@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mountScrollReveal } from "../src/dom/reveal-mount";
-import { lqgDrag, lqgReveal, LQG_LINE, LQG_REVEAL_GROUP } from "../src/dom/reveal-attrs";
-import { FakeElement, FakeRoot, FakeScrollEnv } from "./helpers/fake-scroll-env";
+import { mountScrollReveal } from "../../src/dom/reveal-mount";
+import { lqgDrag, lqgReveal, LQG_LINE, LQG_REVEAL_GROUP } from "../../src/dom/reveal-attrs";
+import { FakeElement, FakeRoot, FakeScrollEnv } from "../helpers/fake-scroll-env";
 
 afterEach(() => vi.restoreAllMocks());
 

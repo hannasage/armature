@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { attachSurface, createSurface } from "../src/dom/surface";
-import type { Flavor } from "../src/engine/flavor";
-import { FakeEnv } from "./helpers/fake-env";
-import { acme } from "./helpers/other-flavor";
+import { attachSurface, createSurface } from "../../src/dom/surface";
+import type { Flavor } from "../../src/engine/flavor";
+import { FakeEnv } from "../helpers/fake-env";
+import { acme } from "../helpers/other-flavor";
 
 const box = (left: number, top: number) => ({ getBoundingClientRect: () => ({ left, top, width: 100, height: 40 }) });
 const press = { clientX: 50, clientY: 20, pointerType: "mouse", isPrimary: true, button: 0 };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createScrollReveal } from "../src/dom/reveal";
-import type { ScrollElement } from "../src/engine/scroll-env";
-import { FakeElement, FakeRoot, FakeScrollEnv } from "./helpers/fake-scroll-env";
+import { createScrollReveal } from "../../src/dom/reveal";
+import type { ScrollElement } from "../../src/engine/scroll-env";
+import { FakeElement, FakeRoot, FakeScrollEnv } from "../helpers/fake-scroll-env";
 
 /*
  * The scroll drag of createScrollReveal (GI-70): a revealed element trails the scroll, scaled by its depth, and settles to 0.

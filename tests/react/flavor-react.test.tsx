@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Flavor } from "../src/engine/flavor";
-import { LqgProvider, MODE_ATTRIBUTE, useLqgLens, useLqgReveal, useLqgSurface } from "../src/react";
-import { FakeRoot } from "./helpers/fake-dom";
-import { FakeEnv } from "./helpers/fake-env";
-import { acme } from "./helpers/other-flavor";
-import { FakeElement, FakeRoot as FakeScrollRoot, FakeScrollEnv } from "./helpers/fake-scroll-env";
+import type { Flavor } from "../../src/engine/flavor";
+import { LqgProvider, MODE_ATTRIBUTE, useLqgLens, useLqgReveal, useLqgSurface } from "../../src/react";
+import { FakeRoot } from "../helpers/fake-dom";
+import { FakeEnv } from "../helpers/fake-env";
+import { acme } from "../helpers/other-flavor";
+import { FakeElement, FakeRoot as FakeScrollRoot, FakeScrollEnv } from "../helpers/fake-scroll-env";
 
 // Same stand-ins as react.test.tsx: Node has no DOM, so effects are collected and run by hand.
 const harness = vi.hoisted(() => ({ cells: [] as unknown[], cursor: 0, effects: [] as Array<() => unknown> }));

@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mountScrollReveal } from "../src/dom/reveal-mount";
-import * as attrs from "../src/dom/reveal-attrs";
-import * as reveal from "../src/dom/reveal";
-import { glassFlavor } from "../src/glass/flavor";
-import type { Flavor } from "../src/engine/flavor";
-import * as legacyAttrs from "./golden/legacy/scroll-attrs";
-import * as legacyReveal from "./golden/legacy/scroll-reveal";
-import { acme } from "./helpers/other-flavor";
-import { FakeElement, FakeRoot, FakeScrollEnv } from "./helpers/fake-scroll-env";
+import { mountScrollReveal } from "../../src/dom/reveal-mount";
+import * as attrs from "../../src/dom/reveal-attrs";
+import * as reveal from "../../src/dom/reveal";
+import { glassFlavor } from "../../src/glass/flavor";
+import type { Flavor } from "../../src/engine/flavor";
+import * as legacyAttrs from "../golden/legacy/scroll-attrs";
+import * as legacyReveal from "../golden/legacy/scroll-reveal";
+import { acme } from "../helpers/other-flavor";
+import { FakeElement, FakeRoot, FakeScrollEnv } from "../helpers/fake-scroll-env";
 
 afterEach(() => vi.restoreAllMocks());
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { FEELS, installDelegation } from "../src/dom/delegate";
-import { FakeNode, FakeRoot } from "./helpers/fake-dom";
-import { FakeEnv } from "./helpers/fake-env";
+import { FEELS, installDelegation } from "../../src/dom/delegate";
+import { FakeNode, FakeRoot } from "../helpers/fake-dom";
+import { FakeEnv } from "../helpers/fake-env";
 
 // A named feel on an element (data-lqg-feel="calm") quiets its motion: a lighter press, a gentler release, and a glow that
 // spreads to its neighbours at half strength. Without it, or with a name nobody knows, a surface moves as it always did.

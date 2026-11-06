@@ -1,6 +1,6 @@
 import { inflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { adler32, crc32, encodePng, pngDataUri, toBase64 } from "../src/glass/png";
+import { adler32, crc32, encodePng, pngDataUri, toBase64 } from "../../src/glass/png";
 
 const text = (value: string) => new TextEncoder().encode(value);
 

@@ -1,17 +1,17 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { cssVar, dataAttr, logTag, type Flavor } from "../src/engine/flavor";
-import { glassFlavor } from "../src/glass/flavor";
-import { LQG_PREFIX } from "../src/index";
-import * as legacyDelegate from "./golden/legacy/delegate";
-import * as legacyMotion from "./golden/legacy/scroll-motion";
-import * as legacyReveal from "./golden/legacy/scroll-reveal";
-import * as legacySpring from "./golden/legacy/spring";
+import { cssVar, dataAttr, logTag, type Flavor } from "../../src/engine/flavor";
+import { glassFlavor } from "../../src/glass/flavor";
+import { LQG_PREFIX } from "../../src/index";
+import * as legacyDelegate from "../golden/legacy/delegate";
+import * as legacyMotion from "../golden/legacy/scroll-motion";
+import * as legacyReveal from "../golden/legacy/scroll-reveal";
+import * as legacySpring from "../golden/legacy/spring";
 
 // Each field is checked against the old constant. A field that came from an exported constant is compared with that
 // export, imported from the frozen legacy copy. A field that came from an inline value has no export, so it is
 // compared with the value in the source, and the test also checks that the value appears in the legacy file.
-const source = (file: string) => readFileSync(new URL(`./golden/legacy/${file}`, import.meta.url), "utf8");
+const source = (file: string) => readFileSync(new URL(`../golden/legacy/${file}`, import.meta.url), "utf8");
 const legacy = { surface: source("surface.ts"), lens: source("lens.ts"), reveal: source("scroll-reveal.ts"), motion: source("scroll-motion.ts"), guard: source("guard.ts"), mount: source("scroll-mount.ts") };
 const inLegacy = (file: keyof typeof legacy, text: string) => expect(legacy[file], `${text} in ${file}`).toContain(text);
 // A pattern that names the identifier or the key the value belongs to, so a stray copy of the number elsewhere cannot satisfy it.

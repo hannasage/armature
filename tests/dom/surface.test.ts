@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { attachSurface, type SurfaceOptions } from "../src/dom/surface";
-import { FakeEnv } from "./helpers/fake-env";
+import { attachSurface, type SurfaceOptions } from "../../src/dom/surface";
+import { FakeEnv } from "../helpers/fake-env";
 
 type Listener = (event: unknown) => void;
 

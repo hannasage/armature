@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { glassFlavor } from "../src/glass/flavor";
-import * as motion from "../src/dom/reveal-motion";
-import * as legacy from "./golden/legacy/scroll-motion";
-import { acme } from "./helpers/other-flavor";
-import type { Flavor } from "../src/engine/flavor";
+import { glassFlavor } from "../../src/glass/flavor";
+import * as motion from "../../src/dom/reveal-motion";
+import * as legacy from "../golden/legacy/scroll-motion";
+import { acme } from "../helpers/other-flavor";
+import type { Flavor } from "../../src/engine/flavor";
 
 describe("scroll-motion keeps its old exports", () => {
   it("has every export the legacy module had, with the same value for each constant", () => {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { validateFlavor, cssVar, dataAttr, logTag, personalityOf, requireLens, requireReveal, requireSurface, springOf, type Flavor, type PersonalitySpec, type RevealFlavor } from "../src/engine/flavor";
-import { clamp, lerp } from "../src/engine/math";
-import { glassFlavor } from "../src/glass/flavor";
-import { acme } from "./helpers/other-flavor";
+import { validateFlavor, cssVar, dataAttr, logTag, personalityOf, requireLens, requireReveal, requireSurface, springOf, type Flavor, type PersonalitySpec, type RevealFlavor } from "../../src/engine/flavor";
+import { clamp, lerp } from "../../src/engine/math";
+import { glassFlavor } from "../../src/glass/flavor";
+import { acme } from "../helpers/other-flavor";
 
 const bare: Flavor = { name: "bare", prefix: "zz", logLabel: "bare-lib", springs: { soft: { stiffness: 100, damping: 10 } } };
 
