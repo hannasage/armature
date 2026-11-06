@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { installDelegation, type DelegateOptions, type DelegateRoot } from "../core/delegate";
 import { browserDetectionEnvironment, detectRefraction, type DetectionEnvironment, type RefractionSetting } from "../core/detect";
 import { createBrowserEnvironment, type LqgEnvironment } from "../core/env";
+import type { Flavor } from "../engine/flavor";
 import { guardedSetup } from "../core/guard";
 
 /** Set on the root element: `refract` when this browser draws SVG backdrop refraction, `blur` when it does not. */
@@ -15,6 +16,8 @@ export interface LqgProviderProps {
   refraction?: RefractionSetting;
   /** Options for every `data-lqg` surface. */
   surface?: DelegateOptions["surface"];
+  /** The attribute names and feels for delegation. Defaults to the glass flavor. The mode attribute below stays glass. */
+  flavor?: Flavor;
   /** For tests and unusual hosts. Defaults to the real browser. */
   env?: LqgEnvironment;
   /** Where the listeners go. Defaults to `document`. */
@@ -35,12 +38,12 @@ export function LqgProvider(props: LqgProviderProps) {
   const initial = useRef(props);
 
   useEffect(() => guardedSetup("glass delegation", () => {
-    const { env: given, root: givenRoot, surface } = initial.current;
+    const { env: given, root: givenRoot, surface, flavor } = initial.current;
     const root = givenRoot ?? (typeof document === "undefined" ? undefined : (document as unknown as DelegateRoot));
     if (!root) return;
-    const delegate = installDelegation(root, { env: given ?? createBrowserEnvironment(), surface });
+    const delegate = installDelegation(root, { env: given ?? createBrowserEnvironment(), surface, flavor });
     return () => delegate.destroy();
-  }), []);
+  }, undefined, initial.current.flavor), []);
 
   const { refraction } = props;
   useEffect(() => guardedSetup("glass mode", () => {

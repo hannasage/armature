@@ -12,7 +12,7 @@ export interface LensHandle {
 
 /**
  * A travelling lens inside the element `ref` points at. The handle is stable and does nothing until the
- * element mounts. `measure` is read fresh on every call, so it can close over current props.
+ * element mounts. `measure` is read fresh on every call, so it can close over current props. Pass `flavor` in the options to use another flavor.
  */
 export function useLqgLens(ref: RefObject<HTMLElement | null>, options: Omit<LensOptions, "container">): LensHandle {
   const lens = useRef<Lens | null>(null);
