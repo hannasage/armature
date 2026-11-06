@@ -31,7 +31,7 @@ export interface ScrollObserver {
   disconnect(): void;
 }
 
-export interface LqgScrollEnvironment {
+export interface ArmatureScrollEnvironment {
   requestFrame(callback: (time: number) => void): number;
   cancelFrame(id: number): void;
   /** Milliseconds, on the same clock as the time `requestFrame` passes to its callback. */
@@ -65,7 +65,7 @@ export interface LqgScrollEnvironment {
 }
 
 /** The real browser. Safe to import on the server: nothing runs until a method is called. It throws if `window` lacks matchMedia. */
-export function createBrowserScrollEnvironment(win: Window & typeof globalThis = window): LqgScrollEnvironment {
+export function createBrowserScrollEnvironment(win: Window & typeof globalThis = window): ArmatureScrollEnvironment {
   const reduced = win.matchMedia(REDUCED_MOTION_QUERY);
   const hasObserver = typeof win.IntersectionObserver === "function";
   const visibleFocus = (element: Element) => {

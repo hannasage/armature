@@ -1,5 +1,5 @@
 import { cssVar, dataAttr, requireLens, springOf, type Flavor } from "../engine/flavor";
-import { createBrowserEnvironment, prefersReducedMotion, type LqgEnvironment, type LqgTarget } from "../engine/env";
+import { createBrowserEnvironment, prefersReducedMotion, type ArmatureEnvironment, type ArmatureTarget } from "../engine/env";
 import { createSpring, isAtRest, MAX_FRAME, retarget, stepSpring, type SpringConfig, type SpringState } from "../engine/spring";
 
 /** A box in the container's own coordinates, like `offsetLeft`, `offsetTop`, `offsetWidth`, and `offsetHeight`. */
@@ -21,11 +21,11 @@ export interface LensJumpRules {
 
 export interface LensOptions {
   /** Receives the lens variables and the lens attribute (`--lqg-lens-*` and `data-lqg-lens` for glass). */
-  container: LqgTarget;
+  container: ArmatureTarget;
   /** Measures the current item. Return null when there is none or it cannot be measured (hidden, or no size). */
   measure(): LensBox | null;
   /** Defaults to the real browser. A test passes a fake. */
-  env?: LqgEnvironment;
+  env?: ArmatureEnvironment;
   /** The names, springs, and numbers to use. Required. It needs a lens part. */
   flavor: Flavor;
   jumpRules?: LensJumpRules;

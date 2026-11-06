@@ -23,7 +23,7 @@
 import { cssVar, dataAttr, logTag, personalityOf, requireReveal, type Flavor, type PersonalitySpec } from "../engine/flavor";
 import { prefersReducedMotion } from "../engine/env";
 import { createSpring, MAX_FRAME, retarget, stepSpring, type SpringConfig, type SpringState } from "../engine/spring";
-import { createBrowserScrollEnvironment, type LqgScrollEnvironment, type ScrollElement, type ScrollEntry, type ScrollObserver, type ScrollRoot } from "../engine/scroll-env";
+import { createBrowserScrollEnvironment, type ArmatureScrollEnvironment, type ScrollElement, type ScrollEntry, type ScrollObserver, type ScrollRoot } from "../engine/scroll-env";
 import {
   dragTarget, parseDelay, parseDepth, parsePersonality, revealPose, revealSpring, revealStart, staggerDelayFor,
   REST_POSE, type RevealPose, type RevealStart,
@@ -46,7 +46,7 @@ export interface ScrollRevealOptions {
   /** The names and numbers to use. Required. It needs a reveal part. */
   flavor: Flavor;
   /** Defaults to the real browser, made when the controller is made. A test passes a fake. */
-  env?: LqgScrollEnvironment;
+  env?: ArmatureScrollEnvironment;
   /** Which elements are reveal targets. Default `[data-lqg-reveal]`. A site that keeps its own attributes lists them here. */
   selector?: string;
   /** Which ancestor groups siblings for the stagger. Default `[data-lqg-reveal-group]`. */

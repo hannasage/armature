@@ -3,7 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { installDelegation, type DelegateOptions, type DelegateRoot } from "../dom/delegate";
 import { browserDetectionEnvironment, detectRefraction, type DetectionEnvironment, type RefractionSetting } from "../glass/detect";
-import { createBrowserEnvironment, type LqgEnvironment } from "../engine/env";
+import { createBrowserEnvironment, type ArmatureEnvironment } from "../engine/env";
 import type { Flavor } from "../engine/flavor";
 import { guardedSetup } from "../engine/guard";
 import { glassFlavor } from "../glass/flavor";
@@ -20,7 +20,7 @@ export interface LqgProviderProps {
   /** The attribute names and feels for delegation. Defaults to the glass flavor. The mode attribute below stays glass. */
   flavor?: Flavor;
   /** For tests and unusual hosts. Defaults to the real browser. */
-  env?: LqgEnvironment;
+  env?: ArmatureEnvironment;
   /** Where the listeners go. Defaults to `document`. */
   root?: DelegateRoot;
   /** The element that gets `data-lqg-mode`. Defaults to `document.documentElement`. */

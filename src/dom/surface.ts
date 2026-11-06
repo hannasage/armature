@@ -1,5 +1,5 @@
 import { cssVar, requireSurface, springOf, type Flavor } from "../engine/flavor";
-import { createBrowserEnvironment, prefersReducedMotion, type LqgEnvironment } from "../engine/env";
+import { createBrowserEnvironment, prefersReducedMotion, type ArmatureEnvironment } from "../engine/env";
 import { createSpring, isAtRest, MAX_FRAME, reconfigure, retarget, stepSpring, type SpringConfig, type SpringState } from "../engine/spring";
 
 export interface SurfaceRect {
@@ -35,7 +35,7 @@ export interface SurfacePointerEvent {
 
 export interface SurfaceOptions {
   /** Defaults to the real browser. A test passes a fake. */
-  env?: LqgEnvironment;
+  env?: ArmatureEnvironment;
   /** The names, springs, and default numbers to use. Required. It needs a surface part. */
   flavor: Flavor;
   /** The scale while pressed. Default 0.97 for glass. */

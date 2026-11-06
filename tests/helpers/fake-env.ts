@@ -1,7 +1,7 @@
-import type { LqgEnvironment, LqgTarget } from "../../src/engine/env";
+import type { ArmatureEnvironment, ArmatureTarget } from "../../src/engine/env";
 
 /** A browser stand-in: a manual clock, a manual frame queue, and a record of every write. */
-export class FakeEnv implements LqgEnvironment {
+export class FakeEnv implements ArmatureEnvironment {
   time = 0;
   /** How far `now()` runs ahead of the frame time a callback receives, as in a browser where a frame callback starts late in the frame. */
   lag = 0;
@@ -10,10 +10,10 @@ export class FakeEnv implements LqgEnvironment {
   frames = new Map<number, (time: number) => void>();
   requested = 0;
   cancelled: number[] = [];
-  writes: Array<{ target: LqgTarget; name: string; value: string }> = [];
-  vars = new Map<LqgTarget, Record<string, string>>();
-  attrs = new Map<LqgTarget, Record<string, string>>();
-  resizeCallbacks = new Map<LqgTarget, () => void>();
+  writes: Array<{ target: ArmatureTarget; name: string; value: string }> = [];
+  vars = new Map<ArmatureTarget, Record<string, string>>();
+  attrs = new Map<ArmatureTarget, Record<string, string>>();
+  resizeCallbacks = new Map<ArmatureTarget, () => void>();
   disconnected = 0;
 
   requestFrame = (callback: (time: number) => void) => {
@@ -32,19 +32,19 @@ export class FakeEnv implements LqgEnvironment {
 
   matchMedia = (query: string) => ({ matches: query.includes("prefers-reduced-motion") && this.reduced });
 
-  setCSSVariable = (target: LqgTarget, name: string, value: string) => {
+  setCSSVariable = (target: ArmatureTarget, name: string, value: string) => {
     this.writes.push({ target, name, value });
     this.vars.set(target, { ...(this.vars.get(target) ?? {}), [name]: value });
   };
 
-  setAttribute = (target: LqgTarget, name: string, value: string | null) => {
+  setAttribute = (target: ArmatureTarget, name: string, value: string | null) => {
     const next = { ...(this.attrs.get(target) ?? {}) };
     if (value === null) delete next[name];
     else next[name] = value;
     this.attrs.set(target, next);
   };
 
-  observeResize = (target: LqgTarget, callback: () => void) => {
+  observeResize = (target: ArmatureTarget, callback: () => void) => {
     this.resizeCallbacks.set(target, callback);
     return { disconnect: () => { this.disconnected += 1; this.resizeCallbacks.delete(target); } };
   };
@@ -72,7 +72,7 @@ export class FakeEnv implements LqgEnvironment {
     return ran;
   }
 
-  read(target: LqgTarget, name: string) {
+  read(target: ArmatureTarget, name: string) {
     return this.vars.get(target)?.[name];
   }
 

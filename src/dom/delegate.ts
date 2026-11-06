@@ -1,5 +1,5 @@
 import { dataAttr, requireSurface, type Flavor } from "../engine/flavor";
-import { createBrowserEnvironment, type LqgEnvironment } from "../engine/env";
+import { createBrowserEnvironment, type ArmatureEnvironment } from "../engine/env";
 import { createSurface, type SurfaceController, type SurfaceNeighbor, type SurfaceOptions, type SurfacePointerEvent } from "./surface";
 
 const GROUP_NAME = /^[\w-]+$/;
@@ -24,7 +24,7 @@ export interface DelegatedEvent extends SurfacePointerEvent {
 
 export interface DelegateOptions {
   /** Defaults to the real browser. A test passes a fake. */
-  env?: LqgEnvironment;
+  env?: ArmatureEnvironment;
   /** The attribute names and feels to use. Required. It needs a surface part. Every surface the delegate makes gets it. */
   flavor: Flavor;
   /** Options for every surface the delegate makes. `neighbors` is ignored: groups pick the neighbours. `flavor` is not allowed here: set it on the delegate. */

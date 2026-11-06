@@ -8,7 +8,7 @@
  *
  * Handles window scroll only. `createScrollReveal` runs it in driven mode: the host owns the one frame loop and calls `sample(time)`.
  */
-import type { LqgScrollEnvironment } from "./scroll-env";
+import type { ArmatureScrollEnvironment } from "./scroll-env";
 
 /** How fast the smoothed velocity follows the raw one. About 70 ms: quick enough to catch a flick, slow enough to hide wheel steps. */
 export const VELOCITY_SMOOTHING_MS = 70;
@@ -19,7 +19,7 @@ export const VELOCITY_MAX = 12_000;
 /** Two samples closer than this are one sample, so a scroll event and a frame in the same millisecond never read as a huge speed. */
 const MIN_SAMPLE_MS = 4;
 
-export type ScrollVelocityEnvironment = Pick<LqgScrollEnvironment, "requestFrame" | "cancelFrame" | "now" | "scrollY" | "onScroll">;
+export type ScrollVelocityEnvironment = Pick<ArmatureScrollEnvironment, "requestFrame" | "cancelFrame" | "now" | "scrollY" | "onScroll">;
 
 export interface ScrollVelocityOptions {
   /** The smoothing time constant in milliseconds. Default 70. */

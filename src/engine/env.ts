@@ -4,23 +4,23 @@
  */
 
 /** Whatever your environment writes variables to. An `HTMLElement` for the browser environment. */
-export type LqgTarget = object;
+export type ArmatureTarget = object;
 
-export interface LqgEnvironment {
+export interface ArmatureEnvironment {
   requestFrame(callback: (time: number) => void): number;
   cancelFrame(id: number): void;
   /** Milliseconds, on the same clock as the time `requestFrame` passes to its callback. */
   now(): number;
   matchMedia?(query: string): { matches: boolean };
-  setCSSVariable(target: LqgTarget, name: string, value: string): void;
+  setCSSVariable(target: ArmatureTarget, name: string, value: string): void;
   /** Sets an attribute, or removes it when `value` is null. */
-  setAttribute(target: LqgTarget, name: string, value: string | null): void;
+  setAttribute(target: ArmatureTarget, name: string, value: string | null): void;
   /** Calls back when the target changes size. Optional; without it the controller refits only on `refit()`. */
-  observeResize?(target: LqgTarget, callback: () => void): { disconnect(): void };
+  observeResize?(target: ArmatureTarget, callback: () => void): { disconnect(): void };
 }
 
 /** The real browser. Safe to import on the server: nothing runs until a method is called. */
-export function createBrowserEnvironment(): LqgEnvironment {
+export function createBrowserEnvironment(): ArmatureEnvironment {
   return {
     requestFrame: (callback) => requestAnimationFrame(callback),
     cancelFrame: (id) => cancelAnimationFrame(id),
@@ -43,7 +43,7 @@ export function createBrowserEnvironment(): LqgEnvironment {
 export const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 /** True when the reader asked for less motion. False when the environment cannot say. */
-export function prefersReducedMotion(env: Pick<LqgEnvironment, "matchMedia">): boolean {
+export function prefersReducedMotion(env: Pick<ArmatureEnvironment, "matchMedia">): boolean {
   try {
     return env.matchMedia?.(REDUCED_MOTION_QUERY)?.matches === true;
   } catch {
