@@ -52,6 +52,10 @@ describe("package contract", () => {
     expect(pkg).not.toHaveProperty("repository");
   });
 
+  it("has no engines field, because the built code is browser code with no Node floor", () => {
+    expect(pkg).not.toHaveProperty("engines");
+  });
+
   it("has no runtime dependencies", () => {
     expect(pkg).not.toHaveProperty("dependencies");
   });

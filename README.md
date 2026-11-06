@@ -85,6 +85,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 - `npm run build` builds `dist`, checks the `"use client"` lines, and checks every subpath of the exports map.
 - `npm run check:pack` packs the package, installs the tarball into a clean project, and checks the files, the size, the imports, and the types. Run `npm run build` first.
 
+## Development
+
+Developing this package needs Node 22.12 or newer. That is the range Vitest 5.0.5 declares for its own use.
+It was read from the tool metadata and was not run on Node 22. The built package has no Node requirement, because it is browser code.
+
 ## License
 
 MIT. See `LICENSE`.

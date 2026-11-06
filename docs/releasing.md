@@ -91,9 +91,17 @@ Publishing with `--tag next` puts the version under `next`. It does not make it 
    node --input-type=module -e "import * as engine from '@hannasage/armature'; console.log(Object.keys(engine).length)"
    ```
 
-   `dist-tags` must show `next: '1.0.0-next.0'`.
-   Check whether `latest` also points at `1.0.0-next.0`. The local npm help does not say what the registry does with `latest` on the first publish of a package, so read the result.
-   If `latest` points at the prerelease and you do not want that, `npm dist-tag rm @hannasage/armature latest` removes the label. This is your decision. Read `npm help dist-tag` first.
+   Run the `dist-tags` command with `--json` as well, so the output is easy to read.
+
+   ```bash
+   npm view @hannasage/armature dist-tags --json
+   ```
+
+   It must show `"next": "1.0.0-next.0"`.
+   Then check `latest`. The registry may also point `latest` at `1.0.0-next.0` after a first publish. The local npm help does not say, so read the result.
+   If `latest` points at `1.0.0-next.0`, leave it. A plain `npm install @hannasage/armature` installs the `latest` tag (see `npm help dist-tag`), so with no `latest` that command would resolve nothing.
+   Leaving it is acceptable for a package that has no stable release yet.
+   If you want to move it anyway, run `npm dist-tag rm @hannasage/armature latest`, or point it at another version with `npm dist-tag add`. Read `npm help dist-tag` first.
    The count in the last command must match the engine list in `scripts/public-api.mjs` (29 names).
 
 8. Tag the commit from step 1.
