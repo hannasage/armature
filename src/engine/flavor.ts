@@ -247,6 +247,9 @@ export function validateFlavor(flavor: Flavor): void {
   }
   if (typeof flavor.logLabel !== "string" || flavor.logLabel === "") throw new TypeError(`${label} has an empty log label.`);
   if (typeof flavor.springs !== "object" || flavor.springs === null) throw new TypeError(`${label} has no springs object.`);
+  for (const [key, spring] of Object.entries(flavor.springs)) checkSpring(label, key, spring);
+  checkRest(label, "a surface rest", flavor.surface?.rest);
+  checkRest(label, "a lens pixel rest", flavor.lens?.pixelRest);
   const reveal = flavor.reveal;
   if (reveal && !hasOwn(reveal.personalities, reveal.fallback)) {
     throw new TypeError(`${label} has the reveal fallback "${reveal.fallback}", which is not one of its personalities.`);
@@ -263,10 +266,33 @@ export function validateFlavor(flavor: Flavor): void {
       if (typeof spec !== "object" || spec === null || typeof spec.var !== "string" || spec.var === "") {
         throw new TypeError(`${label} has a follower ${JSON.stringify(name)} with no variable name.`);
       }
+      if (typeof spec.rest !== "object" || spec.rest === null) throw new TypeError(`${label} has a follower ${JSON.stringify(name)} with no rest limits.`);
+      checkRest(label, `a follower ${JSON.stringify(name)} with a rest`, spec.rest);
       if (!hasOwn(flavor.springs, spec.springKey)) missingSpring(flavor, spec.springKey);
     }
   }
   checked.add(flavor);
+}
+
+const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+
+/** A spring needs a finite stiffness above 0, a finite damping of 0 or more, and a finite mass above 0 when it has one. */
+function checkSpring(label: string, key: string, spring: unknown): void {
+  const name = JSON.stringify(key);
+  if (typeof spring !== "object" || spring === null) throw new TypeError(`${label} has a spring ${name} that is not an object.`);
+  const { stiffness, damping, mass } = spring as Partial<SpringConfig>;
+  if (!isNumber(stiffness) || stiffness <= 0) throw new TypeError(`${label} has a spring ${name} with a stiffness that is not a finite number above 0.`);
+  if (!isNumber(damping) || damping < 0) throw new TypeError(`${label} has a spring ${name} with a damping that is not a finite number of 0 or more.`);
+  if (mass !== undefined && (!isNumber(mass) || mass <= 0)) throw new TypeError(`${label} has a spring ${name} with a mass that is not a finite number above 0.`);
+}
+
+/** Rest limits are two finite numbers above 0. A part with no rest is left alone: the caller decides whether the part is needed. */
+function checkRest(label: string, what: string, rest: unknown): void {
+  if (rest === undefined) return;
+  const { restDelta, restSpeed } = (typeof rest === "object" && rest !== null ? rest : {}) as { restDelta?: unknown; restSpeed?: unknown };
+  if (!isNumber(restDelta) || restDelta <= 0 || !isNumber(restSpeed) || restSpeed <= 0) {
+    throw new TypeError(`${label} has ${what} whose restDelta and restSpeed are not both finite numbers above 0.`);
+  }
 }
 
 /** Throws a clear TypeError when the argument is not an object. A number here usually means a function that takes a flavor was passed to `map`. */
