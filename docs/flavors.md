@@ -93,7 +93,7 @@ The part is a record from a follower name to a spec. `requireFollower(flavor, na
 - `springKey` names the spring in the `springs` map. `validateFlavor` checks that it exists.
 - `rest` is required. It holds `restDelta` and `restSpeed`, both finite numbers above 0. They are merged under the spring, so a spring that sets its own thresholds keeps them.
 
-A follower keeps its position and its velocity when the target changes in flight. It snaps to the target under reduced motion. It stops its frame loop when the spring is at rest. It uses the engine's fixed step, so a 30, 60, and 144 Hz screen land in the same place. It ignores a target that is `NaN` or `Infinity`.
+A follower keeps its position and its velocity when the target changes in flight. It snaps to the target under reduced motion. It stops its frame loop when the spring is at rest. It uses the engine's fixed step, so a 30, 60, and 144 Hz screen land in the same place. It ignores a target that is `NaN` or `Infinity`, and logs one line for the first such value of each follower.
 
 ```ts
 import { createFollower } from "@hannasage/armature/dom";

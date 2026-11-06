@@ -29,10 +29,10 @@ export interface FollowerState {
 export interface Follower {
   /**
    * Springs toward a new target. Position and velocity stay, so a turn in flight keeps its momentum.
-   * A target that is not finite is ignored. Under reduced motion the follower snaps to the target at once.
+   * A target that is not finite is ignored. The first one of each follower is logged. Under reduced motion the follower snaps to the target at once.
    */
   setTarget(target: number): void;
-  /** Jumps to a value (default: the current target) with no travel and no velocity, and stops the frame loop. A value that is not finite is ignored. */
+  /** Jumps to a value (default: the current target) with no travel and no velocity, and stops the frame loop. A value that is not finite is ignored and logged like a bad target. */
   snap(value?: number): void;
   getState(): FollowerState;
   /** Cancels the frame and ignores every later call. The last value stays written. Safe to call twice. */
@@ -66,6 +66,14 @@ export function createFollower(target: ArmatureTarget, options: FollowerOptions)
   let destroyed = false;
   let written = "";
   let logged = false;
+  let warned = false;
+
+  /** A value that is not a finite number is ignored. The first one is logged, and the rest are silent. */
+  const ignore = (): void => {
+    if (warned) return;
+    warned = true;
+    console.error(`${logTag(flavor)} The follower ${JSON.stringify(options.name)} ignored a value that is not a finite number.`);
+  };
 
   /**
    * Writes the value. When the write throws, it logs once and returns false. The text counts as written only after the write works,
@@ -140,7 +148,11 @@ export function createFollower(target: ArmatureTarget, options: FollowerOptions)
 
   return {
     setTarget(next) {
-      if (destroyed || !Number.isFinite(next)) return;
+      if (destroyed) return;
+      if (!Number.isFinite(next)) {
+        ignore();
+        return;
+      }
       if (prefersReducedMotion(env)) {
         jumpTo(next);
         return;
@@ -156,7 +168,10 @@ export function createFollower(target: ArmatureTarget, options: FollowerOptions)
     snap(value) {
       if (destroyed) return;
       const next = value ?? spring.target;
-      if (!Number.isFinite(next)) return;
+      if (!Number.isFinite(next)) {
+        ignore();
+        return;
+      }
       jumpTo(next);
     },
     getState() {

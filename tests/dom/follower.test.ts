@@ -245,32 +245,43 @@ describe("a follower snap", () => {
 });
 
 describe("a follower and bad numbers", () => {
-  it("ignores a target that is not finite", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const quiet = () => vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+  it("ignores a target that is not finite, and logs one line however many times it happens", () => {
+    const spy = quiet();
     const { env, follower } = make({ initial: 0.5 });
     for (const bad of [NaN, Infinity, -Infinity]) follower.setTarget(bad);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(String(spy.mock.calls[0]?.[0])).toMatch(/^\[acme-motion\] The follower "grow" ignored a value that is not a finite number/);
     expect(env.requested).toBe(0);
     expect(follower.getState()).toMatchObject({ value: 0.5, target: 0.5, moving: false });
     expect(env.writes.some((write) => /NaN|Infinity/.test(write.value))).toBe(false);
   });
 
   it("ignores a target that is not finite in flight", () => {
+    const spy = quiet();
     const { env, follower } = make();
     follower.setTarget(1);
     env.tick();
     follower.setTarget(NaN);
     follower.setTarget(Infinity);
+    expect(spy).toHaveBeenCalledTimes(1);
     expect(follower.getState().target).toBe(1);
     env.settle();
     expect(follower.getState().value).toBe(1);
   });
 
-  it("ignores a snap value that is not finite", () => {
+  it("ignores a snap value that is not finite, and shares the one log line with setTarget", () => {
+    const spy = quiet();
     const { env, element, follower } = make();
     follower.setTarget(1);
     env.tick();
     const before = follower.getState();
     follower.snap(NaN);
     follower.snap(-Infinity);
+    follower.setTarget(NaN);
+    expect(spy).toHaveBeenCalledTimes(1);
     expect(follower.getState()).toEqual(before);
     expect(env.pending).toBe(1);
     env.settle();
@@ -373,6 +384,30 @@ describe("a follower whose write fails", () => {
     follower.setTarget(2);
     env.settle();
     expect(env.read(element, "--acme-grow")).toBe("2");
+  });
+});
+
+describe("a follower and a value that is fine", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("logs nothing for finite values, and snap with no value is not an error", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { env, follower } = make();
+    follower.setTarget(1);
+    follower.snap();
+    follower.snap(0.5);
+    env.settle();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("logs once for each follower, not once for the page", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const one = make();
+    const two = make();
+    one.follower.setTarget(NaN);
+    two.follower.setTarget(NaN);
+    one.follower.setTarget(NaN);
+    expect(spy).toHaveBeenCalledTimes(2);
   });
 });
 
