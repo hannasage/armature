@@ -22,7 +22,7 @@ describe("the Projection flavor", () => {
   });
 
   it("has the two Mechanical springs with Hanna's numbers", () => {
-    expect(springOf(projection, "mechanical")).toMatchObject({ stiffness: 600, damping: 30, mass: 1 });
+    expect(springOf(projection, "mechanical")).toMatchObject({ stiffness: 600, damping: 28, mass: 1 });
     expect(springOf(projection, "settle")).toMatchObject({ stiffness: 600, mass: 1 });
     expect(springOf(projection, "settle").damping).toBe(2 * Math.sqrt(600));
     expect(springOf(projection, "settle").damping).toBe(criticalDamping(600, 1));

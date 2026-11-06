@@ -22,7 +22,7 @@ A search of the Projection UI source, tests, docs, scripts, design package, and 
 
 ## Springs
 
-- `mechanical`: stiffness 600, damping 30, mass 1. It overshoots a little. It drives press, release, the thumbs, and the toast enter.
+- `mechanical`: stiffness 600, damping 28, mass 1. It overshoots by about 9 percent. It drives press, release, the thumbs, and the toast enter.
 - `settle`: stiffness 600, critical damping, mass 1. It never overshoots. It drives exits and the modal dialog.
 
 The numbers and the measured overshoot and settle times are in `docs/projection-flavor.md`.

@@ -49,12 +49,12 @@ The function `criticalDamping(k, m)` in the engine returns `2 sqrt(k m)`.
 
 ### mechanical
 
-- Constants: stiffness 600, damping 30, mass 1.
-- Damping ratio 0.612. It is underdamped.
-- Closed-form overshoot: 8.8 percent.
-- Measured overshoot: 6.5 percent.
-- Measured settle time: 224 ms.
-- Closed-form settle time: 244 ms.
+- Constants: stiffness 600, damping 28, mass 1.
+- Damping ratio 0.572. It is underdamped.
+- Closed-form overshoot: 11.2 percent.
+- Measured overshoot: 9.0 percent.
+- Measured settle time: 223 ms.
+- Closed-form settle time: 240 ms.
 
 ### settle
 
@@ -80,11 +80,11 @@ If the solver or a spring changes, that test fails until this page is updated.
 
 ## The solver changes the feel a little
 
-The measured overshoot for `mechanical` is 6.5 percent, and the exact answer is 8.8 percent.
+The measured overshoot for `mechanical` is 9.0 percent, and the exact answer is 11.2 percent.
 The cause is the solver, not the spring.
 
-Each 1/120 s slice multiplies the velocity by `1 - c h / m`, which is 0.75 for `mechanical`.
-The exact decay over one slice is `exp(-c h / m)`, which is 0.78.
+Each 1/120 s slice multiplies the velocity by `1 - c h / m`, which is 0.77 for `mechanical`.
+The exact decay over one slice is `exp(-c h / m)`, which is 0.79.
 The solver therefore removes slightly more energy than the exact spring removes. The swing is smaller, and the spring settles sooner than the exact curve.
 For `settle`, the same extra damping makes the return a little slower than the exact curve.
 

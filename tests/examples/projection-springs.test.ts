@@ -15,25 +15,24 @@ const settle = springOf(projection, "settle");
 describe("the mechanical spring", () => {
   const measured = measureSpring(mechanical);
 
-  it("has a damping ratio of 0.612, so it is underdamped", () => {
-    expect(Math.abs(dampingRatio(mechanical) - 0.612)).toBeLessThan(0.01);
+  it("has a damping ratio of 0.572, so it is underdamped", () => {
+    expect(Math.abs(dampingRatio(mechanical) - 0.572)).toBeLessThan(0.01);
     expect(dampingRatio(mechanical)).toBeLessThan(1);
   });
 
-  it("overshoots by 8 to 10 percent in the closed-form solution", () => {
-    expect(analyticOvershoot(mechanical)).toBeGreaterThan(0.08);
-    expect(analyticOvershoot(mechanical)).toBeLessThan(0.1);
+  it("overshoots by about 11.2 percent in the closed-form solution", () => {
+    expect(analyticOvershoot(mechanical)).toBeGreaterThan(0.11);
+    expect(analyticOvershoot(mechanical)).toBeLessThan(0.115);
   });
 
-  it("overshoots by 6 to 7 percent in the solver, because a fixed Euler slice adds a little damping", () => {
-    // The brief asked for 8 to 10 percent measured. The solver gives 6.5 percent for these constants, so that limit cannot hold.
-    // semi-implicit Euler at 1/120 s multiplies the velocity by (1 - c h / m) = 0.75 each slice. The exact decay is exp(-c h / m) = 0.779.
-    expect(measured.overshoot).toBeGreaterThan(0.06);
-    expect(measured.overshoot).toBeLessThan(0.07);
+  it("overshoots by 8.5 to 9.5 percent in the solver", () => {
+    // A fixed semi-implicit Euler slice of 1/120 s adds a little damping, so the solver measures below the closed form.
+    expect(measured.overshoot).toBeGreaterThan(0.085);
+    expect(measured.overshoot).toBeLessThan(0.095);
     expect(measured.overshoot).toBeLessThan(analyticOvershoot(mechanical));
   });
 
-  it("settles into the 2 percent band in about 224 ms", () => {
+  it("settles into the 2 percent band in about 223 ms", () => {
     expect(measured.settleSeconds).toBeGreaterThan(0.2);
     expect(measured.settleSeconds).toBeLessThan(0.25);
   });

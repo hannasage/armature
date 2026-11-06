@@ -11,8 +11,8 @@ import { criticalDamping, type Flavor, type FollowerFlavor, type SurfaceFlavor }
 
 // ---- springs ----
 
-/** Press, release, thumb, toast enter, and slider thumb. Underdamped (ratio about 0.61), so it overshoots by about 9 percent. */
-const mechanical = Object.freeze({ stiffness: 600, damping: 30, mass: 1 });
+/** Press, release, thumb, toast enter, and slider thumb. Underdamped (ratio about 0.57), so the solver measures an overshoot of about 9 percent. */
+const mechanical = Object.freeze({ stiffness: 600, damping: 28, mass: 1 });
 /** Exits and the modal dialog. Critically damped, so nothing bounces on the way out. */
 const settle = Object.freeze({ stiffness: 600, damping: criticalDamping(600, 1), mass: 1 });
 

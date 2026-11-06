@@ -54,8 +54,9 @@ A cleaner fix lets `setTarget` take a spring for that move. That fix is not buil
 
 ### 4. The solver changes the feel, and the design formula does not warn about it
 
-The brief asked for a measured overshoot of 8 to 10 percent for `mechanical` (stiffness 600, damping 30, mass 1).
-The solver gives 6.5 percent. The closed-form answer is 8.8 percent.
+The brief asked for a measured overshoot of 8 to 10 percent for `mechanical`.
+With damping 30 (ratio 0.612), the solver gave 6.5 percent and the closed-form answer is 8.8 percent.
+Hanna chose damping 28 (ratio 0.572). The solver now measures 9.0 percent, and the closed-form answer is 11.2 percent.
 The semi-implicit Euler slice of 1/120 s adds damping.
 The slice cannot be changed per spring, because `src/engine/spring.ts` sets it from `FIXED_STEP`.
 
@@ -124,16 +125,12 @@ The engine has no branch on a flavor name. A search of `src/engine`, `src/dom`, 
 
 ## Recommendation
 
-Do not mark the API stable yet. The follower part works and has tests, but five things are open.
+Do not mark the API stable yet. The follower part works and has tests, but four things are open.
 Each is small. Each changes a public name or a shape. Settle them before a stable mark.
 
 1. Decide what to do about the surface. There are two choices. One: a flavor omits the specular and glow parts, and the engine skips the writes and the frames. Two: the press scale becomes its own controller.
 2. Add a follower hook to `@hannasage/armature/react`, since Milestone 3 needs it.
 3. Let a follower change its spring per move, so one follower can enter on one spring and leave on another, and `dialog` can go.
 4. Settle one shape for rest limits, and settle `follower` or `followers`.
-5. Decide the `mechanical` spring. The measured overshoot is 6.5 percent, not 8 to 10.
-   Damping 28 (ratio 0.571) measures 9.0 percent. Damping 30 keeps ratio 0.612 and measures 6.5 percent.
-   The two goals in the brief cannot both hold with this solver. Hanna picks one.
-
-After those five, the lens and the reveal still have only one real flavor.
+After those four, the lens and the reveal still have only one real flavor.
 A reasonable path is to mark `follower` and the engine stable, and to leave the `lens` and `reveal` parts marked unstable until a real flavor uses them.
