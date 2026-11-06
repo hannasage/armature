@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, type RefObject } from "react";
 import { mountScrollReveal, type MountScrollRevealOptions } from "../dom/reveal-mount";
 

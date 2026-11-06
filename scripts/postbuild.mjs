@@ -1,6 +1,6 @@
 // Runs after the build. It copies the stylesheet, adds the file extension to the imports in the type declarations,
 // and checks the "use client" lines.
-// The source files that start with "use client" must be the five glass-bound behavior files. They must start with it in dist, and no other file may.
+// The source files that start with "use client" must be the ten files that use a hook. They must start with it in dist, and no other file may.
 import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
@@ -38,16 +38,21 @@ const actual = walk("dist", [".js"])
   .map((file) => file.slice("dist/".length))
   .sort();
 
-// The five glass-bound behavior files are the ones that carry the line. The filter component and every generic file must not.
-const FIVE = [
+// The files that use a hook carry the line: the five generic ones and the five glass-bound wrappers. The glass filter component and every other file must not.
+const CLIENT_FILES = [
+  "react/ArmatureProvider.js",
+  "react/ArmatureRevealProvider.js",
+  "react/useArmatureLens.js",
+  "react/useArmatureReveal.js",
+  "react/useArmatureSurface.js",
   "glass/react/LqgProvider.js",
   "glass/react/LqgRevealProvider.js",
   "glass/react/useLqgLens.js",
   "glass/react/useLqgReveal.js",
   "glass/react/useLqgSurface.js",
 ];
-if (JSON.stringify(expected) !== JSON.stringify(FIVE)) {
-  throw new Error(`"use client" must be on exactly these source files.\nexpected: ${FIVE.join(", ")}\nfound in src: ${expected.join(", ")}`);
+if (JSON.stringify(expected) !== JSON.stringify([...CLIENT_FILES].sort())) {
+  throw new Error(`"use client" must be on exactly these source files.\nexpected: ${[...CLIENT_FILES].sort().join(", ")}\nfound in src: ${expected.join(", ")}`);
 }
 
 if (JSON.stringify(expected) !== JSON.stringify(actual)) {

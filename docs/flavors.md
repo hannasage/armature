@@ -128,3 +128,19 @@ attachSurface(button, { flavor: acme });
 ```
 
 A flavor with only a `surface` part is complete for a surface. A call that needs the `lens` or `reveal` part on this flavor throws a `TypeError` that says the flavor has no such part.
+
+## Write your own wrapper
+
+A flavor holds functions, such as the `start` function of a personality. A Next.js server component cannot pass a value like that as a prop to a client component.
+
+So the consumer writes one small client file that fixes the flavor. The glass wrappers in `@hannasage/armature/glass/react` do the same.
+
+```tsx
+"use client";
+import type { ReactNode } from "react";
+import { ArmatureProvider } from "@hannasage/armature/react";
+import { acme } from "./acme-flavor";
+export const AcmeProvider = ({ children }: { children?: ReactNode }) => <ArmatureProvider flavor={acme}>{children}</ArmatureProvider>;
+```
+
+A server component can then render `<AcmeProvider>`. It passes no flavor.

@@ -1,3 +1,5 @@
+"use client";
+
 import { useRef, type ReactNode } from "react";
 import { useArmatureReveal, type UseArmatureRevealOptions } from "./useArmatureReveal";
 

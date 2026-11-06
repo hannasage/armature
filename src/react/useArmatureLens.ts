@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useMemo, useRef, type RefObject } from "react";
 import { guardedSetup } from "../engine/guard";
 import { createLens, type Lens, type LensOptions } from "../dom/lens";

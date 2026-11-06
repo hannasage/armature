@@ -133,5 +133,5 @@ Each subpath has a `types` file and an `import` file. `scripts/check-exports.mjs
 - `./glass/react` is the glass React wrappers: `dist/glass/react/index.js` and `dist/glass/react/index.d.ts`.
 - `./styles.css` is `dist/styles.css`, copied from `src/glass/styles.css`. The `sideEffects` entry stays.
 
-The `"use client"` line is on exactly five files: `LqgProvider`, `LqgRevealProvider`, `useLqgLens`, `useLqgReveal`, and `useLqgSurface`, all in `src/glass/react`. The build checks this.
+The `"use client"` line is on exactly ten files, the ones that use a hook. Five are the generic files in `src/react`: `ArmatureProvider`, `ArmatureRevealProvider`, `useArmatureLens`, `useArmatureReveal`, and `useArmatureSurface`. Five are the glass wrappers in `src/glass/react`: `LqgProvider`, `LqgRevealProvider`, `useLqgLens`, `useLqgReveal`, and `useLqgSurface`. `LqgFilter` has none. The build checks this.
 The type files carry the `.js` extension on every relative import, so TypeScript with Node16 or NodeNext resolution can follow them.

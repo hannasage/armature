@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, type ReactNode } from "react";
 import { installDelegation, type DelegateOptions, type DelegateRoot } from "../dom/delegate";
 import { createBrowserEnvironment, type ArmatureEnvironment } from "../engine/env";
