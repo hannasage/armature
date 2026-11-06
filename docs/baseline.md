@@ -71,3 +71,22 @@ esbuild is not a dependency of this package. `npx` fetched it for the measuremen
 
 `src/index.ts` does not import React. The React entry is not in this number.
 These are the figures that Milestone 5 uses to set the size budget.
+
+## Rival glass packages
+
+A research agent read two packages on 2026-11-05 or 2026-11-06 from the npm registry, READMEs, and some source files. The read dates were not rechecked.
+
+`@avenra/liquid-glass` 1.2.0 (MIT, one maintainer, 1,116 downloads in the week of 2026-10-29):
+
+- Refraction works in Chromium only. Other browsers get a blur fallback.
+- Its spring uses semi-implicit Euler at a hard-coded 1/60 s with no clamping. It is not a fixed-step solver.
+- It has no scroll reveal, no navigation lens, and no reduced-motion handling.
+- It ships ready-made controls and 11 Node tests.
+
+`liquid-glass-js` 0.1.0, now renamed `vitrio` (MIT, one maintainer, 457 downloads in the same week):
+
+- Refraction works in Chrome, Edge, and Firefox. Safari and iOS get an approximation, per its README.
+- It has no springs, no tests, and no accessibility handling.
+- It has React and Vue wrappers.
+
+Neither package covers the Armature glass flavor. The one gap is browser reach: the Armature glass flavor refracts in Chromium only. The vitrio source was not read.
