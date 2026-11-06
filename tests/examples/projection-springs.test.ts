@@ -57,6 +57,20 @@ describe("the settle spring", () => {
 });
 
 describe("the measuring helper", () => {
+  it("reports the time after which the curve stays inside the band to the end of the run", () => {
+    // Only the last entry into the band counts, so a longer run gives the same answer.
+    const measured = measureSpring(mechanical, 2);
+    const longer = measureSpring(mechanical, 8);
+    expect(longer.settleSeconds).toBe(measured.settleSeconds);
+  });
+  it("throws when the curve never settles inside the run", () => {
+    expect(() => measureSpring({ stiffness: 100, damping: 0, mass: 1 })).toThrow("never settles");
+    expect(() => measureSpring(mechanical, 0.05)).toThrow("never settles");
+    expect(() => measureSpring({ stiffness: 100, damping: 400, mass: 1 }, 1)).toThrow("never settles");
+  });
+  it("throws when the curve never moves", () => {
+    expect(() => measureSpring(mechanical, 0)).toThrow("never moves");
+  });
   it("finds the textbook overshoot for a spring with a small step error", () => {
     // A slow, lightly damped spring has a small product of frequency and slice, so the solver is close to the closed form.
     const light = { stiffness: 100, damping: 2, mass: 1 };

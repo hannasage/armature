@@ -3,7 +3,7 @@ import { createSpring, FIXED_STEP, retarget, stepSpring, type SpringConfig } fro
 export interface SpringMeasure {
   /** The largest value minus 1, as a fraction of the travel. Never below 0. */
   overshoot: number;
-  /** The time, in seconds, after which the value stays inside 2 percent of the target. Found by linear interpolation between two solver slices. */
+  /** The time, in seconds, after which the value stays inside 2 percent of the target to the end of the run. Found by linear interpolation between two solver slices. */
   settleSeconds: number;
   /** The time, in seconds, of the largest value. */
   peakSeconds: number;
@@ -36,6 +36,7 @@ export function analyticSettle(config: SpringConfig, seconds = 5): number {
 
 /**
  * Steps the real solver from 0 to 1 in whole fixed slices and measures the curve.
+ * It throws when the curve never moves, and when it is not inside the band at the end of the run.
  * The rest thresholds are tiny, so the solver does not snap to rest and cut the curve short.
  */
 export function measureSpring(config: SpringConfig, seconds = 5): SpringMeasure {
@@ -44,7 +45,7 @@ export function measureSpring(config: SpringConfig, seconds = 5): SpringMeasure 
   const band = 0.02;
   let peak = 0;
   let peakAt = 0;
-  let settleAt = 0;
+  let settleAt: number | null = null;
   let before = 1;
   for (let i = 1; i <= steps; i++) {
     state = stepSpring(state, 1, FIXED_STEP);
@@ -54,9 +55,13 @@ export function measureSpring(config: SpringConfig, seconds = 5): SpringMeasure 
       peak = state.value;
       peakAt = time;
     }
-    // The last time the curve goes from outside the band to inside it. The exit time is the point on the line between the two slices.
-    if (before > band && miss <= band) settleAt = time - FIXED_STEP + (FIXED_STEP * (before - band)) / (before - miss);
+    // The curve settles when it enters the band and never leaves it again. Leaving the band cancels an earlier entry.
+    // The entry time is the point on the line between the two slices.
+    if (miss > band) settleAt = null;
+    else if (settleAt === null) settleAt = time - FIXED_STEP + (FIXED_STEP * (before - band)) / (before - miss);
     before = miss;
   }
+  if (peak === 0) throw new Error("The curve never moves.");
+  if (settleAt === null) throw new Error(`The curve never settles inside ${seconds} seconds.`);
   return { overshoot: Math.max(0, peak - 1), settleSeconds: settleAt, peakSeconds: peakAt };
 }
