@@ -3,15 +3,22 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// The engine, the DOM controllers, and the generic React layer must not know about any flavor. This is a static scan of the source text:
-// it finds every import and re-export specifier in src/engine, src/dom, and src/react and fails when one points into src/glass.
-// The glass-bound React wrappers are in src/glass/react, so the generic src/react holds no glass code.
+// The layers point one way: glass sits on react, react on dom, dom on engine. A lower layer must not know a higher one.
+// This is a static scan of the source text. It finds every import, type import, and re-export specifier in a layer
+// and fails when one points into a layer that is not allowed.
+//
+//   src/engine imports nothing from src/dom, src/react, or src/glass.
+//   src/dom imports nothing from src/react or src/glass.
+//   src/react imports nothing from src/glass.
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const glassDir = join(root, "src", "glass");
-const scanned = ["src/engine", "src/dom", "src/react"];
+const RULES = [
+  { layer: "engine", forbidden: ["dom", "react", "glass"] },
+  { layer: "dom", forbidden: ["react", "glass"] },
+  { layer: "react", forbidden: ["glass"] },
+];
 
-/** Every module specifier in a source text: static imports, re-exports, side-effect imports, dynamic imports, and require calls. */
+/** Every module specifier in a source text: static imports, type imports, re-exports, side-effect imports, dynamic imports, and require calls. */
 export function specifiersOf(text: string): string[] {
   const found: string[] = [];
   const patterns = [
@@ -24,13 +31,15 @@ export function specifiersOf(text: string): string[] {
   return found;
 }
 
-/** True when a specifier, written in the file at `from`, points into src/glass. */
-export function pointsIntoGlass(specifier: string, from: string): boolean {
+/** True when a specifier, written in the file at `from`, points into the layer `name` (a folder of src). */
+export function pointsInto(specifier: string, from: string, name: string): boolean {
   if (specifier.startsWith(".")) {
+    const folder = join(root, "src", name);
     const target = resolve(dirname(from), specifier);
-    return target === glassDir || target.startsWith(glassDir + sep);
+    return target === folder || target.startsWith(folder + sep);
   }
-  return /(^|\/)glass(\/|$)/.test(specifier);
+  // A package path into one entry of this package. The bare word "react" is the React package and is always allowed.
+  return new RegExp(`^@hannasage/armature/${name}(/|$)`).test(specifier);
 }
 
 function sourceFiles(dir: string): string[] {
@@ -58,34 +67,42 @@ describe("the scanner", () => {
       'import {\n  i,\n  j,\n} from "../glass/flavor";',
     ].join("\n");
     expect(specifiersOf(text)).toHaveLength(11);
-    for (const specifier of specifiersOf(text)) expect(pointsIntoGlass(specifier, from), specifier).toBe(true);
+    for (const specifier of specifiersOf(text)) expect(pointsInto(specifier, from, "glass"), specifier).toBe(true);
   });
-  it("accepts the engine, the DOM, a package, and a word that only contains glass", () => {
-    expect(pointsIntoGlass("../engine/flavor", from)).toBe(false);
-    expect(pointsIntoGlass("./surface", from)).toBe(false);
-    expect(pointsIntoGlass("react", from)).toBe(false);
-    expect(pointsIntoGlass("./glassy", from)).toBe(false);
+  it("points each folder name at its own folder only", () => {
+    expect(pointsInto("../dom/surface", join(root, "src", "engine", "x.ts"), "dom")).toBe(true);
+    expect(pointsInto("../react/index", join(root, "src", "dom", "x.ts"), "react")).toBe(true);
+    expect(pointsInto("../engine/flavor", from, "dom")).toBe(false);
+    expect(pointsInto("./surface", from, "dom")).toBe(true);
+    expect(pointsInto("./surface", from, "react")).toBe(false);
+    expect(pointsInto("./glassy", from, "glass")).toBe(false);
   });
-  it("catches a bare package path into the glass entry", () => {
-    expect(pointsIntoGlass("@hannasage/armature/glass", from)).toBe(true);
+  it("allows the React package and catches a package path into another entry", () => {
+    expect(pointsInto("react", from, "react")).toBe(false);
+    expect(pointsInto("react/jsx-runtime", from, "react")).toBe(false);
+    expect(pointsInto("@hannasage/armature/glass", from, "glass")).toBe(true);
+    expect(pointsInto("@hannasage/armature/react", from, "react")).toBe(true);
+    expect(pointsInto("@hannasage/armature/dom", from, "dom")).toBe(true);
   });
 });
 
 describe("the boundary", () => {
-  for (const dir of scanned) {
-    const files = sourceFiles(join(root, dir));
+  for (const { layer, forbidden } of RULES) {
+    const files = sourceFiles(join(root, "src", layer));
 
-    it(`${dir} holds source files`, () => {
+    it(`src/${layer} holds source files`, () => {
       expect(files.length).toBeGreaterThan(3);
     });
 
-    it(`no file in ${dir} imports or re-exports from src/glass`, () => {
-      const offenders = files.flatMap((file) =>
-        specifiersOf(readFileSync(file, "utf8"))
-          .filter((specifier) => pointsIntoGlass(specifier, file))
-          .map((specifier) => `${relative(root, file)} -> ${specifier}`),
-      );
-      expect(offenders).toEqual([]);
-    });
+    for (const name of forbidden) {
+      it(`no file in src/${layer} imports or re-exports from src/${name}`, () => {
+        const offenders = files.flatMap((file) =>
+          specifiersOf(readFileSync(file, "utf8"))
+            .filter((specifier) => pointsInto(specifier, file, name))
+            .map((specifier) => `${relative(root, file)} -> ${specifier}`),
+        );
+        expect(offenders).toEqual([]);
+      });
+    }
   }
 });

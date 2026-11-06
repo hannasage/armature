@@ -1,4 +1,4 @@
-import { cssVar, requireSurface, springOf, type Flavor } from "../engine/flavor";
+import { cssVar, requireSurface, springOf, type FeelOptions, type Flavor } from "../engine/flavor";
 import { createBrowserEnvironment, prefersReducedMotion, type ArmatureEnvironment } from "../engine/env";
 import { createSpring, isAtRest, MAX_FRAME, reconfigure, retarget, stepSpring, type SpringConfig, type SpringState } from "../engine/spring";
 
@@ -33,24 +33,13 @@ export interface SurfacePointerEvent {
   button?: number;
 }
 
-export interface SurfaceOptions {
+export interface SurfaceOptions extends FeelOptions {
   /** Defaults to the real browser. A test passes a fake. */
   env?: ArmatureEnvironment;
   /** The names, springs, and default numbers to use. Required. It needs a surface part. */
   flavor: Flavor;
-  /** The scale while pressed. Default 0.97 for glass. */
-  pressScale?: number;
-  /** How much the surface squashes while pressed. 0 turns it off. Default 0.5 for glass. */
-  flex?: number;
   /** Elements that share this surface's glow. */
   neighbors?: SurfaceNeighbor[];
-  /** Distance in pixels at which a neighbour's glow falls to 1/e. Default 160 for glass. */
-  glowFalloff?: number;
-  /** The share of its own glow a neighbour gets, from 0 to 1. Default 1 for glass. A quiet surface lights its neighbours less. */
-  neighborShare?: number;
-  /** Where the specular rests, in percent of the element. Default 50 and 0, the top middle. */
-  specularRest?: { x: number; y: number };
-  springs?: { press?: SpringConfig; release?: SpringConfig };
 }
 
 export interface SurfaceState {

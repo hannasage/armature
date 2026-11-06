@@ -9,10 +9,24 @@
  * This file holds types and small pure helpers only.
  */
 import type { SpringConfig } from "./spring";
-import type { SurfaceOptions } from "../dom/surface";
 
-/** The options one named feel sets for a surface. */
-export type FeelOptions = Omit<SurfaceOptions, "env" | "neighbors" | "flavor">;
+/**
+ * The options one named feel sets for a surface. A surface takes these on top of the flavor, and each one beats the flavor's default.
+ * `SurfaceOptions` extends this interface.
+ */
+export interface FeelOptions {
+  /** The scale while pressed. The default comes from the flavor. */
+  pressScale?: number;
+  /** How much the surface squashes while pressed. 0 turns it off. The default comes from the flavor. */
+  flex?: number;
+  /** Distance in pixels at which a neighbour's glow falls to 1/e. The default comes from the flavor. */
+  glowFalloff?: number;
+  /** The share of its own glow a neighbour gets, from 0 to 1. The default comes from the flavor. A quiet surface lights its neighbours less. */
+  neighborShare?: number;
+  /** Where the specular rests, in percent of the element. The default comes from the flavor. */
+  specularRest?: { x: number; y: number };
+  springs?: { press?: SpringConfig; release?: SpringConfig };
+}
 
 export interface Flavor<P extends string = string> {
   /** A short name for the flavor, for messages and tests. */
