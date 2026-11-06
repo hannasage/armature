@@ -14,6 +14,8 @@ import * as legacySpring from "./golden/legacy/spring";
 const source = (file: string) => readFileSync(new URL(`./golden/legacy/${file}`, import.meta.url), "utf8");
 const legacy = { surface: source("surface.ts"), lens: source("lens.ts"), reveal: source("scroll-reveal.ts"), motion: source("scroll-motion.ts"), guard: source("guard.ts"), mount: source("scroll-mount.ts") };
 const inLegacy = (file: keyof typeof legacy, text: string) => expect(legacy[file], `${text} in ${file}`).toContain(text);
+// A pattern that names the identifier or the key the value belongs to, so a stray copy of the number elsewhere cannot satisfy it.
+const inLegacyAt = (file: keyof typeof legacy, pattern: RegExp) => expect(legacy[file], `${pattern} in ${file}`).toMatch(pattern);
 
 const { surface, lens, reveal } = glassFlavor;
 
@@ -23,7 +25,7 @@ describe("identity", () => {
     expect(glassFlavor.prefix).toBe("lqg");
     expect(glassFlavor.prefix).toBe(LQG_PREFIX);
     expect(logTag(glassFlavor)).toBe("[liquid-glass]");
-    for (const file of ["guard", "reveal", "mount"] as const) inLegacy(file, "[liquid-glass]");
+    for (const file of ["guard", "reveal", "mount"] as const) inLegacyAt(file, /console\.error\(`\[liquid-glass\] \$\{\w+\} failed/);
   });
 });
 
@@ -44,7 +46,7 @@ describe("surface", () => {
     };
     for (const [key, name] of Object.entries(names)) {
       expect(cssVar(glassFlavor, surface.vars[key as keyof typeof surface.vars]), key).toBe(name);
-      inLegacy("surface", `"${name}"`);
+      inLegacyAt("surface", new RegExp(`setVar\\((element|neighbor), "${name}"`));
     }
   });
   it("names the attributes the legacy delegate exports", () => {
@@ -57,19 +59,19 @@ describe("surface", () => {
     expect(glassFlavor.springs[surface.springKeys.release]).toBe(glassFlavor.springs.release);
     expect(glassFlavor.springs[surface.springKeys.press]).toStrictEqual(legacySpring.press);
     expect(glassFlavor.springs[surface.springKeys.release]).toStrictEqual(legacySpring.release);
-    inLegacy("surface", "options.springs?.press ?? press");
-    inLegacy("surface", "options.springs?.release ?? release");
+    inLegacyAt("surface", /const pressConfig = withRest\(options\.springs\?\.press \?\? press\);/);
+    inLegacyAt("surface", /const releaseConfig = withRest\(options\.springs\?\.release \?\? release\);/);
   });
   it("has the rest thresholds, defaults, time constants, and hover glow of the legacy surface", () => {
     expect(surface.rest).toEqual({ restDelta: 0.0005, restSpeed: 0.01 });
-    inLegacy("surface", "{ restDelta: 0.0005, restSpeed: 0.01, ...config }");
+    inLegacyAt("surface", /const withRest = .*\{ restDelta: 0\.0005, restSpeed: 0\.01, \.\.\.config \}/);
     expect(surface.defaults).toEqual({ pressScale: 0.97, flex: 0.5, glowFalloff: 160, neighborShare: 1, specularRest: { x: 50, y: 0 } });
-    inLegacy("surface", ": 0.97");
-    inLegacy("surface", ": 0.5;");
-    inLegacy("surface", ": 160;");
-    inLegacy("surface", ".neighborShare!)) : 1;");
-    inLegacy("surface", "options.specularRest?.x ?? 50");
-    inLegacy("surface", "options.specularRest?.y ?? 0");
+    inLegacyAt("surface", /const pressScale = [^;]*: 0\.97;/);
+    inLegacyAt("surface", /const flexAmount = [^;]*: 0\.5;/);
+    inLegacyAt("surface", /const falloff = [^;]*: 160;/);
+    inLegacyAt("surface", /const share = [^;]*: 1;/);
+    inLegacyAt("surface", /x: clampPercent\(options\.specularRest\?\.x \?\? 50\)/);
+    inLegacyAt("surface", /y: clampPercent\(options\.specularRest\?\.y \?\? 0\)/);
     expect(surface.specularTauMs).toBe(90);
     inLegacy("surface", "const SPECULAR_TAU_MS = 90;");
     expect(surface.glowTauMs).toBe(140);
@@ -87,19 +89,19 @@ describe("lens", () => {
     const names = { x: "--lqg-lens-x", y: "--lqg-lens-y", w: "--lqg-lens-w", h: "--lqg-lens-h", sx: "--lqg-lens-sx", sy: "--lqg-lens-sy" };
     for (const [key, name] of Object.entries(names)) {
       expect(cssVar(glassFlavor, lens.vars[key as keyof typeof lens.vars]), key).toBe(name);
-      inLegacy("lens", `"${name}"`);
+      inLegacyAt("lens", new RegExp(`set\\("${name}"`));
     }
     expect(dataAttr(glassFlavor, lens.readyAttribute)).toBe("data-lqg-lens");
-    inLegacy("lens", '"data-lqg-lens", "ready"');
+    inLegacyAt("lens", /env\.setAttribute\(options\.container, "data-lqg-lens", "ready"\)/);
     expect(lens.readyValue).toBe("ready");
   });
   it("uses the lens springs, the pixel rest, and the stretch numbers of the legacy lens", () => {
     expect(glassFlavor.springs[lens.springKeys.x]).toStrictEqual(legacySpring.lensX);
     expect(glassFlavor.springs[lens.springKeys.width]).toStrictEqual(legacySpring.lensWidth);
-    inLegacy("lens", "options.springs?.x ?? lensX");
-    inLegacy("lens", "options.springs?.width ?? lensWidth");
+    inLegacyAt("lens", /const xConfig = withPixelRest\(options\.springs\?\.x \?\? lensX\);/);
+    inLegacyAt("lens", /const wConfig = withPixelRest\(options\.springs\?\.width \?\? lensWidth\);/);
     expect(lens.pixelRest).toEqual({ restDelta: 0.05, restSpeed: 1 });
-    inLegacy("lens", "{ restDelta: 0.05, restSpeed: 1, ...config }");
+    inLegacyAt("lens", /const withPixelRest = .*\{ restDelta: 0\.05, restSpeed: 1, \.\.\.config \}/);
     expect(lens.stretchVelocity).toBe(10_000);
     inLegacy("lens", "const DEFAULT_STRETCH_VELOCITY = 10_000;");
     expect(lens.maxStretch).toBe(0.12);
@@ -170,10 +172,10 @@ describe("reveal personalities", () => {
       expect(spec.hiddenTranslate, name).toBe(name !== "mask");
       expect(spec.spring, name).toBe(name === "fade" ? "calm" : "speed");
     }
-    inLegacy("reveal", 'target.personality === "drop"');
-    inLegacy("reveal", 'target.personality !== "mask"');
-    inLegacy("reveal", 'target.personality === "fade" ? revealCalm');
-    inLegacy("reveal", 'target.personality === "mask"');
+    inLegacyAt("reveal", /if \(target\.personality === "drop"\) \{\s+put\(element, "scale"/);
+    inLegacyAt("reveal", /if \(target\.personality !== "mask"\) put\(element, "translate"/);
+    inLegacyAt("reveal", /const config: SpringConfig = target\.personality === "fade" \? revealCalm : revealSpring\(speed\);/);
+    inLegacyAt("reveal", /if \(target\.personality === "mask"\) \{\s+const lines/);
   });
   it("computes the same start pose as the legacy revealStart over a grid of inputs", () => {
     const velocities = [-50_000, -3200, -1800, -400, -1, 0, 1, 399, 400, 1000, 1800, 3199, 3200, 9000, 50_000, Number.NaN, Infinity, -Infinity];
@@ -200,7 +202,7 @@ describe("reveal personalities", () => {
     expect(compared).toBeGreaterThan(10_000);
   });
   it("names the numbers that were inline in the slide and mask bodies", () => {
-    inLegacy("motion", "lerp(8, 24, t)");
-    inLegacy("motion", "Math.min(input.height!, 96) : 24");
+    inLegacyAt("motion", /y: direction \* lerp\(8, 24, t\)/);
+    inLegacyAt("motion", /const height = [^;]*Math\.min\(input\.height!, 96\) : 24;/);
   });
 });
