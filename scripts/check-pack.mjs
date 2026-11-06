@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { API } from "./public-api.mjs";
-import { disallowedFiles, missingExportTargets, sizeLimit, withinSizeBudget } from "./pack-rules.mjs";
+import { childEnv, disallowedFiles, missingExportTargets, sizeLimit, withinSizeBudget } from "./pack-rules.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
@@ -25,7 +25,7 @@ const problem = (text) => problems.push(text);
 
 /** Runs a command and returns its output. A failure is recorded with the command output, and the result has `ok: false`. */
 function run(label, command, args, cwd) {
-  const result = spawnSync(command, args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  const result = spawnSync(command, args, { cwd, env: childEnv(process.env), encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   const ok = result.status === 0 && result.error === undefined;
   if (!ok) {
     const output = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();

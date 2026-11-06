@@ -15,6 +15,7 @@ interface PackRules {
   sizeLimit(measured?: number): number;
   withinSizeBudget(size: number, measured?: number): boolean;
   missingExportTargets(exportsMap: Record<string, unknown>, paths: string[]): string[];
+  childEnv(env: Record<string, string | undefined>): Record<string, string | undefined>;
 }
 
 const rules = (await import(pathToFileURL(join(root, "scripts/pack-rules.mjs")).href)) as PackRules;
@@ -99,5 +100,22 @@ describe("missingExportTargets", () => {
 
   it("names each target that is not in the list", () => {
     expect(rules.missingExportTargets(map, ["dist/index.js"])).toEqual(["dist/index.d.ts", "dist/styles.css"]);
+  });
+});
+
+describe("childEnv", () => {
+  // `npm publish --dry-run` runs prepublishOnly with npm_config_dry_run=true. The pack in the check must still write its tarball.
+  it("turns off a dry run that the parent npm command set", () => {
+    expect(rules.childEnv({ npm_config_dry_run: "true", PATH: "/bin" })).toEqual({ npm_config_dry_run: "false", PATH: "/bin" });
+  });
+
+  it("sets dry run off when the parent set nothing", () => {
+    expect(rules.childEnv({ PATH: "/bin" }).npm_config_dry_run).toBe("false");
+  });
+
+  it("does not change the object it was given", () => {
+    const env = { npm_config_dry_run: "true" };
+    rules.childEnv(env);
+    expect(env.npm_config_dry_run).toBe("true");
   });
 });

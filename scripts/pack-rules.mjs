@@ -42,3 +42,11 @@ export function missingExportTargets(exportsMap, paths) {
   visit(exportsMap);
   return targets.filter((target) => !present.has(target));
 }
+
+/**
+ * The environment for the npm commands that the check runs. `npm publish --dry-run` sets npm_config_dry_run for its scripts,
+ * and a child `npm pack` would then write no tarball. The check must always write its own tarball, so it turns the dry run off.
+ */
+export function childEnv(env) {
+  return { ...env, npm_config_dry_run: "false" };
+}
