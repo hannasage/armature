@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, type RefObject } from "react";
+import { guardedSetup } from "../core/guard";
 import { createLens, type Lens, type LensOptions } from "../core/lens";
 
 export interface LensHandle {
@@ -34,12 +35,15 @@ export function useLqgLens(ref: RefObject<HTMLElement | null>, options: Omit<Len
   useEffect(() => {
     const container = ref.current;
     if (!container) return;
-    const created = createLens({ ...latest.current, container, measure: () => latest.current.measure() });
-    lens.current = created;
-    return () => {
-      created.destroy();
-      lens.current = null;
-    };
+    // A failed start (for example a flavor with no lens part) is logged and skipped, so it cannot reach React's error boundary.
+    return guardedSetup("glass lens", () => {
+      const created = createLens({ ...latest.current, container, measure: () => latest.current.measure() });
+      lens.current = created;
+      return () => {
+        created.destroy();
+        lens.current = null;
+      };
+    }, undefined, latest.current.flavor);
   }, [ref]);
 
   return handle;

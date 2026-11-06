@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Flavor } from "../src/engine/flavor";
 import { LqgProvider, MODE_ATTRIBUTE, useLqgLens, useLqgReveal, useLqgSurface } from "../src/react";
 import { FakeRoot } from "./helpers/fake-dom";
 import { FakeEnv } from "./helpers/fake-env";
@@ -25,6 +26,7 @@ vi.mock("react", async (importOriginal) => {
 });
 
 beforeEach(() => { harness.cells = []; harness.cursor = 0; harness.effects = []; });
+afterEach(() => vi.restoreAllMocks());
 const commit = () => harness.effects.map((effect) => effect()).filter((cleanup): cleanup is () => void => typeof cleanup === "function");
 
 const rect = { left: 0, top: 0, width: 100, height: 40 };
@@ -130,5 +132,33 @@ describe("the hooks with another flavor", () => {
     expect(env.style(card, "opacity")).toBe("0");
     expect(env.style(card, "translate")).toBe("0px 7px");
     expect(env.rootMargin).toBe("0px 0px -20% 0px");
+  });
+});
+
+describe("the hooks with a flavor that lacks the part they need", () => {
+  const bare: Flavor = { name: "bare", prefix: "zz", logLabel: "bare-lib", springs: {} };
+
+  it("useLqgSurface logs with the flavor's label, skips the start, and does not throw", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const target = Object.assign(new FakeRoot(), { getBoundingClientRect: () => rect });
+    const surface = useLqgSurface({ current: target as unknown as HTMLElement }, { env: new FakeEnv(), flavor: bare });
+    let cleanups: Array<() => void> = [];
+    expect(() => { cleanups = commit(); }).not.toThrow();
+    expect(surface.current).toBeNull();
+    expect(target.listenerCount).toBe(0);
+    expect(spy.mock.calls[0]?.[0]).toBe("[bare-lib] glass surface failed to start and was skipped.");
+    expect(() => cleanups.forEach((cleanup) => cleanup())).not.toThrow();
+  });
+
+  it("useLqgLens logs with the flavor's label, skips the start, and its handle does nothing", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const env = new FakeEnv();
+    const handle = useLqgLens({ current: {} as unknown as HTMLElement }, { measure: () => ({ x: 1, y: 1, w: 10, h: 10 }), env, flavor: bare });
+    let cleanups: Array<() => void> = [];
+    expect(() => { cleanups = commit(); }).not.toThrow();
+    expect(() => { handle.update(); handle.jump(); handle.refit(); }).not.toThrow();
+    expect(env.writes).toEqual([]);
+    expect(spy.mock.calls[0]?.[0]).toBe("[bare-lib] glass lens failed to start and was skipped.");
+    expect(() => cleanups.forEach((cleanup) => cleanup())).not.toThrow();
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
+import { guardedSetup } from "../core/guard";
 import { attachSurface, type Surface, type SurfaceOptions } from "../core/surface";
 
 /**
@@ -16,12 +17,15 @@ export function useLqgSurface(ref: RefObject<HTMLElement | null>, options: Surfa
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
-    const attached = attachSurface(element, initial.current);
-    surface.current = attached;
-    return () => {
-      attached.destroy();
-      surface.current = null;
-    };
+    // A failed start (for example a flavor with no surface part) is logged and skipped, so it cannot reach React's error boundary.
+    return guardedSetup("glass surface", () => {
+      const attached = attachSurface(element, initial.current);
+      surface.current = attached;
+      return () => {
+        attached.destroy();
+        surface.current = null;
+      };
+    }, undefined, initial.current.flavor);
   }, [ref]);
 
   return surface;
