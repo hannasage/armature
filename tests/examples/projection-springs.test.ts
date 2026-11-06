@@ -87,21 +87,48 @@ describe("docs/projection-flavor.md", () => {
   const doc = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../docs/projection-flavor.md"), "utf8");
   const ms = (seconds: number) => `${Math.round(seconds * 1000)} ms`;
   const percent = (fraction: number) => `${(fraction * 100).toFixed(1)} percent`;
+  const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  /** A figure that is not part of a longer number: "9.0 percent" does not match inside "19.0 percent" or "9.05 percent". */
+  const figure = (label: string, value: string) => new RegExp(`${escape(label)}:? ${escape(value)}(?!\\d|\\.\\d)`);
 
-  it("records the numbers the solver measures, so a change to the solver or the springs fails here", () => {
-    for (const config of [mechanical, settle]) {
+  /** The text under a heading, up to the next heading of any level. */
+  function section(title: string): string {
+    const lines = doc.split("\n");
+    const start = lines.findIndex((line) => /^#{1,6} /.test(line) && line.replace(/^#+ /, "").trim() === title);
+    expect(start, `a heading "${title}"`).toBeGreaterThanOrEqual(0);
+    const rest = lines.slice(start + 1);
+    const end = rest.findIndex((line) => /^#{1,6} /.test(line));
+    return (end === -1 ? rest : rest.slice(0, end)).join("\n");
+  }
+
+  it("records, under each spring's own heading, the numbers the solver measures", () => {
+    for (const [title, config] of [["mechanical", mechanical], ["settle", settle]] as const) {
+      const text = section(title);
       const measured = measureSpring(config);
-      expect(doc, `settle time ${ms(measured.settleSeconds)}`).toContain(ms(measured.settleSeconds));
-      expect(doc, `overshoot ${percent(measured.overshoot)}`).toContain(percent(measured.overshoot));
-      expect(doc, `closed-form overshoot ${percent(analyticOvershoot(config))}`).toContain(percent(analyticOvershoot(config)));
-      expect(doc, `closed-form settle ${ms(analyticSettle(config))}`).toContain(ms(analyticSettle(config)));
-      expect(doc, `ratio`).toContain(dampingRatio(config).toFixed(3));
+      expect(text, `${title} measured settle`).toMatch(figure("Measured settle time", ms(measured.settleSeconds)));
+      expect(text, `${title} measured overshoot`).toMatch(figure("Measured overshoot", percent(measured.overshoot)));
+      expect(text, `${title} closed-form overshoot`).toMatch(figure("Closed-form overshoot", percent(analyticOvershoot(config))));
+      expect(text, `${title} closed-form settle`).toMatch(figure("Closed-form settle time", ms(analyticSettle(config))));
+      expect(text, `${title} ratio`).toMatch(figure("Damping ratio", dampingRatio(config).toFixed(3)));
     }
   });
 
-  it("names the stiffness and damping of both springs", () => {
-    expect(doc).toContain(`stiffness ${mechanical.stiffness}, damping ${mechanical.damping}`);
-    expect(doc).toContain(`stiffness ${settle.stiffness}`);
+  it("does not put one spring's numbers under the other spring", () => {
+    const a = section("mechanical");
+    const b = section("settle");
+    expect(a).not.toMatch(figure("Measured settle time", ms(measureSpring(settle).settleSeconds)));
+    expect(b).not.toMatch(figure("Measured settle time", ms(measureSpring(mechanical).settleSeconds)));
+    expect(b).not.toMatch(figure("Measured overshoot", percent(measureSpring(mechanical).overshoot)));
+  });
+
+  it("names the constants of each spring under its own heading", () => {
+    expect(section("mechanical")).toContain(`stiffness ${mechanical.stiffness}, damping ${mechanical.damping}, mass ${mechanical.mass}`);
+    expect(section("settle")).toContain(`stiffness ${settle.stiffness}, damping 2 sqrt(${settle.stiffness}), mass ${settle.mass}`);
+    expect(section("settle")).toContain(`The damping is ${settle.damping.toFixed(1)}.`);
+  });
+
+  it("gives the settle damping as the literal 48.99", () => {
+    expect(Math.abs(settle.damping - 48.99)).toBeLessThan(0.01);
   });
 
   it("says that the component work happens in Milestone 3", () => {
