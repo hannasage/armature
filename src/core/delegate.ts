@@ -46,8 +46,8 @@ export interface DelegateOptions {
   env?: LqgEnvironment;
   /** The attribute names and feels to use. Default: the glass flavor. It needs a surface part. Every surface the delegate makes gets it. */
   flavor?: Flavor;
-  /** Options for every surface the delegate makes. `neighbors` is ignored: groups pick the neighbours. */
-  surface?: Omit<SurfaceOptions, "env" | "neighbors">;
+  /** Options for every surface the delegate makes. `neighbors` is ignored: groups pick the neighbours. `flavor` is not allowed here: set it on the delegate. */
+  surface?: Omit<SurfaceOptions, "env" | "neighbors" | "flavor">;
 }
 
 export interface Delegate {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as delegate from "../src/core/delegate";
-import { installDelegation } from "../src/core/delegate";
+import { installDelegation, type DelegateOptions } from "../src/core/delegate";
+import type { LqgProviderProps } from "../src/react";
 import type { Flavor } from "../src/engine/flavor";
 import * as legacy from "./golden/legacy/delegate";
 import { FakeEnv } from "./helpers/fake-env";
@@ -106,5 +107,26 @@ describe("a delegate with another flavor", () => {
   it("fails with a clear error when the flavor has no surface part", () => {
     const bare: Flavor = { name: "bare", prefix: "zz", logLabel: "bare", springs: {} };
     expect(() => installDelegation(new AcmeRoot(), { env: new FakeEnv(), flavor: bare })).toThrow('The flavor "bare" has no surface part.');
+  });
+});
+
+describe("the surface option cannot carry a flavor", () => {
+  it("is a type error on DelegateOptions.surface and on the LqgProvider surface prop", () => {
+    // @ts-expect-error A flavor in the surface options would be silently overwritten by the delegate flavor.
+    const viaDelegate: DelegateOptions = { surface: { flavor: acme } };
+    // @ts-expect-error The same rule holds for the provider prop.
+    const viaProvider: LqgProviderProps = { surface: { flavor: acme } };
+    expect([viaDelegate, viaProvider]).toHaveLength(2);
+  });
+  it("at run time the delegate flavor wins over a flavor smuggled into the surface options", () => {
+    const env = new FakeEnv();
+    const root = new AcmeRoot();
+    const node = new AcmeNode({ "data-acme": "" });
+    const smuggled = { flavor: { ...acme, prefix: "other" } } as unknown as DelegateOptions["surface"];
+    installDelegation(root, { env, flavor: acme, surface: smuggled });
+    root.fire("pointerdown", node);
+    env.settle();
+    expect(env.read(node, "--acme-squeeze")).toBe("0.9");
+    expect(env.writes.some((write) => write.name.includes("other"))).toBe(false);
   });
 });

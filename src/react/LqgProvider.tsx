@@ -14,7 +14,7 @@ export interface LqgProviderProps {
   children?: ReactNode;
   /** Force refraction `"on"` or `"off"`, or `"auto"` (default) to detect. Beats the `data-lqg-refraction` attribute. */
   refraction?: RefractionSetting;
-  /** Options for every `data-lqg` surface. */
+  /** Options for every `data-lqg` surface. The flavor is set by the `flavor` prop, not here. */
   surface?: DelegateOptions["surface"];
   /** The attribute names and feels for delegation. Defaults to the glass flavor. The mode attribute below stays glass. */
   flavor?: Flavor;
