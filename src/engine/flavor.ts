@@ -40,7 +40,22 @@ export interface Flavor<P extends string = string> {
   readonly surface?: SurfaceFlavor;
   readonly lens?: LensFlavor;
   readonly reveal?: RevealFlavor<P>;
+  /** Named followers: one number that springs toward a target and is written as a CSS variable. */
+  readonly follower?: FollowerFlavor;
 }
+
+/** One follower. The name is the key in the `follower` record. */
+export interface FollowerSpec {
+  /** The suffix of the CSS variable the follower writes. The value is a bare number. */
+  readonly var: string;
+  /** A key into `Flavor.springs`. */
+  readonly springKey: string;
+  /** The rest thresholds merged under the spring. A spring that sets its own thresholds keeps them. */
+  readonly rest: { readonly restDelta: number; readonly restSpeed: number };
+}
+
+/** The follower part of a flavor: a record from a follower name to its spec. */
+export type FollowerFlavor = Readonly<Record<string, FollowerSpec>>;
 
 export interface SurfaceFlavor {
   /** Suffixes of the CSS variables the surface writes. */
@@ -209,7 +224,8 @@ const checked = new WeakSet<object>();
 /**
  * Checks that a flavor holds together, and throws a TypeError that names the flavor when it does not:
  * the prefix is lowercase letters, digits, and hyphens and starts with a letter, the log label is not empty,
- * the reveal fallback is one of the reveal personalities, and every spring key names a spring in `springs`.
+ * the reveal fallback is one of the reveal personalities, every spring key names a spring in `springs`,
+ * and every follower has a variable name and a spring key that names a spring in `springs`.
  * The require helpers call it, and a flavor that passes is not checked again.
  */
 export function validateFlavor(flavor: Flavor): void {
@@ -227,6 +243,15 @@ export function validateFlavor(flavor: Flavor): void {
   }
   const keys = [...Object.values(flavor.surface?.springKeys ?? {}), ...Object.values(flavor.lens?.springKeys ?? {})];
   for (const key of keys) if (!hasOwn(flavor.springs, key)) missingSpring(flavor, key);
+  if (flavor.follower !== undefined) {
+    if (typeof flavor.follower !== "object" || flavor.follower === null) throw new TypeError(`${label} has a follower part that is not an object.`);
+    for (const [name, spec] of Object.entries(flavor.follower)) {
+      if (typeof spec !== "object" || spec === null || typeof spec.var !== "string" || spec.var === "") {
+        throw new TypeError(`${label} has a follower ${JSON.stringify(name)} with no variable name.`);
+      }
+      if (!hasOwn(flavor.springs, spec.springKey)) missingSpring(flavor, spec.springKey);
+    }
+  }
   checked.add(flavor);
 }
 
@@ -253,6 +278,14 @@ export function requireLens(flavor: Flavor): LensFlavor {
 export function requireReveal<P extends string>(flavor: Flavor<P>): RevealFlavor<P> {
   validateFlavor(flavor);
   return flavor.reveal ?? missing(flavor, "reveal");
+}
+
+/** One named follower of a flavor. Throws a clear error when the flavor has no follower part, no follower with that name, or does not hold together. */
+export function requireFollower(flavor: Flavor, name: string): FollowerSpec {
+  validateFlavor(flavor);
+  if (flavor.follower === undefined) missing(flavor, "follower");
+  if (!hasOwn(flavor.follower, name)) throw new TypeError(`The flavor "${flavor.name}" has no follower named "${name}".`);
+  return flavor.follower[name];
 }
 
 /** A named spring from a flavor. Throws a clear error when the flavor has no spring with that key. */

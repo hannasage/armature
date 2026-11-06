@@ -29,10 +29,10 @@ const API = {
       "FIXED_STEP", "MAX_FRAME", "REDUCED_MOTION_QUERY", "VELOCITY_MAX", "VELOCITY_REST", "VELOCITY_SMOOTHING_MS",
       "createBrowserEnvironment", "createBrowserScrollEnvironment", "createScrollVelocity", "createSpring", "criticalDamping", "cssVar",
       "dataAttr", "guardedSetup", "isAtRest", "logTag", "personalityOf", "prefersReducedMotion", "readPreferences", "reconfigure",
-      "requireLens", "requireReveal", "requireSurface", "retarget", "springOf", "stepSpring", "validateFlavor"
+      "requireFollower", "requireLens", "requireReveal", "requireSurface", "retarget", "springOf", "stepSpring", "validateFlavor"
     ],
     types: [
-      "Flavor", "SurfaceFlavor", "LensFlavor", "RevealFlavor", "PersonalitySpec", "RevealStart", "StartContext", "StartInput", "FeelOptions",
+      "Flavor", "SurfaceFlavor", "LensFlavor", "RevealFlavor", "FollowerSpec", "FollowerFlavor", "PersonalitySpec", "RevealStart", "StartContext", "StartInput", "FeelOptions",
       "SpringConfig", "SpringState", "ArmatureEnvironment", "ArmatureTarget", "ArmatureScrollEnvironment", "Preferences",
     ],
     generic: true,
