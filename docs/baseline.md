@@ -104,7 +104,7 @@ The layout is `src/engine`, `src/dom`, `src/react`, and `src/glass`, and the tes
 
 ```
  Test Files  31 passed (31)
-      Tests  521 passed (521)
+      Tests  527 passed (527)
 ```
 
 - The 349 `it(` blocks of Milestone 0 are all still there. A script compared each of the 17 old test files with its Milestone 0 version, ignoring import lines. It found no other difference.
@@ -115,12 +115,22 @@ The layout is `src/engine`, `src/dom`, `src/react`, and `src/glass`, and the tes
 
 Measured the same way as before: esbuild 0.28.2 (`npx esbuild --bundle --minify --format=esm`, then `gzip -c | wc -c`), run on the entry source files. React is not in these numbers.
 
-- Engine entry, `src/index.ts`: minified 7,172 bytes. Minified and gzipped 2,909 bytes. It holds no glass code.
+- Engine entry, `src/index.ts`: minified 7,172 bytes. Minified and gzipped 2,910 bytes. It holds no glass code.
 - Full glass entry, `src/glass/index.ts`: minified 17,374 bytes. Minified and gzipped 7,014 bytes. It includes the engine and DOM code that the glass flavor needs.
 - The engine, DOM, and glass entries together: minified 41,779 bytes. Minified and gzipped 15,976 bytes. The Milestone 0 figure for the whole of `src/index.ts` was 35,314 and 13,815. The flavor contract and its checks add the difference.
 
 The engine entry is larger than the Milestone 0 engine pieces (3,663 and 1,690) because it now also holds the flavor helpers and the preferences reader.
 Milestone 5 sets the size budget from these figures.
+
+### Changes for the glass flavor
+
+These are the differences a glass user can see after Milestone 1. Everything else behaves as before, and the golden test checks it frame by frame.
+
+1. An unknown personality name from a custom `personalityOf` now gets the fallback `drop` pose, and it writes `scale` and `rotate`. The old code gave the `drop` start pose but wrote no `scale` and no `rotate`.
+2. The surface and lens hooks now run inside the guard. A failure is logged and skipped. It no longer reaches a React error boundary.
+3. `guardedSetup`, `startScrollReveal`, `createSurface`, and `installDelegation` now need an explicit flavor. The glass wrappers and the test helper pass the glass flavor for you.
+4. The four types `LqgEnvironment`, `LqgScrollEnvironment`, `LqgTarget`, and `LqgRevealAttributes` are now `ArmatureEnvironment`, `ArmatureScrollEnvironment`, `ArmatureTarget`, and `ArmatureRevealAttributes`.
+5. The generic hooks need a client wrapper in Next.js, because a flavor holds functions and a server component cannot pass it as a prop. The glass wrappers are that wrapper for the glass flavor.
 
 ### Exports map
 
