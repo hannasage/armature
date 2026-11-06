@@ -18,6 +18,22 @@ export function analyticOvershoot(config: SpringConfig): number {
   return z >= 1 ? 0 : Math.exp((-Math.PI * z) / Math.sqrt(1 - z * z));
 }
 
+/** The position at time t of an underdamped or critical spring that starts at 0, rests at 1, and starts with no velocity. */
+function closedForm(config: SpringConfig, t: number): number {
+  const w0 = Math.sqrt(config.stiffness / (config.mass ?? 1));
+  const z = dampingRatio(config);
+  if (z >= 1) return 1 - (1 + w0 * t) * Math.exp(-w0 * t);
+  const wd = w0 * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w0 * t) * (Math.cos(wd * t) + ((z * w0) / wd) * Math.sin(wd * t));
+}
+
+/** The 2 percent settle time of the closed-form solution, in seconds, found by a scan every 10 microseconds. Valid for a damping ratio of 1 or less. */
+export function analyticSettle(config: SpringConfig, seconds = 5): number {
+  let last = 0;
+  for (let t = 0; t < seconds; t += 1e-5) if (Math.abs(closedForm(config, t) - 1) > 0.02) last = t;
+  return last;
+}
+
 /**
  * Steps the real solver from 0 to 1 in whole fixed slices and measures the curve.
  * The rest thresholds are tiny, so the solver does not snap to rest and cut the curve short.

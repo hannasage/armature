@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { springOf } from "@hannasage/armature";
 import { projection } from "../../examples/projection/flavor";
-import { analyticOvershoot, dampingRatio, measureSpring } from "../helpers/measure-spring";
+import { analyticOvershoot, analyticSettle, dampingRatio, measureSpring } from "../helpers/measure-spring";
 
 // These tests step each spring from 0 to 1 with the real solver (the fixed 1/120 s slice) and measure the curve.
 // Nothing here is typed by hand except the limits. The numbers in docs/projection-flavor.md come from the same helper.
@@ -64,5 +67,31 @@ describe("the measuring helper", () => {
     const heavy = { stiffness: 100, damping: 40, mass: 1 };
     expect(dampingRatio(heavy)).toBeGreaterThan(1);
     expect(measureSpring(heavy).overshoot).toBe(0);
+  });
+});
+
+describe("docs/projection-flavor.md", () => {
+  const doc = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../docs/projection-flavor.md"), "utf8");
+  const ms = (seconds: number) => `${Math.round(seconds * 1000)} ms`;
+  const percent = (fraction: number) => `${(fraction * 100).toFixed(1)} percent`;
+
+  it("records the numbers the solver measures, so a change to the solver or the springs fails here", () => {
+    for (const config of [mechanical, settle]) {
+      const measured = measureSpring(config);
+      expect(doc, `settle time ${ms(measured.settleSeconds)}`).toContain(ms(measured.settleSeconds));
+      expect(doc, `overshoot ${percent(measured.overshoot)}`).toContain(percent(measured.overshoot));
+      expect(doc, `closed-form overshoot ${percent(analyticOvershoot(config))}`).toContain(percent(analyticOvershoot(config)));
+      expect(doc, `closed-form settle ${ms(analyticSettle(config))}`).toContain(ms(analyticSettle(config)));
+      expect(doc, `ratio`).toContain(dampingRatio(config).toFixed(3));
+    }
+  });
+
+  it("names the stiffness and damping of both springs", () => {
+    expect(doc).toContain(`stiffness ${mechanical.stiffness}, damping ${mechanical.damping}`);
+    expect(doc).toContain(`stiffness ${settle.stiffness}`);
+  });
+
+  it("says that the component work happens in Milestone 3", () => {
+    expect(doc).toContain("Milestone 3");
   });
 });
