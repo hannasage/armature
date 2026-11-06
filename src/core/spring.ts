@@ -8,10 +8,15 @@
  * Every function is pure. A state is never changed after it is made.
  */
 
+import { glassFlavor } from "../glass/flavor";
+
 /** The fixed slice, in seconds. */
 export const FIXED_STEP = 1 / 120;
-/** A frame longer than this is treated as this long. It stops a stalled tab from fast-forwarding the spring. */
-const MAX_FRAME = 0.1;
+/**
+ * A frame longer than this is treated as this long, in seconds. It stops a stalled tab from fast-forwarding the spring.
+ * Every frame loop in the package clamps its frame time to this one value.
+ */
+export const MAX_FRAME = 0.1;
 /** The smallest slice the solver will use, so a huge stiffness cannot hang a frame. */
 const MIN_STEP = 1 / 20_000;
 
@@ -58,20 +63,21 @@ export interface SpringState {
   readonly carry: number;
 }
 
-const freeze = (config: SpringConfig): Readonly<SpringConfig> => Object.freeze({ ...config });
+// The presets belong to the glass flavor. They stay exported here as the glass-bound values, so old call sites keep working.
+const presets = glassFlavor.springs;
 
 /** The lens position. A little overshoot, so it feels like liquid. */
-export const lensX = freeze({ stiffness: 210, damping: 20, mass: 1 });
+export const lensX = presets.lensX;
 /** The lens width. Looser than position, so the lens breathes as it travels. */
-export const lensWidth = freeze({ stiffness: 180, damping: 12, mass: 1 });
+export const lensWidth = presets.lensWidth;
 /** A press. Almost critically damped, so it settles without a visible bounce. */
-export const press = freeze({ stiffness: 170, damping: 26, mass: 1 });
+export const press = presets.press;
 /** Letting go of a press. Underdamped on purpose, so the surface springs a little past its rest size. */
-export const release = freeze({ stiffness: 300, damping: 14, mass: 1 });
+export const release = presets.release;
 /** A soft follow. */
-export const gentle = freeze({ stiffness: 120, damping: 14, mass: 1 });
+export const gentle = presets.gentle;
 /** A firm follow. */
-export const stiff = freeze({ stiffness: 210, damping: 20, mass: 1 });
+export const stiff = presets.stiff;
 
 /** The damping at which a spring returns fastest without overshoot: 2 sqrt(k m). */
 export function criticalDamping(stiffness: number, mass = 1): number {
