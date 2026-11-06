@@ -258,3 +258,28 @@ describe("attribute helpers with another flavor", () => {
     expect(Object.isFrozen(attrs.LQG_LINE)).toBe(true);
   });
 });
+
+describe("the one deliberate behavior change", () => {
+  const run = (create: (options: { root: FakeRoot; env: FakeScrollEnv; personalityOf: () => never }) => { start(): boolean }) => {
+    const { env, root } = scene();
+    const card = new FakeElement({ "data-lqg-reveal": "drop" }, rect(1600));
+    root.members = [card];
+    create({ root, env, personalityOf: () => "wobble" as never }).start();
+    env.enter({ target: card });
+    return { env, card };
+  };
+
+  it("a custom personalityOf that returns a name outside the flavor now gets the fallback (drop) pose and writes scale and rotate", () => {
+    const { env, card } = run(reveal.createScrollReveal);
+    expect(env.style(card, "scale")).toBe("0.94");
+    expect(env.style(card, "rotate")).toBe("0.6deg");
+    expect(env.style(card, "translate")).toBe("0px 28px");
+  });
+
+  it("the legacy code gave that name the drop start pose but wrote no scale and no rotate", () => {
+    const { env, card } = run(legacyReveal.createScrollReveal);
+    expect(env.style(card, "scale")).toBeUndefined();
+    expect(env.style(card, "rotate")).toBeUndefined();
+    expect(env.style(card, "translate")).toBe("0px 28px");
+  });
+});
