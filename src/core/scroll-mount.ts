@@ -3,6 +3,8 @@
  * any other host. It never throws: a failure to arm shows every element, removes the armed class, and logs with context
  * (`startScrollReveal`).
  */
+import { logTag } from "../engine/flavor";
+import { glassFlavor } from "../glass/flavor";
 import { createScrollReveal, startScrollReveal, type GuardedStartOptions, type ScrollRevealOptions } from "./scroll-reveal";
 import type { ScrollRoot } from "./scroll-env";
 
@@ -17,17 +19,18 @@ export interface MountScrollRevealOptions extends Omit<ScrollRevealOptions, "roo
 }
 
 export function mountScrollReveal(host: RevealHost, options: MountScrollRevealOptions = {}): () => void {
-  const { armedClass, context, report, onArm, onDisarm, ...rest } = options;
-  const complain = report ?? ((error: unknown, where: string) => console.error(`[liquid-glass] ${where} failed; every element is shown instead.`, error));
+  const { armedClass, context, report, onArm, onDisarm, flavor = glassFlavor, ...rest } = options;
+  const complain = report ?? ((error: unknown, where: string) => console.error(`${logTag(flavor)} ${where} failed; every element is shown instead.`, error));
   const controller = startScrollReveal(
     () => createScrollReveal({
       ...rest,
+      flavor,
       ...(report ? { report } : {}),
       root: host,
       onArm: () => { if (armedClass) host.classList?.add(armedClass); onArm?.(); },
       onDisarm: () => { if (armedClass) host.classList?.remove(armedClass); onDisarm?.(); },
     }),
-    { context, report },
+    { context, report, flavor },
   );
   return () => {
     try {

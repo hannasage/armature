@@ -20,53 +20,57 @@
  * A hidden tab pauses the loop. Turning reduced motion on stops the controller and shows everything. Turning it off does not arm
  * it again: that is deliberate, because content a reader already sees stays visible.
  */
+import { cssVar, dataAttr, logTag, personalityOf, requireReveal, type Flavor } from "../engine/flavor";
+import { glassFlavor } from "../glass/flavor";
 import { prefersReducedMotion } from "./env";
-import { createSpring, retarget, stepSpring, type SpringConfig, type SpringState } from "./spring";
+import { createSpring, MAX_FRAME, retarget, stepSpring, type SpringConfig, type SpringState } from "./spring";
 import { createBrowserScrollEnvironment, type LqgScrollEnvironment, type ScrollElement, type ScrollEntry, type ScrollObserver, type ScrollRoot } from "./scroll-env";
 import {
-  dragSpring, dragTarget, parseDelay, parseDepth, parsePersonality, revealCalm, revealPose, revealSpring, revealStart, staggerDelay,
-  REST_POSE, type RevealPersonality, type RevealPose, type RevealStart,
+  dragTarget, parseDelay, parseDepth, parsePersonality, revealPose, revealSpring, revealStart, staggerDelayFor,
+  REST_POSE, type RevealPose, type RevealStart,
 } from "./scroll-motion";
 import { createScrollVelocity, type ScrollVelocity } from "./scroll-velocity";
 
-export const REVEAL_ATTRIBUTE = "data-lqg-reveal";
-export const REVEAL_GROUP_ATTRIBUTE = "data-lqg-reveal-group";
-export const REVEAL_DELAY_ATTRIBUTE = "data-lqg-reveal-delay";
+// The names and numbers below are the glass values, kept as exports so old call sites keep working.
+// A controller reads its own flavor, which is glass unless `options.flavor` says otherwise.
+const glass = glassFlavor.reveal;
+
+export const REVEAL_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.reveal);
+export const REVEAL_GROUP_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.group);
+export const REVEAL_DELAY_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.delay);
 /** Set on an element when it has been decided: `now` when it was shown at once, `true` when it was sprung in. */
-export const REVEALED_ATTRIBUTE = "data-lqg-revealed";
-export const DRAG_ATTRIBUTE = "data-lqg-drag";
-export const DEPTH_ATTRIBUTE = "data-lqg-depth";
+export const REVEALED_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.revealed);
+export const DRAG_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.drag);
+export const DEPTH_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.depth);
 /** The most a `drop` tilts, in degrees. */
-export const TILT_ATTRIBUTE = "data-lqg-tilt";
+export const TILT_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.tilt);
 /** `left` or `right`: which side a `slide` comes from. Without it, a slide alternates by its index in the group. */
-export const SIDE_ATTRIBUTE = "data-lqg-side";
+export const SIDE_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.side);
 /** Marks a line of a `mask` heading. The lines rise one after another through the clip of the heading. */
-export const LINE_ATTRIBUTE = "data-lqg-line";
+export const LINE_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.line);
 /** Written on a revealed element: the stagger it started with, as a record. */
-export const REVEAL_DELAY_PROPERTY = "--lqg-reveal-delay";
+export const REVEAL_DELAY_PROPERTY = cssVar(glassFlavor, glass.delayProperty);
 
-export const SAFETY_MS = 2500;
+export const SAFETY_MS = glass.safetyMs;
 /** An element whose top is in the lowest 8 percent of the viewport still waits, so a reveal is seen and not spent at the screen edge. */
-export const FOLD_PERCENT = 8;
-export const ROOT_MARGIN = `0px 0px -${FOLD_PERCENT}% 0px`;
-const MAX_FRAME_SECONDS = 0.1;
-const CLIP_SIDE = "-8px";
-/**
- * While a piece moves, it gets a layer of its own (`will-change`), so each frame moves a layer and repaints nothing. It is set when the
- * piece starts and removed when it rests, so at most the pieces in flight hold one.
- */
-const MOVE_HINT = "translate, scale, rotate, opacity";
-const CLIP_HINT = "clip-path";
-const DRAG_HINT = "translate, rotate";
+export const FOLD_PERCENT = glass.foldPercent;
 
-/** True when a top edge is in the lowest 8 percent of the viewport, or past it. Integer math, so 900 px gives exactly 828. */
-export function belowFold(top: number, viewportHeight: number): boolean {
-  return top * 100 >= viewportHeight * (100 - FOLD_PERCENT);
+/** The root margin of the intersection observer for a flavor: the fold, as a negative bottom margin. */
+export function revealRootMargin(flavor: Flavor = glassFlavor): string {
+  return `0px 0px -${requireReveal(flavor).foldPercent}% 0px`;
+}
+export const ROOT_MARGIN = revealRootMargin(glassFlavor);
+
+/** True when a top edge is in the lowest part of the viewport (8 percent for glass), or past it. Integer math, so 900 px gives exactly 828. */
+export function belowFold(top: number, viewportHeight: number, flavor: Flavor = glassFlavor): boolean {
+  return top * 100 >= viewportHeight * (100 - requireReveal(flavor).foldPercent);
 }
 
 export interface ScrollRevealOptions {
   /** The elements to watch are found under this root. */
   root: ScrollRoot;
+  /** The names and numbers to use. Default: the glass flavor. It needs a reveal part. */
+  flavor?: Flavor;
   /** Defaults to the real browser, made when the controller is made. A test passes a fake. */
   env?: LqgScrollEnvironment;
   /** Which elements are reveal targets. Default `[data-lqg-reveal]`. A site that keeps its own attributes lists them here. */
@@ -78,7 +82,7 @@ export interface ScrollRevealOptions {
   /** The attribute that records a decision. Default `data-lqg-revealed`. An element that already has it is left alone. */
   revealedAttribute?: string;
   /** The personality of an element, or null when it is not a target. Default reads `data-lqg-reveal`. */
-  personalityOf?(element: ScrollElement): RevealPersonality | null;
+  personalityOf?(element: ScrollElement): string | null;
   /** The extra delay of an element in ms, added to the stagger. Default reads `data-lqg-reveal-delay`. */
   delayOf?(element: ScrollElement): number;
   /** Says whether an element should use the spring path at all. Default true. An element that says false is left as it is. */
@@ -117,7 +121,7 @@ interface Run {
 
 interface Target {
   readonly element: ScrollElement;
-  readonly personality: RevealPersonality;
+  readonly personality: string;
   readonly groupIndex: number;
   readonly tilt: number | undefined;
   readonly side: -1 | 1 | undefined;
@@ -139,14 +143,28 @@ const number = (value: number, digits: number) => String(Number(value.toFixed(di
 export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealController {
   const env = options.env ?? createBrowserScrollEnvironment();
   const root = options.root;
-  const selector = options.selector ?? `[${REVEAL_ATTRIBUTE}]`;
-  const groupSelector = options.groupSelector ?? `[${REVEAL_GROUP_ATTRIBUTE}]`;
-  const dragSelector = options.dragSelector ?? `[${DRAG_ATTRIBUTE}]`;
-  const revealedAttribute = options.revealedAttribute ?? REVEALED_ATTRIBUTE;
-  const personalityOf = options.personalityOf ?? ((element: ScrollElement) => (element.hasAttribute(REVEAL_ATTRIBUTE) ? parsePersonality(element.getAttribute(REVEAL_ATTRIBUTE)) : null));
-  const delayOf = options.delayOf ?? ((element: ScrollElement) => parseDelay(element.getAttribute(REVEAL_DELAY_ATTRIBUTE)));
+  const flavor = options.flavor ?? glassFlavor;
+  const config = requireReveal(flavor);
+  const attribute = (name: string) => dataAttr(flavor, name);
+  const revealAttribute = attribute(config.attributes.reveal);
+  const delayAttribute = attribute(config.attributes.delay);
+  const dragAttribute = attribute(config.attributes.drag);
+  const depthAttribute = attribute(config.attributes.depth);
+  const tiltAttribute = attribute(config.attributes.tilt);
+  const sideAttribute = attribute(config.attributes.side);
+  const lineAttribute = attribute(config.attributes.line);
+  const delayProperty = cssVar(flavor, config.delayProperty);
+  const rootMargin = revealRootMargin(flavor);
+  const specOf = (name: string) => personalityOf(config, name);
+  const defaultDragSelector = `[${dragAttribute}]`;
+  const selector = options.selector ?? `[${revealAttribute}]`;
+  const groupSelector = options.groupSelector ?? `[${attribute(config.attributes.group)}]`;
+  const dragSelector = options.dragSelector ?? defaultDragSelector;
+  const revealedAttribute = options.revealedAttribute ?? attribute(config.attributes.revealed);
+  const personalityFor = options.personalityOf ?? ((element: ScrollElement) => (element.hasAttribute(revealAttribute) ? parsePersonality(element.getAttribute(revealAttribute), flavor) : null));
+  const delayOf = options.delayOf ?? ((element: ScrollElement) => parseDelay(element.getAttribute(delayAttribute), flavor));
   const accepts = options.accepts ?? (() => true);
-  const report = options.report ?? ((error: unknown, context: string) => console.error(`[liquid-glass] ${context} failed; every element is shown instead.`, error));
+  const report = options.report ?? ((error: unknown, context: string) => console.error(`${logTag(flavor)} ${context} failed; every element is shown instead.`, error));
 
   let armed = false;
   let seen = new WeakSet<ScrollElement>();
@@ -206,13 +224,13 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
     if (atRest) { clear(element); return; }
     if (run.role !== "clip") {
       put(element, "translate", `${number(pose.x, 2)}px ${number(pose.y, 2)}px`);
-      if (target.personality === "drop") {
+      if (specOf(target.personality).scaleRotate) {
         put(element, "scale", number(pose.scale, 4));
         put(element, "rotate", `${number(pose.rotate, 3)}deg`);
       }
       put(element, "opacity", number(pose.opacity, 3));
     }
-    if (run.role !== "move") put(element, "clip-path", `inset(${number(pose.clipTop, 2)}% ${CLIP_SIDE} 0 ${CLIP_SIDE})`);
+    if (run.role !== "move") put(element, "clip-path", `inset(${number(pose.clipTop, 2)}% ${config.clipSide} 0 ${config.clipSide})`);
   };
 
   // ---- the frame loop ----
@@ -245,8 +263,8 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
   };
 
   const clearDrag = (drag: Drag) => {
-    drag.shift = createSpring(dragSpring, 0);
-    drag.turn = createSpring(dragSpring, 0);
+    drag.shift = createSpring(config.drag.spring, 0);
+    drag.turn = createSpring(config.drag.spring, 0);
     drag.live = false;
     put(drag.element, "translate", null);
     put(drag.element, "rotate", null);
@@ -259,12 +277,12 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
         if (drag.live) clearDrag(drag);
         continue;
       }
-      const goal = dragTarget(speed, drag.depth);
+      const goal = dragTarget(speed, drag.depth, flavor);
       if (!drag.live && goal.shift === 0 && goal.turn === 0) continue;
       drag.shift = stepSpring(drag.shift, goal.shift, dt);
       drag.turn = stepSpring(drag.turn, goal.turn, dt);
       if (goal.shift === 0 && goal.turn === 0 && drag.shift.value === 0 && drag.turn.value === 0) { clearDrag(drag); continue; }
-      if (!drag.live) put(drag.element, "will-change", DRAG_HINT);
+      if (!drag.live) put(drag.element, "will-change", config.hints.drag);
       drag.live = true;
       put(drag.element, "translate", `0px ${number(drag.shift.value, 2)}px`);
       put(drag.element, "rotate", `${number(drag.turn.value, 3)}deg`);
@@ -283,7 +301,7 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
       run.spring = stepSpring(run.spring, 1, dt);
       const p = run.spring.value;
       const atRest = p === 1 && run.spring.velocity === 0;
-      writePose(target, run, revealPose(run.start, p), atRest);
+      writePose(target, run, revealPose(run.start, p, flavor), atRest);
       if (atRest) run.done = true;
       else allDone = false;
     }
@@ -296,7 +314,7 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
   const tick = guard("the reveal frame", (time: number) => {
     frame = 0;
     if (!armed) return;
-    const dt = Math.min(MAX_FRAME_SECONDS, Math.max(0, (time - last) / 1000));
+    const dt = Math.min(MAX_FRAME, Math.max(0, (time - last) / 1000));
     last = time;
     velocity?.sample(time);
     for (const target of [...running]) stepTarget(target, dt);
@@ -306,13 +324,13 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
 
   // ---- reveal ----
 
-  const startOffsetFor = (personality: RevealPersonality) => revealStart({ personality, velocity: 0 });
+  const startOffsetFor = (personality: string) => revealStart({ personality, velocity: 0 }, flavor);
 
   /** Hidden: opacity 0 and the start offset of a slow scroll. A `mask` hides its box only, and its lines are placed when it starts. */
   const hide = (target: Target) => {
     const element = target.element;
     put(element, "opacity", "0");
-    if (target.personality !== "mask") put(element, "translate", `0px ${number(startOffsetFor(target.personality).y, 2)}px`);
+    if (specOf(target.personality).hiddenTranslate) put(element, "translate", `0px ${number(startOffsetFor(target.personality).y, 2)}px`);
   };
 
   /** Shown at once, with no entry. */
@@ -330,30 +348,31 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
   const begin = (target: Target, batchIndex: number, inGroup: boolean) => {
     const element = target.element;
     const speed = velocity?.read() ?? 0;
-    const config: SpringConfig = target.personality === "fade" ? revealCalm : revealSpring(speed);
-    const delay = (inGroup ? staggerDelay(batchIndex) : 0) + delayOf(element);
-    const makeSpring = () => retarget(createSpring(config, 0), 1);
+    const spec = specOf(target.personality);
+    const springConfig: SpringConfig = spec.spring === "calm" ? config.springs.calm : revealSpring(speed, flavor);
+    const delay = (inGroup ? staggerDelayFor(batchIndex, flavor) : 0) + delayOf(element);
+    const makeSpring = () => retarget(createSpring(springConfig, 0), 1);
     const runs: Run[] = [];
-    if (target.personality === "mask") {
-      const lines = element.querySelectorAll ? [...element.querySelectorAll(`[${LINE_ATTRIBUTE}]`)] : [];
+    if (spec.clips) {
+      const lines = element.querySelectorAll ? [...element.querySelectorAll(`[${lineAttribute}]`)] : [];
       if (lines.length > 0) {
         runs.push({ element, role: "clip", start: { x: 0, y: 0, scale: 1, rotate: 0 }, spring: makeSpring(), wait: delay, done: false });
         lines.forEach((line, index) => runs.push({
           element: line,
           role: "move",
-          start: revealStart({ personality: "mask", velocity: speed, height: line.getBoundingClientRect().height }),
+          start: revealStart({ personality: target.personality, velocity: speed, height: line.getBoundingClientRect().height }, flavor),
           spring: makeSpring(),
-          wait: delay + staggerDelay(index),
+          wait: delay + staggerDelayFor(index, flavor),
           done: false,
         }));
       } else {
-        runs.push({ element, role: "both", start: revealStart({ personality: "mask", velocity: speed, height: element.getBoundingClientRect().height }), spring: makeSpring(), wait: delay, done: false });
+        runs.push({ element, role: "both", start: revealStart({ personality: target.personality, velocity: speed, height: element.getBoundingClientRect().height }, flavor), spring: makeSpring(), wait: delay, done: false });
       }
     } else {
       runs.push({
         element,
         role: "move",
-        start: revealStart({ personality: target.personality, velocity: speed, index: target.groupIndex, tilt: target.tilt, side: target.side }),
+        start: revealStart({ personality: target.personality, velocity: speed, index: target.groupIndex, tilt: target.tilt, side: target.side }, flavor),
         spring: makeSpring(),
         wait: delay,
         done: false,
@@ -366,11 +385,11 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
     // The box was hidden while it waited. Now each piece takes its start pose in the same task, so nothing flashes.
     put(element, "opacity", null);
     for (const run of runs) {
-      writePose(target, run, revealPose(run.start, 0), false);
-      put(run.element, "will-change", run.role === "move" ? MOVE_HINT : run.role === "clip" ? CLIP_HINT : `${MOVE_HINT}, ${CLIP_HINT}`);
+      writePose(target, run, revealPose(run.start, 0, flavor), false);
+      put(run.element, "will-change", run.role === "move" ? config.hints.move : run.role === "clip" ? config.hints.clip : `${config.hints.move}, ${config.hints.clip}`);
     }
     env.setAttribute(element, revealedAttribute, "true");
-    put(element, REVEAL_DELAY_PROPERTY, `${delay}ms`);
+    put(element, delayProperty, `${delay}ms`);
     if (!drags.has(element)) observer?.unobserve(element);
     schedule();
   };
@@ -383,7 +402,7 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
     const total = env.scrollHeight?.();
     if (total === undefined || !Number.isFinite(total)) return false;
     const room = Math.max(0, total - height - env.scrollY());
-    return belowFold(target.element.getBoundingClientRect().top - room, height);
+    return belowFold(target.element.getBoundingClientRect().top - room, height, flavor);
   };
 
   const armSafety = () => {
@@ -393,14 +412,14 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
       const height = env.viewportHeight();
       for (const target of [...waiting]) {
         if (target.element.isConnected === false) { waiting.delete(target); targets.delete(target.element); continue; }
-        if (!delivered || !belowFold(target.element.getBoundingClientRect().top, height) || cannotTrigger(target, height)) showNow(target);
+        if (!delivered || !belowFold(target.element.getBoundingClientRect().top, height, flavor) || cannotTrigger(target, height)) showNow(target);
       }
-    }), SAFETY_MS);
+    }), config.safetyMs);
   };
 
   const registerDrag = (element: ScrollElement) => {
     if (drags.has(element)) return;
-    drags.set(element, { element, depth: parseDepth(element.getAttribute(DEPTH_ATTRIBUTE)), shift: createSpring(dragSpring, 0), turn: createSpring(dragSpring, 0), inView: false, live: false });
+    drags.set(element, { element, depth: parseDepth(element.getAttribute(depthAttribute), flavor), shift: createSpring(config.drag.spring, 0), turn: createSpring(config.drag.spring, 0), inView: false, live: false });
     observer?.observe(element);
   };
 
@@ -411,18 +430,18 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
     for (const element of root.querySelectorAll(list)) {
       if (seen.has(element)) continue;
       seen.add(element);
-      if (element.hasAttribute(DRAG_ATTRIBUTE) || matchesDrag(element)) registerDrag(element);
-      const personality = personalityOf(element);
+      if (element.hasAttribute(dragAttribute) || matchesDrag(element)) registerDrag(element);
+      const personality = personalityFor(element);
       if (!personality || !accepts(element) || element.hasAttribute(revealedAttribute)) continue;
-      if (initial && !belowFold(element.getBoundingClientRect().top, height)) {
+      if (initial && !belowFold(element.getBoundingClientRect().top, height, flavor)) {
         env.setAttribute(element, revealedAttribute, "now");
         continue;
       }
       const group = element.closest(groupSelector);
       const index = groupCounts.get(group) ?? 0;
       groupCounts.set(group, index + 1);
-      const tilt = Number(element.getAttribute(TILT_ATTRIBUTE));
-      const sideValue = element.getAttribute(SIDE_ATTRIBUTE);
+      const tilt = Number(element.getAttribute(tiltAttribute));
+      const sideValue = element.getAttribute(sideAttribute);
       const side = sideValue === "left" ? -1 : sideValue === "right" ? 1 : undefined;
       const target: Target = { element, personality, groupIndex: index, tilt: Number.isFinite(tilt) && tilt > 0 ? tilt : undefined, side, phase: "waiting", runs: [] };
       targets.set(element, target);
@@ -449,7 +468,7 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
   };
 
   // A custom drag selector cannot be tested with hasAttribute, so ask the element's own `closest`, which also matches itself.
-  const matchesDrag = (element: ScrollElement) => dragSelector !== `[${DRAG_ATTRIBUTE}]` && element.closest(dragSelector) === element;
+  const matchesDrag = (element: ScrollElement) => dragSelector !== defaultDragSelector && element.closest(dragSelector) === element;
 
   /** Start a batch of arriving targets. Members of one group that arrive together stagger in reading order: by row, then by column. */
   const startArrivals = (arriving: ReadonlyArray<{ target: ScrollElement; boundingClientRect: { readonly top: number; readonly left: number } }>) => {
@@ -540,7 +559,7 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
     delivered = false;
     paused = env.tabHidden();
     velocity = createScrollVelocity(env, { onWake: schedule });
-    observer = create(onEntries, ROOT_MARGIN);
+    observer = create(onEntries, rootMargin);
     // Decide every target before anything is hidden for good, so a target in view is never hidden for a frame.
     scan(true);
     options.onArm?.();
@@ -580,8 +599,8 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
       const target = targets.get(element);
       if (!target || target.phase === "settled" || target.runs.length === 0) return { ...REST_POSE };
       const run = target.runs.find(item => item.role !== "clip") ?? target.runs[0];
-      if (run.wait > 0) return revealPose(run.start, 0);
-      return revealPose(run.start, run.spring.value);
+      if (run.wait > 0) return revealPose(run.start, 0, flavor);
+      return revealPose(run.start, run.spring.value, flavor);
     },
   };
 }
@@ -589,6 +608,8 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
 export interface GuardedStartOptions {
   /** Where it failed, for the log line. */
   context?: string;
+  /** Its label starts the default log line. Default: the glass flavor. */
+  flavor?: Flavor;
   /** Called with the error. Default: `console.error`. */
   report?(error: unknown, context: string): void;
 }
@@ -601,7 +622,7 @@ export interface GuardedStartOptions {
  */
 export function startScrollReveal(create: () => ScrollRevealController, options: GuardedStartOptions = {}): ScrollRevealController | null {
   const context = options.context ?? "scroll reveal";
-  const report = options.report ?? ((error: unknown, where: string) => console.error(`[liquid-glass] ${where} failed to start; every element is shown instead.`, error));
+  const report = options.report ?? ((error: unknown, where: string) => console.error(`${logTag(options.flavor ?? glassFlavor)} ${where} failed to start; every element is shown instead.`, error));
   let controller: ScrollRevealController | undefined;
   try {
     controller = create();
