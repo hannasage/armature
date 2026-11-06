@@ -229,13 +229,15 @@ function missingSpring(flavor: Flavor, key: string): never {
 }
 
 const PREFIX = /^[a-z][a-z0-9-]*$/;
+const VARIABLE = PREFIX;
 const checked = new WeakSet<object>();
 
 /**
  * Checks that a flavor holds together, and throws a TypeError that names the flavor when it does not:
  * the prefix is lowercase letters, digits, and hyphens and starts with a letter, the log label is not empty,
  * the reveal fallback is one of the reveal personalities, every spring key names a spring in `springs`,
- * every surface switch is a boolean when it is set, and every follower has a variable name and a spring key that names a spring in `springs`.
+ * every surface switch is a boolean when it is set, and every follower has a unique variable name that no other part uses,
+ * rest limits, and a spring key that names a spring in `springs`. Every spring and every rest limit holds finite numbers in range.
  * The require helpers call it, and a flavor that passes is not checked again.
  */
 export function validateFlavor(flavor: Flavor): void {
@@ -262,12 +264,27 @@ export function validateFlavor(flavor: Flavor): void {
   }
   if (flavor.follower !== undefined) {
     if (typeof flavor.follower !== "object" || flavor.follower === null) throw new TypeError(`${label} has a follower part that is not an object.`);
+    const taken = new Map<string, string>();
+    const reserved: Array<[string, string[]]> = [
+      ["surface", Object.values(flavor.surface?.vars ?? {})],
+      ["lens", Object.values(flavor.lens?.vars ?? {})],
+      ["reveal", flavor.reveal ? [flavor.reveal.delayProperty] : []],
+    ];
     for (const [name, spec] of Object.entries(flavor.follower)) {
       if (typeof spec !== "object" || spec === null || typeof spec.var !== "string" || spec.var === "") {
         throw new TypeError(`${label} has a follower ${JSON.stringify(name)} with no variable name.`);
       }
       if (typeof spec.rest !== "object" || spec.rest === null) throw new TypeError(`${label} has a follower ${JSON.stringify(name)} with no rest limits.`);
       checkRest(label, `a follower ${JSON.stringify(name)} with a rest`, spec.rest);
+      if (!VARIABLE.test(spec.var)) {
+        throw new TypeError(`${label} has a follower ${JSON.stringify(name)} with the variable name ${JSON.stringify(spec.var)}. A variable name is lowercase letters, digits, and hyphens, and starts with a letter.`);
+      }
+      const owner = taken.get(spec.var);
+      if (owner !== undefined) throw new TypeError(`${label} has the followers ${JSON.stringify(owner)} and ${JSON.stringify(name)} with the same variable name ${JSON.stringify(spec.var)}.`);
+      taken.set(spec.var, name);
+      for (const [part, names] of reserved) {
+        if (names.includes(spec.var)) throw new TypeError(`${label} has a follower ${JSON.stringify(name)} with the variable name ${JSON.stringify(spec.var)}, which the ${part} already uses.`);
+      }
       if (!hasOwn(flavor.springs, spec.springKey)) missingSpring(flavor, spec.springKey);
     }
   }

@@ -89,9 +89,9 @@ A follower springs one number toward a target and writes it as a CSS variable. A
 
 The part is a record from a follower name to a spec. `requireFollower(flavor, name)` returns one spec, or throws a `TypeError` that names the flavor.
 
-- `var` is the suffix of the CSS variable the follower writes. The value is a bare number. The stylesheet decides the unit.
+- `var` is the suffix of the CSS variable the follower writes. The value is a bare number. The stylesheet decides the unit. The suffix is lowercase letters, digits, and hyphens, and starts with a letter. It is unique across followers, and no surface, lens, or reveal variable uses the same suffix. `validateFlavor` checks this.
 - `springKey` names the spring in the `springs` map. `validateFlavor` checks that it exists.
-- `rest` holds `restDelta` and `restSpeed`. They are merged under the spring, so a spring that sets its own thresholds keeps them.
+- `rest` is required. It holds `restDelta` and `restSpeed`, both finite numbers above 0. They are merged under the spring, so a spring that sets its own thresholds keeps them.
 
 A follower keeps its position and its velocity when the target changes in flight. It snaps to the target under reduced motion. It stops its frame loop when the spring is at rest. It uses the engine's fixed step, so a 30, 60, and 144 Hz screen land in the same place. It ignores a target that is `NaN` or `Infinity`.
 
