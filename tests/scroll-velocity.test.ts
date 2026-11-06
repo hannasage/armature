@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createScrollVelocity, VELOCITY_MAX, type ScrollVelocityOptions } from "../src/core/scroll-velocity";
+import { createScrollVelocity, VELOCITY_MAX, type ScrollVelocityOptions } from "../src/engine/scroll-velocity";
 import { FakeScrollEnv } from "./helpers/fake-scroll-env";
 
 function setup(options?: ScrollVelocityOptions) {

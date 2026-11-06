@@ -1,7 +1,7 @@
 import { cssVar, requireSurface, springOf, type Flavor } from "../engine/flavor";
 import { glassFlavor } from "../glass/flavor";
-import { createBrowserEnvironment, prefersReducedMotion, type LqgEnvironment } from "./env";
-import { createSpring, isAtRest, MAX_FRAME, reconfigure, retarget, stepSpring, type SpringConfig, type SpringState } from "./spring";
+import { createBrowserEnvironment, prefersReducedMotion, type LqgEnvironment } from "../engine/env";
+import { createSpring, isAtRest, MAX_FRAME, reconfigure, retarget, stepSpring, type SpringConfig, type SpringState } from "../engine/spring";
 
 export interface SurfaceRect {
   left: number;

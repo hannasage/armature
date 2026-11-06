@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
-import { guardedSetup } from "../core/guard";
+import { guardedSetup } from "../engine/guard";
 import { attachSurface, type Surface, type SurfaceOptions } from "../core/surface";
 
 /**

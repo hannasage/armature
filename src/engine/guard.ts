@@ -1,4 +1,4 @@
-import { logTag, type Flavor } from "../engine/flavor";
+import { logTag, type Flavor } from "./flavor";
 import { glassFlavor } from "../glass/flavor";
 
 /**

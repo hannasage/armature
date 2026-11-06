@@ -22,14 +22,14 @@
  */
 import { cssVar, dataAttr, logTag, personalityOf, requireReveal, type Flavor, type PersonalitySpec } from "../engine/flavor";
 import { glassFlavor } from "../glass/flavor";
-import { prefersReducedMotion } from "./env";
-import { createSpring, MAX_FRAME, retarget, stepSpring, type SpringConfig, type SpringState } from "./spring";
-import { createBrowserScrollEnvironment, type LqgScrollEnvironment, type ScrollElement, type ScrollEntry, type ScrollObserver, type ScrollRoot } from "./scroll-env";
+import { prefersReducedMotion } from "../engine/env";
+import { createSpring, MAX_FRAME, retarget, stepSpring, type SpringConfig, type SpringState } from "../engine/spring";
+import { createBrowserScrollEnvironment, type LqgScrollEnvironment, type ScrollElement, type ScrollEntry, type ScrollObserver, type ScrollRoot } from "../engine/scroll-env";
 import {
   dragTarget, parseDelay, parseDepth, parsePersonality, revealPose, revealSpring, revealStart, staggerDelayFor,
   REST_POSE, type RevealPose, type RevealStart,
 } from "./scroll-motion";
-import { createScrollVelocity, type ScrollVelocity } from "./scroll-velocity";
+import { createScrollVelocity, type ScrollVelocity } from "../engine/scroll-velocity";
 
 // The names and numbers below are the glass values, kept as exports so old call sites keep working.
 // A controller reads its own flavor, which is glass unless `options.flavor` says otherwise.

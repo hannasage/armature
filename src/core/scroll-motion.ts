@@ -13,7 +13,7 @@
 import { personalityOf, requireReveal, type Flavor, type RevealStart, type StartInput as FlavorStartInput } from "../engine/flavor";
 import { clamp, lerp } from "../engine/math";
 import { glassFlavor } from "../glass/flavor";
-import type { SpringConfig } from "./spring";
+import type { SpringConfig } from "../engine/spring";
 
 export type { RevealStart } from "../engine/flavor";
 export {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSpring, retarget, stepSpring } from "../src/core/spring";
+import { createSpring, retarget, stepSpring } from "../src/engine/spring";
 import {
   DRAG_ROTATE_MAX, DRAG_SHIFT_MAX, FAST_VELOCITY, OFFSET_FAST, OFFSET_SLOW, REST_POSE, SLOW_VELOCITY, TILT_FAST,
   dragTarget, parseDelay, parseDepth, parsePersonality, revealFast, revealPose, revealSlow, revealSpring, revealStart, scrollDirection, staggerDelay, velocityBlend,

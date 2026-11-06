@@ -1,6 +1,6 @@
 import { dataAttr, requireSurface, type Flavor } from "../engine/flavor";
 import { glassFlavor } from "../glass/flavor";
-import { createBrowserEnvironment, type LqgEnvironment } from "./env";
+import { createBrowserEnvironment, type LqgEnvironment } from "../engine/env";
 import { createSurface, type SurfaceController, type SurfaceNeighbor, type SurfaceOptions, type SurfacePointerEvent } from "./surface";
 
 // The names below are the glass values, kept as exports so old call sites keep working.

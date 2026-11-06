@@ -3,9 +3,9 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { installDelegation, type DelegateOptions, type DelegateRoot } from "../core/delegate";
 import { browserDetectionEnvironment, detectRefraction, type DetectionEnvironment, type RefractionSetting } from "../core/detect";
-import { createBrowserEnvironment, type LqgEnvironment } from "../core/env";
+import { createBrowserEnvironment, type LqgEnvironment } from "../engine/env";
 import type { Flavor } from "../engine/flavor";
-import { guardedSetup } from "../core/guard";
+import { guardedSetup } from "../engine/guard";
 
 /** Set on the root element: `refract` when this browser draws SVG backdrop refraction, `blur` when it does not. */
 export const MODE_ATTRIBUTE = "data-lqg-mode";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { glassFlavor } from "../src/glass/flavor";
-import * as spring from "../src/core/spring";
+import * as spring from "../src/engine/spring";
 import * as legacy from "./golden/legacy/spring";
 
 describe("spring keeps its old exports", () => {

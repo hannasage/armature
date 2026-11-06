@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createBrowserScrollEnvironment } from "../src/core/scroll-env";
+import { createBrowserScrollEnvironment } from "../src/engine/scroll-env";
 
 /** A window with only what the adapter reads. The decisions live in the controllers and are tested there. */
 function fakeWindow(options: { reduced?: boolean; observer?: boolean; hidden?: boolean } = {}) {

@@ -16,12 +16,12 @@ import * as motion from "./legacy/scroll-motion";
 import { createScrollReveal, startScrollReveal } from "./legacy/scroll-reveal";
 import * as spring from "./legacy/spring";
 import { createSurface } from "./legacy/surface";
-import { guardedSetup as newGuardedSetup } from "../../src/core/guard";
+import { guardedSetup as newGuardedSetup } from "../../src/engine/guard";
 import { createLens as newCreateLens } from "../../src/core/lens";
 import { mountScrollReveal as newMountScrollReveal } from "../../src/core/scroll-mount";
 import * as newMotion from "../../src/core/scroll-motion";
 import { createScrollReveal as newCreateScrollReveal, startScrollReveal as newStartScrollReveal } from "../../src/core/scroll-reveal";
-import * as newSpring from "../../src/core/spring";
+import * as newSpring from "../../src/engine/spring";
 import { createSurface as newCreateSurface } from "../../src/core/surface";
 
 /** The pieces of the code the harness drives. The signatures are the ones the code had before the extraction. */

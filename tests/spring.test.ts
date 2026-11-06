@@ -15,7 +15,7 @@ import {
   stiff,
   type SpringConfig,
   type SpringState,
-} from "../src/core/spring";
+} from "../src/engine/spring";
 
 /** Steps in 1/60 s frames until rest. Returns the frames used, the highest value seen, and the end state. */
 function run(config: SpringConfig, from: number, to: number, frameSeconds = 1 / 60, limit = 20_000) {

@@ -1,7 +1,7 @@
 import { cssVar, dataAttr, requireLens, springOf, type Flavor } from "../engine/flavor";
 import { glassFlavor } from "../glass/flavor";
-import { createBrowserEnvironment, prefersReducedMotion, type LqgEnvironment, type LqgTarget } from "./env";
-import { createSpring, isAtRest, MAX_FRAME, retarget, stepSpring, type SpringConfig, type SpringState } from "./spring";
+import { createBrowserEnvironment, prefersReducedMotion, type LqgEnvironment, type LqgTarget } from "../engine/env";
+import { createSpring, isAtRest, MAX_FRAME, retarget, stepSpring, type SpringConfig, type SpringState } from "../engine/spring";
 
 /** A box in the container's own coordinates, like `offsetLeft`, `offsetTop`, `offsetWidth`, and `offsetHeight`. */
 export interface LensBox {

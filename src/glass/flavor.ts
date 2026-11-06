@@ -8,7 +8,7 @@
  */
 import type { FeelOptions, Flavor, LensFlavor, PersonalitySpec, RevealFlavor, StartContext, StartInput, SurfaceFlavor } from "../engine/flavor";
 import { lerp } from "../engine/math";
-import type { SpringConfig } from "../core/spring";
+import type { SpringConfig } from "../engine/spring";
 import type { RevealPersonality } from "../core/scroll-motion";
 
 const freeze = (config: SpringConfig): Readonly<SpringConfig> => Object.freeze({ ...config });

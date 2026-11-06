@@ -8,7 +8,7 @@
  *
  * This file holds types and small pure helpers only.
  */
-import type { SpringConfig } from "../core/spring";
+import type { SpringConfig } from "./spring";
 import type { SurfaceOptions } from "../core/surface";
 
 /** The options one named feel sets for a surface. */

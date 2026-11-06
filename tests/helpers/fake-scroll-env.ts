@@ -1,4 +1,4 @@
-import type { LqgScrollEnvironment, ScrollElement, ScrollEntry, ScrollObserver, ScrollRoot } from "../../src/core/scroll-env";
+import type { LqgScrollEnvironment, ScrollElement, ScrollEntry, ScrollObserver, ScrollRoot } from "../../src/engine/scroll-env";
 
 /** A page stand-in for the scroll controllers: a manual clock and frame queue, a scroll position, and a record of every write. */
 export class FakeScrollEnv implements LqgScrollEnvironment {

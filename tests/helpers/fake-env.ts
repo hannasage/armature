@@ -1,4 +1,4 @@
-import type { LqgEnvironment, LqgTarget } from "../../src/core/env";
+import type { LqgEnvironment, LqgTarget } from "../../src/engine/env";
 
 /** A browser stand-in: a manual clock, a manual frame queue, and a record of every write. */
 export class FakeEnv implements LqgEnvironment {
