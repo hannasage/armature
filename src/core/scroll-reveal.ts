@@ -20,7 +20,7 @@
  * A hidden tab pauses the loop. Turning reduced motion on stops the controller and shows everything. Turning it off does not arm
  * it again: that is deliberate, because content a reader already sees stays visible.
  */
-import { cssVar, dataAttr, logTag, personalityOf, requireReveal, type Flavor } from "../engine/flavor";
+import { cssVar, dataAttr, logTag, personalityOf, requireReveal, type Flavor, type PersonalitySpec } from "../engine/flavor";
 import { glassFlavor } from "../glass/flavor";
 import { prefersReducedMotion } from "./env";
 import { createSpring, MAX_FRAME, retarget, stepSpring, type SpringConfig, type SpringState } from "./spring";
@@ -136,6 +136,10 @@ interface Drag {
   turn: SpringState;
   inView: boolean;
   live: boolean;
+}
+
+function assertNever(value: never): never {
+  throw new TypeError(`Unknown reveal spring kind: ${String(value)}.`);
 }
 
 const number = (value: number, digits: number) => String(Number(value.toFixed(digits)));
@@ -324,6 +328,15 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
 
   // ---- reveal ----
 
+  /** The spring a personality asks for: the speed-blended one, or the calm one. */
+  const springFor = (kind: PersonalitySpec["spring"], speed: number): SpringConfig => {
+    switch (kind) {
+      case "speed": return revealSpring(speed, flavor);
+      case "calm": return config.springs.calm;
+      default: return assertNever(kind);
+    }
+  };
+
   const startOffsetFor = (personality: string) => revealStart({ personality, velocity: 0 }, flavor);
 
   /** Hidden: opacity 0 and the start offset of a slow scroll. A `mask` hides its box only, and its lines are placed when it starts. */
@@ -349,7 +362,7 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
     const element = target.element;
     const speed = velocity?.read() ?? 0;
     const spec = specOf(target.personality);
-    const springConfig: SpringConfig = spec.spring === "calm" ? config.springs.calm : revealSpring(speed, flavor);
+    const springConfig = springFor(spec.spring, speed);
     const delay = (inGroup ? staggerDelayFor(batchIndex, flavor) : 0) + delayOf(element);
     const makeSpring = () => retarget(createSpring(springConfig, 0), 1);
     const runs: Run[] = [];

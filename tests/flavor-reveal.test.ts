@@ -179,6 +179,21 @@ describe("a controller with another flavor", () => {
     expect(JSON.stringify([env.styleWrites.map((w) => [w.property, w.value]), [...env.attrs.values()]])).not.toContain("lqg");
   });
 
+  it("a personality with an unknown spring kind stops the controller, shows everything, and logs", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { env, root } = scene();
+    const odd = { ...acme, reveal: { ...acme.reveal, personalities: { ...acme.reveal.personalities, pop: { ...acme.reveal.personalities.pop, spring: "weird" as never } } } };
+    const pop = new FakeElement({ "data-acme-enter": "pop" }, rect(1000));
+    root.members = [pop];
+    const controller = reveal.createScrollReveal({ root, env, flavor: odd });
+    controller.start();
+    env.enter({ target: pop });
+    expect(controller.armed).toBe(false);
+    expect(env.styles.get(pop)).toEqual({});
+    expect(String(spy.mock.calls[0]?.[0])).toBe("[acme-motion] the reveal observer failed; every element is shown instead.");
+    expect(String((spy.mock.calls[0]?.[1] as Error).message)).toBe("Unknown reveal spring kind: weird.");
+  });
+
   it("fails with a clear error when the flavor has no reveal part", () => {
     const { env, root } = scene();
     const bare: Flavor = { name: "bare", prefix: "zz", logLabel: "bare", springs: {} };
