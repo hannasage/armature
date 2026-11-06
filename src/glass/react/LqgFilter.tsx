@@ -1,4 +1,4 @@
-import type { GlassFilter } from "../glass/filter";
+import type { GlassFilter } from "../filter";
 
 /**
  * Puts a glass filter's hidden `<svg>` in the page, so `backdrop-filter: url(#id)` can find it. Render it once

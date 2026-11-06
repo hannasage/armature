@@ -2,6 +2,6 @@
 export { LqgProvider, MODE_ATTRIBUTE, type LqgProviderProps } from "./LqgProvider";
 export { useLqgSurface } from "./useLqgSurface";
 export { useLqgLens, type LensHandle } from "./useLqgLens";
-export { LqgFilter } from "./LqgFilter";
+export { LqgFilter } from "../glass/react/LqgFilter";
 export { useLqgReveal, type UseLqgRevealOptions } from "./useLqgReveal";
 export { LqgRevealProvider, type LqgRevealProviderProps } from "./LqgRevealProvider";
