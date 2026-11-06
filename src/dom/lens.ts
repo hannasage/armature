@@ -1,5 +1,4 @@
 import { cssVar, dataAttr, requireLens, springOf, type Flavor } from "../engine/flavor";
-import { glassFlavor } from "../glass/flavor";
 import { createBrowserEnvironment, prefersReducedMotion, type LqgEnvironment, type LqgTarget } from "../engine/env";
 import { createSpring, isAtRest, MAX_FRAME, retarget, stepSpring, type SpringConfig, type SpringState } from "../engine/spring";
 
@@ -27,8 +26,8 @@ export interface LensOptions {
   measure(): LensBox | null;
   /** Defaults to the real browser. A test passes a fake. */
   env?: LqgEnvironment;
-  /** The names, springs, and numbers to use. Default: the glass flavor. It needs a lens part. */
-  flavor?: Flavor;
+  /** The names, springs, and numbers to use. Required. It needs a lens part. */
+  flavor: Flavor;
   jumpRules?: LensJumpRules;
   /** Springs for the position and the width. Defaults: the flavor's two lens springs (`lensX` and `lensWidth` for glass), with pixel rest thresholds. */
   springs?: { x?: SpringConfig; width?: SpringConfig };
@@ -85,7 +84,7 @@ const ratio = (value: number) => String(Number(value.toFixed(4)));
  */
 export function createLens(options: LensOptions): Lens {
   const env = options.env ?? createBrowserEnvironment();
-  const flavor = options.flavor ?? glassFlavor;
+  const flavor = options.flavor;
   const config = requireLens(flavor);
   const varNames = {
     x: cssVar(flavor, config.vars.x),

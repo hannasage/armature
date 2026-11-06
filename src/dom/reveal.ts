@@ -21,7 +21,6 @@
  * it again: that is deliberate, because content a reader already sees stays visible.
  */
 import { cssVar, dataAttr, logTag, personalityOf, requireReveal, type Flavor, type PersonalitySpec } from "../engine/flavor";
-import { glassFlavor } from "../glass/flavor";
 import { prefersReducedMotion } from "../engine/env";
 import { createSpring, MAX_FRAME, retarget, stepSpring, type SpringConfig, type SpringState } from "../engine/spring";
 import { createBrowserScrollEnvironment, type LqgScrollEnvironment, type ScrollElement, type ScrollEntry, type ScrollObserver, type ScrollRoot } from "../engine/scroll-env";
@@ -31,46 +30,21 @@ import {
 } from "./reveal-motion";
 import { createScrollVelocity, type ScrollVelocity } from "../engine/scroll-velocity";
 
-// The names and numbers below are the glass values, kept as exports so old call sites keep working.
-// A controller reads its own flavor, which is glass unless `options.flavor` says otherwise.
-const glass = glassFlavor.reveal;
-
-export const REVEAL_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.reveal);
-export const REVEAL_GROUP_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.group);
-export const REVEAL_DELAY_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.delay);
-/** Set on an element when it has been decided: `now` when it was shown at once, `true` when it was sprung in. */
-export const REVEALED_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.revealed);
-export const DRAG_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.drag);
-export const DEPTH_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.depth);
-/** The most a `drop` tilts, in degrees. */
-export const TILT_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.tilt);
-/** `left` or `right`: which side a `slide` comes from. Without it, a slide alternates by its index in the group. */
-export const SIDE_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.side);
-/** Marks a line of a `mask` heading. The lines rise one after another through the clip of the heading. */
-export const LINE_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.line);
-/** Written on a revealed element: the stagger it started with, as a record. */
-export const REVEAL_DELAY_PROPERTY = cssVar(glassFlavor, glass.delayProperty);
-
-export const SAFETY_MS = glass.safetyMs;
-/** An element whose top is in the lowest 8 percent of the viewport still waits, so a reveal is seen and not spent at the screen edge. */
-export const FOLD_PERCENT = glass.foldPercent;
-
 /** The root margin of the intersection observer for a flavor: the fold, as a negative bottom margin. */
-export function revealRootMargin(flavor: Flavor = glassFlavor): string {
+export function revealRootMargin(flavor: Flavor): string {
   return `0px 0px -${requireReveal(flavor).foldPercent}% 0px`;
 }
-export const ROOT_MARGIN = revealRootMargin(glassFlavor);
 
-/** True when a top edge is in the lowest part of the viewport (8 percent for glass), or past it. Integer math, so 900 px gives exactly 828. */
-export function belowFold(top: number, viewportHeight: number, flavor: Flavor = glassFlavor): boolean {
+/** True when a top edge is in the lowest part of the viewport (8 percent for the glass flavor), or past it. Integer math, so 900 px gives exactly 828. */
+export function belowFold(top: number, viewportHeight: number, flavor: Flavor): boolean {
   return top * 100 >= viewportHeight * (100 - requireReveal(flavor).foldPercent);
 }
 
 export interface ScrollRevealOptions {
   /** The elements to watch are found under this root. */
   root: ScrollRoot;
-  /** The names and numbers to use. Default: the glass flavor. It needs a reveal part. */
-  flavor?: Flavor;
+  /** The names and numbers to use. Required. It needs a reveal part. */
+  flavor: Flavor;
   /** Defaults to the real browser, made when the controller is made. A test passes a fake. */
   env?: LqgScrollEnvironment;
   /** Which elements are reveal targets. Default `[data-lqg-reveal]`. A site that keeps its own attributes lists them here. */
@@ -147,7 +121,7 @@ const number = (value: number, digits: number) => String(Number(value.toFixed(di
 export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealController {
   const env = options.env ?? createBrowserScrollEnvironment();
   const root = options.root;
-  const flavor = options.flavor ?? glassFlavor;
+  const flavor = options.flavor;
   const config = requireReveal(flavor);
   const attribute = (name: string) => dataAttr(flavor, name);
   const revealAttribute = attribute(config.attributes.reveal);
@@ -621,8 +595,8 @@ export function createScrollReveal(options: ScrollRevealOptions): ScrollRevealCo
 export interface GuardedStartOptions {
   /** Where it failed, for the log line. */
   context?: string;
-  /** Its label starts the default log line. Default: the glass flavor. */
-  flavor?: Flavor;
+  /** Its label starts the default log line. Required. */
+  flavor: Flavor;
   /** Called with the error. Default: `console.error`. */
   report?(error: unknown, context: string): void;
 }
@@ -633,9 +607,9 @@ export interface GuardedStartOptions {
  * visible and any armed marker is removed, and it logs the error with its context. It returns the controller, or null when it
  * could not even be made.
  */
-export function startScrollReveal(create: () => ScrollRevealController, options: GuardedStartOptions = {}): ScrollRevealController | null {
+export function startScrollReveal(create: () => ScrollRevealController, options: GuardedStartOptions): ScrollRevealController | null {
   const context = options.context ?? "scroll reveal";
-  const report = options.report ?? ((error: unknown, where: string) => console.error(`${logTag(options.flavor ?? glassFlavor)} ${where} failed to start; every element is shown instead.`, error));
+  const report = options.report ?? ((error: unknown, where: string) => console.error(`${logTag(options.flavor)} ${where} failed to start; every element is shown instead.`, error));
   let controller: ScrollRevealController | undefined;
   try {
     controller = create();

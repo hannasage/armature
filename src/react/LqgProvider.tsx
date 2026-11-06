@@ -6,6 +6,7 @@ import { browserDetectionEnvironment, detectRefraction, type DetectionEnvironmen
 import { createBrowserEnvironment, type LqgEnvironment } from "../engine/env";
 import type { Flavor } from "../engine/flavor";
 import { guardedSetup } from "../engine/guard";
+import { glassFlavor } from "../glass/flavor";
 
 /** Set on the root element: `refract` when this browser draws SVG backdrop refraction, `blur` when it does not. */
 export const MODE_ATTRIBUTE = "data-lqg-mode";
@@ -38,12 +39,12 @@ export function LqgProvider(props: LqgProviderProps) {
   const initial = useRef(props);
 
   useEffect(() => guardedSetup("glass delegation", () => {
-    const { env: given, root: givenRoot, surface, flavor } = initial.current;
+    const { env: given, root: givenRoot, surface, flavor = glassFlavor } = initial.current;
     const root = givenRoot ?? (typeof document === "undefined" ? undefined : (document as unknown as DelegateRoot));
     if (!root) return;
     const delegate = installDelegation(root, { env: given ?? createBrowserEnvironment(), surface, flavor });
     return () => delegate.destroy();
-  }, undefined, initial.current.flavor), []);
+  }, undefined, initial.current.flavor ?? glassFlavor), []);
 
   const { refraction } = props;
   useEffect(() => guardedSetup("glass mode", () => {
@@ -54,7 +55,7 @@ export function LqgProvider(props: LqgProviderProps) {
     const refracts = detectRefraction(detection ?? browserDetectionEnvironment(), { refraction });
     env.setAttribute(element, MODE_ATTRIBUTE, refracts ? "refract" : "blur");
     return () => env.setAttribute(element, MODE_ATTRIBUTE, null);
-  }), [refraction]);
+  }, undefined, glassFlavor), [refraction]);
 
   return <>{props.children}</>;
 }

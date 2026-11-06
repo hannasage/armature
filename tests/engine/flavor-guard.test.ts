@@ -9,9 +9,9 @@ afterEach(() => vi.restoreAllMocks());
 const boom = new Error("boom");
 
 describe("the log label", () => {
-  it("is [liquid-glass] without a flavor, the same text as the legacy code", () => {
+  it("is [liquid-glass] for the glass flavor, the same text as the legacy code", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    guardedSetup("glass mode", () => { throw boom; })();
+    guardedSetup("glass mode", () => { throw boom; }, undefined, glassFlavor)();
     legacyGuardedSetup("glass mode", () => { throw boom; })();
     expect(spy.mock.calls).toHaveLength(2);
     expect(spy.mock.calls[0]).toEqual(["[liquid-glass] glass mode failed to start and was skipped.", boom]);

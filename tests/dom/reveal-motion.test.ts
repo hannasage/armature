@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createSpring, retarget, stepSpring } from "../../src/engine/spring";
-import {
-  DRAG_ROTATE_MAX, DRAG_SHIFT_MAX, FAST_VELOCITY, OFFSET_FAST, OFFSET_SLOW, REST_POSE, SLOW_VELOCITY, TILT_FAST,
-  dragTarget, parseDelay, parseDepth, parsePersonality, revealFast, revealPose, revealSlow, revealSpring, revealStart, scrollDirection, staggerDelay, velocityBlend,
-} from "../../src/dom/reveal-motion";
+import { REST_POSE, scrollDirection } from "../../src/dom/reveal-motion";
+import { DRAG_ROTATE_MAX, DRAG_SHIFT_MAX, FAST_VELOCITY, SLOW_VELOCITY, staggerDelay } from "../../src/glass/constants";
+import { OFFSET_FAST, OFFSET_SLOW, TILT_FAST } from "../../src/glass/flavor";
+import { revealFast, revealSlow } from "../../src/glass/springs";
+import { dragTarget, parseDelay, parseDepth, parsePersonality, revealPose, revealSpring, revealStart, velocityBlend } from "../helpers/glass";
 
 /** The peak overshoot of a spring from 0 to 1, as a share of the travel, stepped at 60 frames per second. */
 function overshoot(config: ReturnType<typeof revealSpring>) {

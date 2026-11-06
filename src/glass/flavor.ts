@@ -9,7 +9,10 @@
 import type { FeelOptions, Flavor, LensFlavor, PersonalitySpec, RevealFlavor, StartContext, StartInput, SurfaceFlavor } from "../engine/flavor";
 import { lerp } from "../engine/math";
 import type { SpringConfig } from "../engine/spring";
-import type { RevealPersonality } from "../dom/reveal-motion";
+
+/** The four ways a glass piece can arrive. */
+export type RevealPersonality = "drop" | "mask" | "slide" | "fade";
+export const REVEAL_PERSONALITIES: readonly RevealPersonality[] = ["drop", "mask", "slide", "fade"];
 
 const freeze = (config: SpringConfig): Readonly<SpringConfig> => Object.freeze({ ...config });
 

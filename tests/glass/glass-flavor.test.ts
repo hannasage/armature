@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { cssVar, dataAttr, logTag, type Flavor } from "../../src/engine/flavor";
 import { glassFlavor } from "../../src/glass/flavor";
-import { LQG_PREFIX } from "../../src/index";
+import { LQG_PREFIX } from "../../src/glass/constants";
 import * as legacyDelegate from "../golden/legacy/delegate";
 import * as legacyMotion from "../golden/legacy/scroll-motion";
 import * as legacyReveal from "../golden/legacy/scroll-reveal";

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createLens, type LensBox } from "../../src/dom/lens";
 import type { Flavor } from "../../src/engine/flavor";
+import { glassFlavor } from "../../src/glass/flavor";
 import { FakeEnv } from "../helpers/fake-env";
 import { acme } from "../helpers/other-flavor";
 
@@ -8,7 +9,7 @@ function make(flavor?: Flavor, extra: Partial<Parameters<typeof createLens>[0]> 
   const env = new FakeEnv();
   const container = {};
   let box: LensBox | null = { x: 10, y: 4, w: 80, h: 32 };
-  const lens = createLens({ container, env, measure: () => box, ...(flavor ? { flavor } : {}), ...extra });
+  const lens = createLens({ container, env, measure: () => box, flavor: flavor ?? glassFlavor, ...extra });
   return { env, container, lens, move: (next: LensBox | null) => { box = next; } };
 }
 

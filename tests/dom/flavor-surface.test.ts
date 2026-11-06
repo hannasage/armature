@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { attachSurface, createSurface } from "../../src/dom/surface";
 import type { Flavor } from "../../src/engine/flavor";
+import { glassFlavor } from "../../src/glass/flavor";
 import { FakeEnv } from "../helpers/fake-env";
 import { acme } from "../helpers/other-flavor";
 
@@ -8,10 +9,10 @@ const box = (left: number, top: number) => ({ getBoundingClientRect: () => ({ le
 const press = { clientX: 50, clientY: 20, pointerType: "mouse", isPrimary: true, button: 0 };
 
 /** A pointer that enters and moves over the element, with the frames run until the motion settles. */
-function hover(options: Parameters<typeof createSurface>[1]) {
+function hover(options: Partial<Parameters<typeof createSurface>[1]>) {
   const env = new FakeEnv();
   const element = box(0, 0);
-  const surface = createSurface(element, { env, ...options });
+  const surface = createSurface(element, { env, flavor: glassFlavor, ...options });
   surface.move({ clientX: 100, clientY: 40, pointerType: "mouse" });
   env.settle();
   return { env, element, surface };
@@ -88,12 +89,12 @@ describe("a surface with another flavor", () => {
     createSurface(flavorElement, { env: flavorEnv, flavor: acme, pressScale: 0.97, flex: 0.5 }).down({ ...press });
     const glassEnv = new FakeEnv();
     const glassElement = box(0, 0);
-    createSurface(glassElement, { env: glassEnv, springs: { press: { ...acme.springs.tap, ...rest }, release: { ...acme.springs.letgo, ...rest } } }).down({ ...press });
+    createSurface(glassElement, { env: glassEnv, flavor: glassFlavor, springs: { press: { ...acme.springs.tap, ...rest }, release: { ...acme.springs.letgo, ...rest } } }).down({ ...press });
     expect(trace(flavorEnv, flavorElement, "--acme-squeeze")).toEqual(trace(glassEnv, glassElement, "--lqg-press"));
 
     const plain = new FakeEnv();
     const plainElement = box(0, 0);
-    createSurface(plainElement, { env: plain }).down({ ...press });
+    createSurface(plainElement, { env: plain, flavor: glassFlavor }).down({ ...press });
     expect(trace(plain, plainElement, "--lqg-press")).not.toEqual(trace(glassEnv, glassElement, "--lqg-press"));
   });
 
@@ -101,7 +102,7 @@ describe("a surface with another flavor", () => {
     const follow = (flavor?: Flavor) => {
       const env = new FakeEnv();
       const element = box(0, 0);
-      const surface = createSurface(element, { env, ...(flavor ? { flavor } : {}), specularRest: { x: 0, y: 0 } });
+      const surface = createSurface(element, { env, flavor: flavor ?? glassFlavor, specularRest: { x: 0, y: 0 } });
       surface.move({ clientX: 100, clientY: 40, pointerType: "mouse" });
       env.tick(16);
       return Number.parseFloat(env.read(element, flavor ? "--acme-shine-x" : "--lqg-spec-x")!);

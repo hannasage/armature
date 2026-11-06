@@ -1,57 +1,65 @@
 import { describe, expect, it } from "vitest";
 import { glassFlavor } from "../../src/glass/flavor";
 import * as motion from "../../src/dom/reveal-motion";
+import * as glassConstants from "../../src/glass/constants";
+import * as glassValues from "../../src/glass/flavor";
+import * as glassSprings from "../../src/glass/springs";
+import * as glassBound from "../helpers/glass";
 import * as legacy from "../golden/legacy/scroll-motion";
 import { acme } from "../helpers/other-flavor";
 import type { Flavor } from "../../src/engine/flavor";
 
-describe("scroll-motion keeps its old exports", () => {
+// The old module held the functions and the glass constants. They live in several modules now, and the glass-bound helper
+// carries the call shapes without a flavor, so the old names are read from all of them together.
+const bound = { ...motion, ...glassValues, ...glassConstants, ...glassSprings, ...glassBound };
+
+describe("the reveal motion names keep their old values", () => {
   it("has every export the legacy module had, with the same value for each constant", () => {
     for (const [name, value] of Object.entries(legacy)) {
-      expect(name in motion, name).toBe(true);
-      const now = (motion as Record<string, unknown>)[name];
+      expect(name in bound, name).toBe(true);
+      const now = (bound as Record<string, unknown>)[name];
       if (typeof value === "function") expect(typeof now, name).toBe("function");
       else expect(now, name).toStrictEqual(value);
     }
   });
   it("keeps frozen springs", () => {
-    for (const name of ["revealSlow", "revealFast", "revealCalm", "dragSpring"] as const) expect(Object.isFrozen(motion[name]), name).toBe(true);
+    for (const name of ["revealSlow", "revealFast", "revealCalm", "dragSpring"] as const) expect(Object.isFrozen(bound[name]), name).toBe(true);
   });
 });
 
-describe("without a flavor the functions are the glass functions", () => {
+describe("the glass-bound functions are the glass functions", () => {
   const velocities = [-50_000, -3200, -1800, -400, -1, 0, 1, 399, 400, 1000, 1800, 3199, 3200, 9000, Number.NaN, Infinity];
   it("velocityBlend, revealSpring, and dragTarget match the legacy functions", () => {
     for (const velocity of velocities) {
-      expect(motion.velocityBlend(velocity), `blend ${velocity}`).toBe(legacy.velocityBlend(velocity));
-      expect(motion.revealSpring(velocity), `spring ${velocity}`).toStrictEqual(legacy.revealSpring(velocity));
-      for (const depth of [0, 0.4, 0.7, 1, 3, Number.NaN]) expect(motion.dragTarget(velocity, depth), `drag ${velocity} ${depth}`).toStrictEqual(legacy.dragTarget(velocity, depth));
+      expect(bound.velocityBlend(velocity), `blend ${velocity}`).toBe(legacy.velocityBlend(velocity));
+      expect(bound.revealSpring(velocity), `spring ${velocity}`).toStrictEqual(legacy.revealSpring(velocity));
+      for (const depth of [0, 0.4, 0.7, 1, 3, Number.NaN]) expect(bound.dragTarget(velocity, depth), `drag ${velocity} ${depth}`).toStrictEqual(legacy.dragTarget(velocity, depth));
     }
   });
   it("parsePersonality, parseDelay, parseDepth, and staggerDelay match the legacy functions", () => {
-    for (const value of [null, undefined, "", "drop", "mask", "slide", "fade", "wipe", "constructor", "__proto__", "toString"]) expect(motion.parsePersonality(value), String(value)).toBe(legacy.parsePersonality(value));
+    for (const value of [null, undefined, "", "drop", "mask", "slide", "fade", "wipe", "constructor", "__proto__", "toString"]) expect(bound.parsePersonality(value), String(value)).toBe(legacy.parsePersonality(value));
     for (const value of [null, undefined, "", " ", "0", "12.9", "-3", "2000", "99999", "abc", "NaN"]) {
-      expect(motion.parseDelay(value), `delay ${value}`).toBe(legacy.parseDelay(value));
-      expect(motion.parseDepth(value), `depth ${value}`).toBe(legacy.parseDepth(value));
+      expect(bound.parseDelay(value), `delay ${value}`).toBe(legacy.parseDelay(value));
+      expect(bound.parseDepth(value), `depth ${value}`).toBe(legacy.parseDepth(value));
     }
-    for (const index of [-1, 0, 0.5, 1, 5, 6, 7, 100, Number.NaN, Infinity]) expect(motion.staggerDelay(index), `stagger ${index}`).toBe(legacy.staggerDelay(index));
+    for (const index of [-1, 0, 0.5, 1, 5, 6, 7, 100, Number.NaN, Infinity]) expect(bound.staggerDelay(index), `stagger ${index}`).toBe(legacy.staggerDelay(index));
   });
   it("revealPose matches the legacy function across the progress range", () => {
     const start = { x: 12, y: -34, scale: 0.9, rotate: 2 };
-    for (let p = -0.5; p <= 1.6; p += 0.05) expect(motion.revealPose(start, p), `p ${p}`).toStrictEqual(legacy.revealPose(start, p));
-    expect(motion.revealPose(start, 1)).toStrictEqual(legacy.revealPose(start, 1));
+    for (let p = -0.5; p <= 1.6; p += 0.05) expect(bound.revealPose(start, p), `p ${p}`).toStrictEqual(legacy.revealPose(start, p));
+    expect(bound.revealPose(start, 1)).toStrictEqual(legacy.revealPose(start, 1));
   });
   it("revealStart matches the legacy function and an explicit glass flavor", () => {
     for (const personality of legacy.REVEAL_PERSONALITIES) {
       for (const velocity of velocities) {
         const input = { personality, velocity, index: 1, tilt: 2, height: 40 };
-        expect(motion.revealStart(input)).toStrictEqual(legacy.revealStart(input));
+        expect(bound.revealStart(input)).toStrictEqual(legacy.revealStart(input));
         expect(motion.revealStart(input, glassFlavor)).toStrictEqual(legacy.revealStart(input));
       }
     }
   });
   it("staggerDelay can still be passed to map", () => {
-    expect([0, 1, 2, 9].map(motion.staggerDelay)).toEqual([0, 60, 120, 360]);
+    expect([0, 1, 2, 9].map(bound.staggerDelay)).toEqual([0, 60, 120, 360]);
   });
 });
 
@@ -92,7 +100,7 @@ describe("with another flavor the functions read that flavor", () => {
     const start = { x: 0, y: 10, scale: 1, rotate: 0 };
     expect(motion.revealPose(start, 0.25, acme).opacity).toBe(0.5);
     expect(motion.revealPose(start, 0.5, acme).opacity).toBe(1);
-    expect(motion.revealPose(start, 0.25).opacity).toBeCloseTo(0.25 / 0.6, 12);
+    expect(bound.revealPose(start, 0.25).opacity).toBeCloseTo(0.25 / 0.6, 12);
   });
   it("parseDepth and dragTarget use the flavor's range and limits", () => {
     expect(motion.parseDepth(null, acme)).toBe(1);

@@ -16,14 +16,16 @@ import * as motion from "./legacy/scroll-motion";
 import { createScrollReveal, startScrollReveal } from "./legacy/scroll-reveal";
 import * as spring from "./legacy/spring";
 import { createSurface } from "./legacy/surface";
-import { guardedSetup as newGuardedSetup } from "../../src/engine/guard";
-import { createLens as newCreateLens } from "../../src/dom/lens";
-import { mountScrollReveal as newMountScrollReveal } from "../../src/dom/reveal-mount";
-import * as newMotion from "../../src/dom/reveal-motion";
-import { createScrollReveal as newCreateScrollReveal, startScrollReveal as newStartScrollReveal } from "../../src/dom/reveal";
 import * as newSpring from "../../src/engine/spring";
 import * as newPresets from "../../src/glass/springs";
-import { createSurface as newCreateSurface } from "../../src/dom/surface";
+import {
+  createLens as newCreateLens,
+  createScrollReveal as newCreateScrollReveal,
+  createSurface as newCreateSurface,
+  guardedSetup as newGuardedSetup,
+  mountScrollReveal as newMountScrollReveal,
+  startScrollReveal as newStartScrollReveal,
+} from "../helpers/glass";
 
 /** The pieces of the code the harness drives. The signatures are the ones the code had before the extraction. */
 export interface Port {
@@ -76,10 +78,10 @@ export const newPort: Port = {
     release: newPresets.release,
     gentle: newPresets.gentle,
     stiff: newPresets.stiff,
-    revealSlow: newMotion.revealSlow,
-    revealFast: newMotion.revealFast,
-    revealCalm: newMotion.revealCalm,
-    dragSpring: newMotion.dragSpring,
+    revealSlow: newPresets.revealSlow,
+    revealFast: newPresets.revealFast,
+    revealCalm: newPresets.revealCalm,
+    dragSpring: newPresets.dragSpring,
   },
   createSurface: newCreateSurface,
   createLens: newCreateLens,

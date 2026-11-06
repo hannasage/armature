@@ -4,7 +4,6 @@
  * (`startScrollReveal`).
  */
 import { logTag } from "../engine/flavor";
-import { glassFlavor } from "../glass/flavor";
 import { createScrollReveal, startScrollReveal, type GuardedStartOptions, type ScrollRevealOptions } from "./reveal";
 import type { ScrollRoot } from "../engine/scroll-env";
 
@@ -18,8 +17,8 @@ export interface MountScrollRevealOptions extends Omit<ScrollRevealOptions, "roo
   armedClass?: string;
 }
 
-export function mountScrollReveal(host: RevealHost, options: MountScrollRevealOptions = {}): () => void {
-  const { armedClass, context, report, onArm, onDisarm, flavor = glassFlavor, ...rest } = options;
+export function mountScrollReveal(host: RevealHost, options: MountScrollRevealOptions): () => void {
+  const { armedClass, context, report, onArm, onDisarm, flavor, ...rest } = options;
   const complain = report ?? ((error: unknown, where: string) => console.error(`${logTag(flavor)} ${where} failed; every element is shown instead.`, error));
   const controller = startScrollReveal(
     () => createScrollReveal({

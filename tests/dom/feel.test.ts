@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { FEELS, installDelegation } from "../../src/dom/delegate";
+import { FEELS } from "../../src/glass/constants";
+import { installDelegation } from "../helpers/glass";
 import { FakeNode, FakeRoot } from "../helpers/fake-dom";
 import { FakeEnv } from "../helpers/fake-env";
 

@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, type RefObject } from "react";
 import { guardedSetup } from "../engine/guard";
+import type { Flavor } from "../engine/flavor";
+import { glassFlavor } from "../glass/flavor";
 import { attachSurface, type Surface, type SurfaceOptions } from "../dom/surface";
 
 /**
@@ -10,7 +12,9 @@ import { attachSurface, type Surface, type SurfaceOptions } from "../dom/surface
  *
  * Use this or `LqgProvider` with `data-lqg` for an element, not both.
  */
-export function useLqgSurface(ref: RefObject<HTMLElement | null>, options: SurfaceOptions = {}): RefObject<Surface | null> {
+export type UseLqgSurfaceOptions = Omit<SurfaceOptions, "flavor"> & { flavor?: Flavor };
+
+export function useLqgSurface(ref: RefObject<HTMLElement | null>, options: UseLqgSurfaceOptions = {}): RefObject<Surface | null> {
   const surface = useRef<Surface | null>(null);
   const initial = useRef(options);
 
@@ -18,14 +22,15 @@ export function useLqgSurface(ref: RefObject<HTMLElement | null>, options: Surfa
     const element = ref.current;
     if (!element) return;
     // A failed start (for example a flavor with no surface part) is logged and skipped, so it cannot reach React's error boundary.
+    const flavor = initial.current.flavor ?? glassFlavor;
     return guardedSetup("glass surface", () => {
-      const attached = attachSurface(element, initial.current);
+      const attached = attachSurface(element, { ...initial.current, flavor });
       surface.current = attached;
       return () => {
         attached.destroy();
         surface.current = null;
       };
-    }, undefined, initial.current.flavor);
+    }, undefined, flavor);
   }, [ref]);
 
   return surface;

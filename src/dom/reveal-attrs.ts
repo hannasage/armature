@@ -2,33 +2,38 @@
  * Attribute helpers for server markup (GI-70). A server component spreads these onto an element, so the markup names its own
  * personality, delay, and drag depth. They are plain objects and need no browser.
  *
- * Each helper takes an optional flavor as its last argument and defaults to glass. The old constants stay as the glass values.
+ * Each helper takes the flavor as its last argument. The glass flavor binds them in `glass/reveal-attrs.ts`.
  */
 import { dataAttr, requireReveal, type Flavor } from "../engine/flavor";
 import { clamp } from "../engine/math";
-import { glassFlavor } from "../glass/flavor";
-import type { RevealPersonality } from "./reveal-motion";
 
 export type LqgRevealAttributes = Record<string, string>;
 
+export interface RevealAttributeOptions {
+  delayMs?: number;
+  tilt?: number;
+  side?: "left" | "right";
+}
+
 /**
- * `data-lqg-reveal`, with an optional extra delay in ms (0 to 2000), for a `drop` a larger tilt in degrees (up to 4), and for a `slide`
- * the side it comes from (`left` or `right`, otherwise it alternates by its index in the group). The names and limits come from the flavor.
+ * The reveal attribute, with an optional extra delay in ms (up to the flavor's limit), for a tilting personality a larger tilt in degrees
+ * (up to the flavor's limit), and for a sliding one the side it comes from (`left` or `right`, otherwise it alternates by its index in
+ * the group). The names and limits come from the flavor.
  */
-export function lqgReveal(personality: RevealPersonality, options?: { delayMs?: number; tilt?: number; side?: "left" | "right" }): LqgRevealAttributes;
-export function lqgReveal<P extends string>(personality: P, options: { delayMs?: number; tilt?: number; side?: "left" | "right" } | undefined, flavor: Flavor<P>): LqgRevealAttributes;
-export function lqgReveal(personality: string, options: { delayMs?: number; tilt?: number; side?: "left" | "right" } = {}, flavor: Flavor = glassFlavor): LqgRevealAttributes {
+export function revealAttributes<P extends string>(personality: P, options: RevealAttributeOptions | undefined, flavor: Flavor<P>): LqgRevealAttributes;
+export function revealAttributes(personality: string, options: RevealAttributeOptions | undefined, flavor: Flavor): LqgRevealAttributes {
   const config = requireReveal(flavor);
+  const { delayMs, tilt, side } = options ?? {};
   const attributes: LqgRevealAttributes = { [dataAttr(flavor, config.attributes.reveal)]: personality };
-  const delay = Number.isFinite(options.delayMs) ? Math.min(Math.max(Math.floor(options.delayMs!), 0), config.stagger.maxDelayMs) : 0;
+  const delay = Number.isFinite(delayMs) ? Math.min(Math.max(Math.floor(delayMs!), 0), config.stagger.maxDelayMs) : 0;
   if (delay > 0) attributes[dataAttr(flavor, config.attributes.delay)] = String(delay);
-  if (Number.isFinite(options.tilt) && options.tilt! > 0) attributes[dataAttr(flavor, config.attributes.tilt)] = String(Math.min(options.tilt!, config.tiltLimit));
-  if (options.side === "left" || options.side === "right") attributes[dataAttr(flavor, config.attributes.side)] = options.side;
+  if (Number.isFinite(tilt) && tilt! > 0) attributes[dataAttr(flavor, config.attributes.tilt)] = String(Math.min(tilt!, config.tiltLimit));
+  if (side === "left" || side === "right") attributes[dataAttr(flavor, config.attributes.side)] = side;
   return attributes;
 }
 
-/** `data-lqg-drag` with a depth factor from 0.4 to 1. The names and the range come from the flavor. */
-export function lqgDrag(depth: number, flavor: Flavor = glassFlavor): LqgRevealAttributes {
+/** The drag attribute with a depth factor inside the flavor's range. The names and the range come from the flavor. */
+export function dragAttributes(depth: number, flavor: Flavor): LqgRevealAttributes {
   const config = requireReveal(flavor);
   const { min, max } = config.drag.depth;
   const clamped = Number.isFinite(depth) ? clamp(depth, min, max) : min;
@@ -36,17 +41,11 @@ export function lqgDrag(depth: number, flavor: Flavor = glassFlavor): LqgRevealA
 }
 
 /** The attributes to put on a parent so the targets that arrive together stagger, for a flavor. */
-export function revealGroupAttributes(flavor: Flavor = glassFlavor): LqgRevealAttributes {
+export function revealGroupAttributes(flavor: Flavor): LqgRevealAttributes {
   return Object.freeze({ [dataAttr(flavor, requireReveal(flavor).attributes.group)]: "" });
 }
 
 /** The attributes to put on each line of a `mask` heading so the lines rise one after another, for a flavor. */
-export function revealLineAttributes(flavor: Flavor = glassFlavor): LqgRevealAttributes {
+export function revealLineAttributes(flavor: Flavor): LqgRevealAttributes {
   return Object.freeze({ [dataAttr(flavor, requireReveal(flavor).attributes.line)]: "" });
 }
-
-/** Put on a parent so the targets that arrive together stagger. */
-export const LQG_REVEAL_GROUP: LqgRevealAttributes = revealGroupAttributes(glassFlavor);
-
-/** Put on each line of a `mask` heading so the lines rise one after another. Give the line `display: block` (or inline-block). */
-export const LQG_LINE: LqgRevealAttributes = revealLineAttributes(glassFlavor);

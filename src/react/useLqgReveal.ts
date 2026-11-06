@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
+import type { Flavor } from "../engine/flavor";
 import { mountScrollReveal, type MountScrollRevealOptions } from "../dom/reveal-mount";
+import { glassFlavor } from "../glass/flavor";
 
-export type UseLqgRevealOptions = MountScrollRevealOptions;
+export type UseLqgRevealOptions = Omit<MountScrollRevealOptions, "flavor"> & { flavor?: Flavor };
 
 /**
  * Gives one element the spring scroll reveal and drag from `createScrollReveal`, and removes it on unmount. It watches every
@@ -17,6 +19,6 @@ export function useLqgReveal(ref: RefObject<HTMLElement | null>, options: UseLqg
   useEffect(() => {
     const host = ref.current;
     if (!host) return;
-    return mountScrollReveal(host, initial.current);
+    return mountScrollReveal(host, { ...initial.current, flavor: initial.current.flavor ?? glassFlavor });
   }, [ref]);
 }

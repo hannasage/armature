@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import * as delegate from "../../src/dom/delegate";
+import * as glassConstants from "../../src/glass/constants";
+import * as glassBound from "../helpers/glass";
 import { installDelegation, type DelegateOptions } from "../../src/dom/delegate";
 import type { LqgProviderProps } from "../../src/react";
 import type { Flavor } from "../../src/engine/flavor";
@@ -35,7 +36,10 @@ class AcmeRoot {
   }
 }
 
-describe("delegate keeps its old exports", () => {
+// The old module held the delegation and the glass names. The glass names live in glass/constants.ts now.
+const delegate = { ...glassConstants, ...glassBound };
+
+describe("the delegate names keep their old values", () => {
   it("has every legacy export, with the same value for each constant", () => {
     for (const [name, value] of Object.entries(legacy)) {
       expect(name in delegate, name).toBe(true);

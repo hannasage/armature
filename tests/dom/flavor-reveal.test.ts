@@ -2,12 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mountScrollReveal } from "../../src/dom/reveal-mount";
 import * as attrs from "../../src/dom/reveal-attrs";
 import * as reveal from "../../src/dom/reveal";
+import * as glassAttrs from "../../src/glass/reveal-attrs";
+import * as glassConstants from "../../src/glass/constants";
 import { glassFlavor } from "../../src/glass/flavor";
 import type { Flavor } from "../../src/engine/flavor";
 import * as legacyAttrs from "../golden/legacy/scroll-attrs";
 import * as legacyReveal from "../golden/legacy/scroll-reveal";
 import { acme } from "../helpers/other-flavor";
 import { FakeElement, FakeRoot, FakeScrollEnv } from "../helpers/fake-scroll-env";
+import * as glassBound from "../helpers/glass";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -21,9 +24,14 @@ function scene() {
   return { env, root };
 }
 
-describe("scroll-reveal and scroll-attrs keep their old exports", () => {
+// The old modules held the controller, the attribute builders, and the glass constants. They live in several modules now,
+// and the glass-bound helper carries the call shapes without a flavor, so the old names are read from all of them together.
+const revealNames = { ...reveal, ...glassConstants, ...glassBound };
+const attrNames = { ...attrs, ...glassAttrs };
+
+describe("the reveal and attribute names keep their old values", () => {
   it("has every legacy export, with the same value for each constant", () => {
-    for (const [legacy, now] of [[legacyReveal, reveal], [legacyAttrs, attrs]] as const) {
+    for (const [legacy, now] of [[legacyReveal, revealNames], [legacyAttrs, attrNames]] as const) {
       for (const [name, value] of Object.entries(legacy)) {
         expect(name in now, name).toBe(true);
         const current = (now as Record<string, unknown>)[name];
@@ -33,7 +41,7 @@ describe("scroll-reveal and scroll-attrs keep their old exports", () => {
     }
   });
   it("belowFold gives the same answer as the legacy function", () => {
-    for (const height of [0, 480, 900, 1080]) for (const top of [-10, 0, 400, 827, 828, 829, 899, 900, 5000]) expect(reveal.belowFold(top, height), `${top} ${height}`).toBe(legacyReveal.belowFold(top, height));
+    for (const height of [0, 480, 900, 1080]) for (const top of [-10, 0, 400, 827, 828, 829, 899, 900, 5000]) expect(glassBound.belowFold(top, height), `${top} ${height}`).toBe(legacyReveal.belowFold(top, height));
     expect(reveal.belowFold(828, 900, glassFlavor)).toBe(true);
     expect(reveal.belowFold(827, 900, glassFlavor)).toBe(false);
   });
@@ -41,8 +49,8 @@ describe("scroll-reveal and scroll-attrs keep their old exports", () => {
     expect(reveal.belowFold(720, 900, acme)).toBe(true);
     expect(reveal.belowFold(719, 900, acme)).toBe(false);
     expect(reveal.revealRootMargin(acme)).toBe("0px 0px -20% 0px");
-    expect(reveal.revealRootMargin()).toBe("0px 0px -8% 0px");
-    expect(reveal.ROOT_MARGIN).toBe(legacyReveal.ROOT_MARGIN);
+    expect(reveal.revealRootMargin(glassFlavor)).toBe("0px 0px -8% 0px");
+    expect(glassConstants.ROOT_MARGIN).toBe(legacyReveal.ROOT_MARGIN);
   });
 });
 
@@ -212,9 +220,9 @@ describe("startScrollReveal and mountScrollReveal", () => {
     unmount();
     expect(spy.mock.calls[1]?.[0]).toBe("[acme-motion] scroll reveal (while stopping) failed; every element is shown instead.");
   });
-  it("log with the glass label by default", () => {
+  it("log with the glass label for the glass flavor", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    reveal.startScrollReveal(() => { throw new Error("boom"); });
+    reveal.startScrollReveal(() => { throw new Error("boom"); }, { flavor: glassFlavor });
     expect(spy.mock.calls[0]?.[0]).toBe("[liquid-glass] scroll reveal failed to start; every element is shown instead.");
   });
   it("mount passes the flavor to the controller", () => {
@@ -231,31 +239,31 @@ describe("startScrollReveal and mountScrollReveal", () => {
   });
 });
 
-describe("attribute helpers with another flavor", () => {
-  it("lqgReveal names and limits come from the flavor", () => {
-    expect(attrs.lqgReveal("pop", { delayMs: 9999, tilt: 99, side: "left" }, acme)).toEqual({
+describe("attribute helpers", () => {
+  it("revealAttributes names and limits come from the flavor", () => {
+    expect(attrs.revealAttributes("pop", { delayMs: 9999, tilt: 99, side: "left" }, acme)).toEqual({
       "data-acme-enter": "pop", "data-acme-enter-delay": "500", "data-acme-lean": "10", "data-acme-from": "left",
     });
-    expect(attrs.lqgReveal("float", undefined, acme)).toEqual({ "data-acme-enter": "float" });
+    expect(attrs.revealAttributes("float", undefined, acme)).toEqual({ "data-acme-enter": "float" });
   });
-  it("lqgReveal without a flavor matches the legacy helper", () => {
+  it("lqgReveal for glass matches the legacy helper", () => {
     for (const options of [undefined, {}, { delayMs: 300 }, { delayMs: 99999, tilt: 99, side: "right" as const }, { delayMs: -5, tilt: -1 }, { delayMs: Number.NaN }]) {
-      expect(attrs.lqgReveal("drop", options)).toStrictEqual(legacyAttrs.lqgReveal("drop", options));
+      expect(glassAttrs.lqgReveal("drop", options)).toStrictEqual(legacyAttrs.lqgReveal("drop", options));
     }
   });
-  it("lqgDrag clamps to the flavor's depth range", () => {
-    expect(attrs.lqgDrag(5, acme)).toEqual({ "data-acme-pull": "", "data-acme-weight": "2" });
-    expect(attrs.lqgDrag(0, acme)).toEqual({ "data-acme-pull": "", "data-acme-weight": "0.2" });
-    expect(attrs.lqgDrag(Number.NaN, acme)).toEqual({ "data-acme-pull": "", "data-acme-weight": "0.2" });
-    for (const depth of [-1, 0.4, 0.7, 1, 2, Number.NaN]) expect(attrs.lqgDrag(depth)).toStrictEqual(legacyAttrs.lqgDrag(depth));
+  it("dragAttributes clamps to the flavor's depth range", () => {
+    expect(attrs.dragAttributes(5, acme)).toEqual({ "data-acme-pull": "", "data-acme-weight": "2" });
+    expect(attrs.dragAttributes(0, acme)).toEqual({ "data-acme-pull": "", "data-acme-weight": "0.2" });
+    expect(attrs.dragAttributes(Number.NaN, acme)).toEqual({ "data-acme-pull": "", "data-acme-weight": "0.2" });
+    for (const depth of [-1, 0.4, 0.7, 1, 2, Number.NaN]) expect(glassAttrs.lqgDrag(depth)).toStrictEqual(legacyAttrs.lqgDrag(depth));
   });
   it("the group and line attributes are built from the flavor, and frozen", () => {
     expect(attrs.revealGroupAttributes(acme)).toEqual({ "data-acme-enter-group": "" });
     expect(attrs.revealLineAttributes(acme)).toEqual({ "data-acme-row": "" });
     expect(Object.isFrozen(attrs.revealGroupAttributes(acme))).toBe(true);
-    expect(attrs.LQG_REVEAL_GROUP).toStrictEqual(legacyAttrs.LQG_REVEAL_GROUP);
-    expect(attrs.LQG_LINE).toStrictEqual(legacyAttrs.LQG_LINE);
-    expect(Object.isFrozen(attrs.LQG_LINE)).toBe(true);
+    expect(glassAttrs.LQG_REVEAL_GROUP).toStrictEqual(legacyAttrs.LQG_REVEAL_GROUP);
+    expect(glassAttrs.LQG_LINE).toStrictEqual(legacyAttrs.LQG_LINE);
+    expect(Object.isFrozen(glassAttrs.LQG_LINE)).toBe(true);
   });
 });
 
@@ -270,7 +278,7 @@ describe("the one deliberate behavior change", () => {
   };
 
   it("a custom personalityOf that returns a name outside the flavor now gets the fallback (drop) pose and writes scale and rotate", () => {
-    const { env, card } = run(reveal.createScrollReveal);
+    const { env, card } = run((options) => reveal.createScrollReveal({ ...options, flavor: glassFlavor }));
     expect(env.style(card, "scale")).toBe("0.94");
     expect(env.style(card, "rotate")).toBe("0.6deg");
     expect(env.style(card, "translate")).toBe("0px 28px");

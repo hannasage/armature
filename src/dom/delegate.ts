@@ -1,25 +1,6 @@
 import { dataAttr, requireSurface, type Flavor } from "../engine/flavor";
-import { glassFlavor } from "../glass/flavor";
 import { createBrowserEnvironment, type LqgEnvironment } from "../engine/env";
 import { createSurface, type SurfaceController, type SurfaceNeighbor, type SurfaceOptions, type SurfacePointerEvent } from "./surface";
-
-// The names below are the glass values, kept as exports so old call sites keep working.
-// A delegate reads its own flavor, which is glass unless `options.flavor` says otherwise.
-const glass = glassFlavor.surface;
-
-/** The attribute that marks an element as a glass surface. */
-export const SURFACE_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.surface);
-/** Elements in one group light each other. The value is a name of letters, digits, `-` and `_`. */
-export const GROUP_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.group);
-
-/** Names a quieter or livelier way for one element to move. The value is a key of `FEELS`; an unknown name is ignored. */
-export const FEEL_ATTRIBUTE = dataAttr(glassFlavor, glass.attributes.feel);
-
-/**
- * Named motion settings for one element, so a page can calm a few surfaces and leave the rest as they are.
- * `calm` is a lighter press (0.985), a release that overshoots less, and a glow that reaches a neighbour at half strength.
- */
-export const FEELS: Readonly<Record<string, Omit<SurfaceOptions, "env" | "neighbors">>> = glass.feels;
 
 const GROUP_NAME = /^[\w-]+$/;
 
@@ -44,8 +25,8 @@ export interface DelegatedEvent extends SurfacePointerEvent {
 export interface DelegateOptions {
   /** Defaults to the real browser. A test passes a fake. */
   env?: LqgEnvironment;
-  /** The attribute names and feels to use. Default: the glass flavor. It needs a surface part. Every surface the delegate makes gets it. */
-  flavor?: Flavor;
+  /** The attribute names and feels to use. Required. It needs a surface part. Every surface the delegate makes gets it. */
+  flavor: Flavor;
   /** Options for every surface the delegate makes. `neighbors` is ignored: groups pick the neighbours. `flavor` is not allowed here: set it on the delegate. */
   surface?: Omit<SurfaceOptions, "env" | "neighbors" | "flavor">;
 }
@@ -67,9 +48,9 @@ const LEAVE_OPTIONS = { passive: true, capture: true } as const;
  *
  * Release is heard on the document, so a press ends wherever the pointer is let go.
  */
-export function installDelegation(root: DelegateRoot, options: DelegateOptions = {}): Delegate {
+export function installDelegation(root: DelegateRoot, options: DelegateOptions): Delegate {
   const env = options.env ?? createBrowserEnvironment();
-  const flavor = options.flavor ?? glassFlavor;
+  const flavor = options.flavor;
   const config = requireSurface(flavor);
   const surfaceAttribute = dataAttr(flavor, config.attributes.surface);
   const groupAttribute = dataAttr(flavor, config.attributes.group);

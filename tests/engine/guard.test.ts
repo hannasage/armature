@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { guardedSetup } from "../../src/engine/guard";
+import { guardedSetup } from "../helpers/glass";
 
 describe("guardedSetup", () => {
   it("runs the setup once and hands back its cleanup", () => {

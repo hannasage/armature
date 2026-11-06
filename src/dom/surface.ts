@@ -1,5 +1,4 @@
 import { cssVar, requireSurface, springOf, type Flavor } from "../engine/flavor";
-import { glassFlavor } from "../glass/flavor";
 import { createBrowserEnvironment, prefersReducedMotion, type LqgEnvironment } from "../engine/env";
 import { createSpring, isAtRest, MAX_FRAME, reconfigure, retarget, stepSpring, type SpringConfig, type SpringState } from "../engine/spring";
 
@@ -37,8 +36,8 @@ export interface SurfacePointerEvent {
 export interface SurfaceOptions {
   /** Defaults to the real browser. A test passes a fake. */
   env?: LqgEnvironment;
-  /** The names, springs, and default numbers to use. Default: the glass flavor. It needs a surface part. */
-  flavor?: Flavor;
+  /** The names, springs, and default numbers to use. Required. It needs a surface part. */
+  flavor: Flavor;
   /** The scale while pressed. Default 0.97 for glass. */
   pressScale?: number;
   /** How much the surface squashes while pressed. 0 turns it off. Default 0.5 for glass. */
@@ -95,7 +94,7 @@ export interface SurfaceController extends Surface {
  * The surface without any listeners. `attachSurface` adds them; a provider that listens once on the document
  * calls these methods instead. Everything else is described on `attachSurface`.
  */
-export function createSurface(element: Pick<SurfaceElement, "getBoundingClientRect">, options: SurfaceOptions = {}): SurfaceController {
+export function createSurface(element: Pick<SurfaceElement, "getBoundingClientRect">, options: SurfaceOptions): SurfaceController {
   return build(element, options);
 }
 
@@ -106,7 +105,7 @@ export function createSurface(element: Pick<SurfaceElement, "getBoundingClientRe
  *
  * Under reduced motion the surface does nothing, and it snaps any motion in flight to rest.
  */
-export function attachSurface(element: SurfaceElement, options: SurfaceOptions = {}): Surface {
+export function attachSurface(element: SurfaceElement, options: SurfaceOptions): Surface {
   const controller = build(element, options);
   const handlers: Array<[string, DomListener]> = [
     ["pointerdown", controller.down],
@@ -131,7 +130,7 @@ export function attachSurface(element: SurfaceElement, options: SurfaceOptions =
 
 function build(element: Pick<SurfaceElement, "getBoundingClientRect">, options: SurfaceOptions): SurfaceController {
   const env = options.env ?? createBrowserEnvironment();
-  const flavor = options.flavor ?? glassFlavor;
+  const flavor = options.flavor;
   const config = requireSurface(flavor);
   const varNames = {
     press: cssVar(flavor, config.vars.press),
