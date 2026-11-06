@@ -7,7 +7,6 @@
   "private": true,
   "type": "module",
   "sideEffects": [
-    "./src/glass/styles.css",
     "./dist/styles.css"
   ],
   "files": [

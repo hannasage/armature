@@ -12,6 +12,7 @@ The first flavor is liquid glass. It is in this package. The second flavor will 
 ## The five subpaths
 
 The package has five JavaScript entries and one stylesheet.
+The package is ESM only. Each entry has a `types` file and an `import` file, and there is no CommonJS build.
 Each entry loads only what it needs.
 The first three hold no glass code.
 
