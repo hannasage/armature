@@ -18,10 +18,12 @@ export interface LensHandle {
  */
 export function useArmatureLens(ref: RefObject<HTMLElement | null>, options: Omit<LensOptions, "container">): LensHandle {
   const lens = useRef<Lens | null>(null);
-  const latest = useRef(options);
+  // A call with no options object is treated as a call with no flavor: the guard logs it and skips the start.
+  const given = options ?? ({} as Omit<LensOptions, "container">);
+  const latest = useRef(given);
 
   useEffect(() => {
-    latest.current = options;
+    latest.current = given;
   });
 
   const handle = useMemo<LensHandle>(

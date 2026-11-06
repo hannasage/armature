@@ -12,7 +12,8 @@ export type UseArmatureRevealOptions = MountScrollRevealOptions;
  * If arming fails, every element is shown and the error is logged. The options must name a flavor.
  */
 export function useArmatureReveal(ref: RefObject<HTMLElement | null>, options: UseArmatureRevealOptions): void {
-  const initial = useRef(options);
+  // A call with no options object is treated as a call with no flavor: the guard logs it and skips the start.
+  const initial = useRef(options ?? ({} as UseArmatureRevealOptions));
 
   useEffect(() => {
     const host = ref.current;

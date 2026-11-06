@@ -113,6 +113,36 @@ describe("a call with no flavor", () => {
     expect(String(spy.mock.calls[0]?.[1])).toMatch(MISSING);
   });
 
+  it("useArmatureSurface with no options object logs and skips, and does not throw", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const target = Object.assign(new FakeRoot(), { getBoundingClientRect: () => rect });
+    const surface = (useArmatureSurface as (ref: unknown) => ReturnType<typeof useArmatureSurface>)({ current: target });
+    expect(() => commit()).not.toThrow();
+    expect(surface.current).toBeNull();
+    expect(target.listenerCount).toBe(0);
+    expect(spy.mock.calls[0]?.[0]).toBe("[armature] armature surface failed to start and was skipped.");
+    expect(String(spy.mock.calls[0]?.[1])).toMatch(MISSING);
+  });
+
+  it("useArmatureLens with no options object logs and skips, and its handle does nothing", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const handle = (useArmatureLens as (ref: unknown) => ReturnType<typeof useArmatureLens>)({ current: {} });
+    expect(() => commit()).not.toThrow();
+    expect(() => { handle.update(); handle.jump(); handle.refit(); }).not.toThrow();
+    expect(spy.mock.calls[0]?.[0]).toBe("[armature] armature lens failed to start and was skipped.");
+    expect(String(spy.mock.calls[0]?.[1])).toMatch(MISSING);
+  });
+
+  it("useArmatureReveal with no options object logs and skips, and shows every element", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const host = Object.assign(new FakeScrollRoot(), { classList: { add: () => undefined, remove: () => undefined } });
+    (useArmatureReveal as (ref: unknown) => void)({ current: host });
+    expect(() => commit()).not.toThrow();
+    expect(spy.mock.calls[0]?.[0]).toBe("[armature] scroll reveal failed to start; every element is shown instead.");
+    // Node has no window, so the browser environment fails before the flavor is read. The error is still logged and not thrown.
+    expect(spy.mock.calls[0]?.[1]).toBeInstanceOf(Error);
+  });
+
   it("ArmatureProvider logs the failure and does not throw", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     ArmatureProvider({ root: new FakeRoot(), env: new FakeEnv() } as never);

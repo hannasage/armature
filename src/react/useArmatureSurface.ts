@@ -13,7 +13,8 @@ import { contextOf } from "./label";
  */
 export function useArmatureSurface(ref: RefObject<HTMLElement | null>, options: SurfaceOptions): RefObject<Surface | null> {
   const surface = useRef<Surface | null>(null);
-  const initial = useRef(options);
+  // A call with no options object is treated as a call with no flavor: the guard logs it and skips the start.
+  const initial = useRef(options ?? ({} as SurfaceOptions));
 
   useEffect(() => {
     const element = ref.current;
