@@ -1,5 +1,7 @@
+import { cssVar, requireSurface, springOf, type Flavor } from "../engine/flavor";
+import { glassFlavor } from "../glass/flavor";
 import { createBrowserEnvironment, prefersReducedMotion, type LqgEnvironment } from "./env";
-import { createSpring, isAtRest, press, reconfigure, release, retarget, stepSpring, type SpringConfig, type SpringState } from "./spring";
+import { createSpring, isAtRest, MAX_FRAME, reconfigure, retarget, stepSpring, type SpringConfig, type SpringState } from "./spring";
 
 export interface SurfaceRect {
   left: number;
@@ -19,7 +21,7 @@ export interface SurfaceElement {
   getBoundingClientRect(): SurfaceRect;
 }
 
-/** A neighbour only needs a rectangle. It receives `--lqg-glow`. */
+/** A neighbour only needs a rectangle. It receives the glow variable (`--lqg-glow` for glass). */
 export interface SurfaceNeighbor {
   getBoundingClientRect(): SurfaceRect;
 }
@@ -35,15 +37,17 @@ export interface SurfacePointerEvent {
 export interface SurfaceOptions {
   /** Defaults to the real browser. A test passes a fake. */
   env?: LqgEnvironment;
-  /** The scale while pressed. Default 0.97. */
+  /** The names, springs, and default numbers to use. Default: the glass flavor. It needs a surface part. */
+  flavor?: Flavor;
+  /** The scale while pressed. Default 0.97 for glass. */
   pressScale?: number;
-  /** How much the surface squashes while pressed. 0 turns it off. Default 0.5. */
+  /** How much the surface squashes while pressed. 0 turns it off. Default 0.5 for glass. */
   flex?: number;
   /** Elements that share this surface's glow. */
   neighbors?: SurfaceNeighbor[];
-  /** Distance in pixels at which a neighbour's glow falls to 1/e. Default 160. */
+  /** Distance in pixels at which a neighbour's glow falls to 1/e. Default 160 for glass. */
   glowFalloff?: number;
-  /** The share of its own glow a neighbour gets, from 0 to 1. Default 1. A quiet surface lights its neighbours less. */
+  /** The share of its own glow a neighbour gets, from 0 to 1. Default 1 for glass. A quiet surface lights its neighbours less. */
   neighborShare?: number;
   /** Where the specular rests, in percent of the element. Default 50 and 0, the top middle. */
   specularRest?: { x: number; y: number };
@@ -73,13 +77,8 @@ export interface Surface {
   destroy(): void;
 }
 
-const SPECULAR_TAU_MS = 90;
-const GLOW_TAU_MS = 140;
-const HOVER_GLOW = 0.6;
-const MAX_FRAME_SECONDS = 0.1;
 const LISTENER_OPTIONS = { passive: true } as const;
 
-const withRest = (config: SpringConfig): SpringConfig => ({ restDelta: 0.0005, restSpeed: 0.01, ...config });
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 const number = (value: number, digits: number) => String(Number(value.toFixed(digits)));
 const percent = (value: number) => `${number(value, 1)}%`;
@@ -132,16 +131,26 @@ export function attachSurface(element: SurfaceElement, options: SurfaceOptions =
 
 function build(element: Pick<SurfaceElement, "getBoundingClientRect">, options: SurfaceOptions): SurfaceController {
   const env = options.env ?? createBrowserEnvironment();
-  const pressScale = Number.isFinite(options.pressScale) && options.pressScale! > 0 ? options.pressScale! : 0.97;
-  const flexAmount = Number.isFinite(options.flex) && options.flex! >= 0 ? options.flex! : 0.5;
-  const falloff = Number.isFinite(options.glowFalloff) && options.glowFalloff! > 0 ? options.glowFalloff! : 160;
-  const share = Number.isFinite(options.neighborShare) ? Math.min(1, Math.max(0, options.neighborShare!)) : 1;
-  const rest = {
-    x: clampPercent(options.specularRest?.x ?? 50),
-    y: clampPercent(options.specularRest?.y ?? 0),
+  const flavor = options.flavor ?? glassFlavor;
+  const config = requireSurface(flavor);
+  const varNames = {
+    press: cssVar(flavor, config.vars.press),
+    flex: cssVar(flavor, config.vars.flex),
+    specX: cssVar(flavor, config.vars.specX),
+    specY: cssVar(flavor, config.vars.specY),
+    glow: cssVar(flavor, config.vars.glow),
   };
-  const pressConfig = withRest(options.springs?.press ?? press);
-  const releaseConfig = withRest(options.springs?.release ?? release);
+  const withRest = (spring: SpringConfig): SpringConfig => ({ restDelta: config.rest.restDelta, restSpeed: config.rest.restSpeed, ...spring });
+  const pressScale = Number.isFinite(options.pressScale) && options.pressScale! > 0 ? options.pressScale! : config.defaults.pressScale;
+  const flexAmount = Number.isFinite(options.flex) && options.flex! >= 0 ? options.flex! : config.defaults.flex;
+  const falloff = Number.isFinite(options.glowFalloff) && options.glowFalloff! > 0 ? options.glowFalloff! : config.defaults.glowFalloff;
+  const share = Number.isFinite(options.neighborShare) ? Math.min(1, Math.max(0, options.neighborShare!)) : config.defaults.neighborShare;
+  const rest = {
+    x: clampPercent(options.specularRest?.x ?? config.defaults.specularRest.x),
+    y: clampPercent(options.specularRest?.y ?? config.defaults.specularRest.y),
+  };
+  const pressConfig = withRest(options.springs?.press ?? springOf(flavor, config.springKeys.press));
+  const releaseConfig = withRest(options.springs?.release ?? springOf(flavor, config.springKeys.release));
 
   let scale: SpringState = createSpring(pressConfig, 1);
   let pressed = false;
@@ -182,16 +191,16 @@ function build(element: Pick<SurfaceElement, "getBoundingClientRect">, options: 
 
   const write = () => {
     if (pressTouched) {
-      setVar(element, "--lqg-press", number(scale.value, 4));
-      setVar(element, "--lqg-flex", number(flexOf(scale.value), 4));
+      setVar(element, varNames.press, number(scale.value, 4));
+      setVar(element, varNames.flex, number(flexOf(scale.value), 4));
     }
     if (specTouched) {
-      setVar(element, "--lqg-spec-x", percent(specX));
-      setVar(element, "--lqg-spec-y", percent(specY));
+      setVar(element, varNames.specX, percent(specX));
+      setVar(element, varNames.specY, percent(specY));
     }
     if (glowTouched) {
-      setVar(element, "--lqg-glow", glowText(glow));
-      for (const neighbor of neighbors) if (neighbor !== (element as unknown)) setVar(neighbor, "--lqg-glow", glowText(glowFor(neighbor, glow)));
+      setVar(element, varNames.glow, glowText(glow));
+      for (const neighbor of neighbors) if (neighbor !== (element as unknown)) setVar(neighbor, varNames.glow, glowText(glowFor(neighbor, glow)));
     }
   };
 
@@ -207,16 +216,16 @@ function build(element: Pick<SurfaceElement, "getBoundingClientRect">, options: 
   const tick = (time: number) => {
     frame = 0;
     if (destroyed) return;
-    const dt = Math.min(MAX_FRAME_SECONDS, Math.max(0, (time - last) / 1000));
+    const dt = Math.min(MAX_FRAME, Math.max(0, (time - last) / 1000));
     last = time;
     scale = stepSpring(scale, scale.target, dt);
     const ms = dt * 1000;
-    const kSpec = 1 - Math.exp(-ms / SPECULAR_TAU_MS);
+    const kSpec = 1 - Math.exp(-ms / config.specularTauMs);
     specX += (targetX - specX) * kSpec;
     specY += (targetY - specY) * kSpec;
     if (Math.abs(targetX - specX) < 0.05) specX = targetX;
     if (Math.abs(targetY - specY) < 0.05) specY = targetY;
-    glow += (glowTarget - glow) * (1 - Math.exp(-ms / GLOW_TAU_MS));
+    glow += (glowTarget - glow) * (1 - Math.exp(-ms / config.glowTauMs));
     if (Math.abs(glowTarget - glow) < 0.002) glow = glowTarget;
     write();
     if (busy()) continueChain();
@@ -274,7 +283,7 @@ function build(element: Pick<SurfaceElement, "getBoundingClientRect">, options: 
   const release_ = () => {
     pressed = false;
     scale = retarget(reconfigure(scale, releaseConfig), 1);
-    glowTarget = hovered ? HOVER_GLOW : 0;
+    glowTarget = hovered ? config.hoverGlow : 0;
     schedule();
   };
 
@@ -303,7 +312,7 @@ function build(element: Pick<SurfaceElement, "getBoundingClientRect">, options: 
       hovered = true;
       glowTouched = true;
       measureNeighbors();
-      if (!pressed) glowTarget = HOVER_GLOW;
+      if (!pressed) glowTarget = config.hoverGlow;
     }
     specTouched = true;
     targetX = clampPercent(((event.clientX - box.left) / box.width) * 100);
@@ -335,7 +344,7 @@ function build(element: Pick<SurfaceElement, "getBoundingClientRect">, options: 
   function removeNeighbor(neighbor: SurfaceNeighbor) {
     if (destroyed || !neighbors.delete(neighbor)) return;
     distances.delete(neighbor);
-    if (written.has(neighbor)) setVar(neighbor, "--lqg-glow", "0");
+    if (written.has(neighbor)) setVar(neighbor, varNames.glow, "0");
   }
 
   return {
