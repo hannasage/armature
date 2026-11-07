@@ -254,6 +254,8 @@ export function makeReleaseRepo(): ReleaseRepo {
   git(work, "push", "-q", "-u", "origin", "release/1.0.0");
   const script = join(work, "scripts", "release.mjs");
   writeFileSync(join(fake.fixtures, "dist-tags.json"), JSON.stringify({ next: "1.0.0-next.0", latest: "1.0.0-next.0" }));
+  // A real package has a gitHead that names the commit it was published from. The fake registry says the first commit.
+  writeFileSync(join(fake.fixtures, "gitHead.txt"), `${git(work, "rev-parse", "HEAD")}\n`);
   const env = (extra: Record<string, string> = {}) => fake.env(extra);
   return {
     work,

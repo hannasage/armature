@@ -7,7 +7,10 @@
 // A gate that exits with another code prints its first failing line. With --bail the run stops at the first failure.
 // The commands write to node_modules (npm ci) and dist (build) in the folder. Nothing is written to a remote.
 // Exit codes: 0 every gate passed, 1 a gate failed, 2 wrong use.
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { makeScratch, toolEnv } from "./lib/env.mjs";
 import { isMainModule } from "./lib/main.mjs";
@@ -20,7 +23,14 @@ const USAGE = [
   "Exit codes: 0 every gate passed, 1 a gate failed or git could not run, 2 wrong use.",
   "Note: --cwd must name a folder in a git work tree. Git and npm read the configuration of that repository, so only use a repository you trust.",
 ].join("\n");
-const GATES = ["typecheck", "lint", "test", "build", "check:pack"];
+// The list of gates lives in release.config.json, the one source that scripts/release.mjs also reads. The config sits one folder
+// above this tool. A missing or bad list stops the run.
+function loadGates() {
+  const file = join(dirname(fileURLToPath(import.meta.url)), "..", "release.config.json");
+  const gates = JSON.parse(readFileSync(file, "utf8")).gates;
+  if (!Array.isArray(gates) || gates.length === 0 || !gates.every((name) => typeof name === "string" && /^[a-z][a-z0-9:_-]*$/.test(name))) throw new Error("release.config.json needs a list of gate names in gates");
+  return gates;
+}
 
 function usageError(json, message, exit = 2) {
   if (json) console.log(jsonLine({ ok: false, status: exit === 2 ? "usage" : "fail", exit, message }));
@@ -42,7 +52,13 @@ export function main(argv, env = process.env) {
   const folder = resolveWorkTree(values.cwd ?? process.cwd());
   if (!folder.ok) return usageError(values.json === true, folder.error, folder.gitFailed ? 1 : 2);
 
-  const commands = [...(values.ci ? [{ name: "ci", command: ["npm", "ci"] }] : []), ...GATES.map((name) => ({ name, command: ["npm", "run", name] }))];
+  let gates;
+  try {
+    gates = loadGates();
+  } catch (error) {
+    return usageError(values.json === true, `the gate list can not be read: ${error instanceof Error ? error.message : String(error)}`, 1);
+  }
+  const commands = [...(values.ci ? [{ name: "ci", command: ["npm", "ci"] }] : []), ...gates.map((name) => ({ name, command: ["npm", "run", name] }))];
   // The gates get an allowlisted environment and a throwaway HOME, so a token in the caller environment can not reach them.
   let scratch = null;
   const warnings = [];

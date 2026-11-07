@@ -80,5 +80,7 @@ export function validateBody(text) {
   const body = text.endsWith("\n") ? text.slice(0, -1) : text;
   if (body !== FOOTER && !body.endsWith(`\n${FOOTER}`)) problems.push(`the body must end with the line: ${FOOTER}`);
   problems.push(...contentProblems(text, "body"));
+  // Nothing shaped like a secret may be sent to GitHub, in the body any more than in the title.
+  if (redact(text) !== text) problems.push("the body holds something shaped like a secret. Remove it");
   return problems;
 }

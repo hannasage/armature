@@ -332,7 +332,7 @@ describe("claims", () => {
     const result = repo.run(["claims", "--json"]);
     expect(result.status).toBe(0);
     expect(json(result.stdout)).toMatchObject({ ok: true, status: "pass" });
-    expect(repo.run(["claims"]).stdout).toContain("$ grep -rnIF");
+    expect(repo.run(["claims"]).stdout).toContain("$ grep -rnaF");
   });
 
   it("fails with the first matching line", () => {

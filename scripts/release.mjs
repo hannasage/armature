@@ -31,7 +31,7 @@
 // exactly the commit that preflight saw and refuses until verify has passed. The note holds no secret and is not in the working tree.
 // A refused precondition exits 1. Exit 2 means wrong use of the script, or a human-only step run without a terminal.
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -55,19 +55,16 @@ export const SAFETY = {
   claims: "read-only",
 };
 
-const GATE_COMMANDS = [
-  ["npm", "ci"],
-  ["npm", "run", "typecheck"],
-  ["npm", "run", "lint"],
-  ["npm", "run", "test"],
-  ["npm", "run", "build"],
-  ["npm", "run", "check:pack"],
-];
+/** npm ci, then one `npm run` for each gate named in release.config.json. tools/gates.mjs reads the same list. */
+function gateCommands(config) {
+  return [["npm", "ci"], ...config.gates.map((name) => ["npm", "run", name])];
+}
 
 const USAGE = [
   "Usage: node scripts/release.mjs <subcommand> [--json] [--force] [--help]",
   "  status | preflight | gates | dry-run | publish | verify | tag | retire | claims",
   "  tag also takes --dry-run, which prints the git commands and runs none of them.",
+  "  verify and tag also take --allow-no-githead: go on when the registry has no gitHead for the version (the tarball is then not tied to the commit).",
   "  verify also takes --allow-unsandboxed: without the Node permission model verify stops, and this flag lets it import the package anyway.",
   "  publish and retire are human-only: they print the commands and never run them.",
   "Exit codes: 0 pass, 1 a check failed (or status could not read a source), 2 wrong use.",
@@ -81,7 +78,7 @@ const PACKAGE = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/;
 const VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const BRANCH = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
 const KEYS = {
-  top: ["package", "version", "npmTag", "access", "expectedFileCount", "releaseBranch", "remote", "publicApi", "gitTag", "retire", "claims"],
+  top: ["package", "version", "npmTag", "access", "expectedFileCount", "gates", "releaseBranch", "remote", "publicApi", "gitTag", "retire", "claims"],
   publicApi: ["file", "subpath"],
   gitTag: ["name", "message"],
   retire: ["oldVersion", "deprecateMessage", "removeTag", "promoteTag", "commands", "checks"],
@@ -130,6 +127,7 @@ export function validateConfig(config, root) {
   if (typeof config.npmTag !== "string" || !/^[a-z][a-z0-9._-]*$/.test(config.npmTag)) return "npmTag is not a valid dist-tag";
   if (config.access !== "public" && config.access !== "restricted") return "access must be public or restricted";
   if (!Number.isInteger(config.expectedFileCount) || config.expectedFileCount <= 0) return "expectedFileCount must be a positive whole number";
+  if (!Array.isArray(config.gates) || config.gates.length === 0 || !config.gates.every((name) => typeof name === "string" && /^[a-z][a-z0-9:_-]*$/.test(name))) return "gates must be a list of npm script names";
   if (!branchOk(config.releaseBranch)) return "releaseBranch is not a safe branch name";
   if (typeof config.remote !== "string" || !NAME.test(config.remote)) return "remote is not a safe remote name";
   for (const section of ["publicApi", "gitTag", "retire", "claims"]) {
@@ -271,7 +269,7 @@ function cleanState(raw, version) {
   if (ok(raw.preflight, (v) => isCommit(v.commit))) state.preflight = { commit: raw.preflight.commit };
   for (const key of ["gates", "dryRun"]) if (ok(raw[key], (v) => isCommit(v.commit) && isShort(v.lock))) state[key] = { commit: raw[key].commit, lock: raw[key].lock };
   if (ok(raw.verify, (v) => isCommit(v.commit) && isShort(v.integrity) && (v.gitHead === null || isShort(v.gitHead)))) {
-    state.verify = { commit: raw.verify.commit, integrity: raw.verify.integrity, gitHead: raw.verify.gitHead };
+    state.verify = { commit: raw.verify.commit, integrity: raw.verify.integrity, gitHead: raw.verify.gitHead, ...(raw.verify.noGitHead === true ? { noGitHead: true } : {}) };
   }
   return state;
 }
@@ -421,9 +419,15 @@ function head(run) {
 }
 
 function treeIsClean(run) {
-  const result = run.exec(["git", "status", "--short"]);
+  // Every untracked file is listed, and a file hidden with assume-unchanged or skip-worktree counts as a change.
+  const result = run.exec(["git", "status", "--short", "--untracked-files=all"]);
   const first = result.stdout.split("\n").find((line) => line.trim() !== "");
-  return { ok: result.ok && first === undefined, first: first ?? failingLine(result.stdout, result.stderr) };
+  if (!result.ok || first !== undefined) return { ok: false, first: first ?? failingLine(result.stdout, result.stderr) };
+  const flagged = run.exec(["git", "ls-files", "-v"]);
+  if (!flagged.ok) return { ok: false, first: failingLine(flagged.stdout, flagged.stderr) };
+  const hidden = flagged.stdout.split("\n").filter((line) => /^[a-zS] /.test(line));
+  if (hidden.length > 0) return { ok: false, first: `${hidden.length} file${hidden.length === 1 ? "" : "s"} marked assume-unchanged or skip-worktree, first: ${hidden[0].slice(2)}` };
+  return { ok: true, first: "" };
 }
 
 /** The sentence for a registry that is not the public one. Nothing is read from such a registry, because the result could not be trusted. */
@@ -505,17 +509,60 @@ function claimPaths(root, config) {
   return { paths: config.claims.paths };
 }
 
+/** The symlinks inside the searched paths. One that points outside the repository is a problem. The others are listed, because grep -r does not follow them. */
+function findSymlinks(root, paths) {
+  const realRoot = realpathSync(root);
+  const inside = [];
+  const outside = [];
+  let seen = 0;
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (seen++ > 20000) return;
+      const full = join(dir, entry.name);
+      if (entry.isSymbolicLink()) {
+        let target = null;
+        try {
+          target = realpathSync(full);
+        } catch {
+          // A broken link points nowhere inside the repository.
+        }
+        const name = relative(root, full);
+        if (target !== null && (target === realRoot || target.startsWith(realRoot + sep))) inside.push(name);
+        else outside.push(name);
+      } else if (entry.isDirectory()) {
+        walk(full);
+      }
+    }
+  };
+  for (const path of paths) {
+    const full = join(root, path);
+    if (lstatSync(full).isSymbolicLink()) {
+      outside.push(path);
+    } else if (statSync(full).isDirectory()) walk(full);
+  }
+  return { inside, outside };
+}
+
 function runClaims(run, root, config) {
   const found = claimPaths(root, config);
-  if (found.problem !== undefined) return { ok: false, errored: true, first: found.problem };
-  const command = ["grep", "-rnIF"];
+  if (found.problem !== undefined) return { ok: false, errored: true, first: found.problem, warnings: [] };
+  let links;
+  try {
+    links = findSymlinks(root, found.paths);
+  } catch (error) {
+    return { ok: false, errored: true, first: `could not look for symlinks: ${error instanceof Error ? error.message : String(error)}`, warnings: [] };
+  }
+  if (links.outside.length > 0) return { ok: false, errored: false, first: `a symlink in the searched paths points outside the repository or nowhere: ${links.outside[0]}`, warnings: [] };
+  const warnings = links.inside.map((name) => `${name} is a symlink, and grep -r does not follow it, so its target is searched only as its own file`);
+  // -a reads a file that holds a NUL byte as text, so a stale claim in such a file is found.
+  const command = ["grep", "-rnaF"];
   for (const pattern of config.claims.patterns) command.push("-e", pattern);
   for (const name of config.claims.skipFileNames) command.push(`--exclude=${name}`);
   command.push("--", ...found.paths);
   const result = run.exec(command);
-  if (result.status === 1) return { ok: true, errored: false, first: "", paths: found.paths };
-  if (result.status === 0) return { ok: false, errored: false, first: result.stdout.split("\n").find((line) => line.trim() !== "") ?? "" };
-  return { ok: false, errored: true, first: failingLine(result.stdout, result.stderr) };
+  if (result.status === 1) return { ok: true, errored: false, first: "", paths: found.paths, warnings };
+  if (result.status === 0) return { ok: false, errored: false, first: result.stdout.split("\n").find((line) => line.trim() !== "") ?? "", warnings };
+  return { ok: false, errored: true, first: failingLine(result.stdout, result.stderr), warnings };
 }
 
 function configDisagreement(root, config) {
@@ -590,7 +637,7 @@ const STEPS = {
     const state = readState(ctx);
     const before = treeIsClean(run);
     if (before.ok && !flags.has("--force") && state.gates?.commit === commit && state.gates?.lock === lock) return done(ctx, { commit });
-    for (const command of GATE_COMMANDS) {
+    for (const command of gateCommands(ctx.config)) {
       const result = run.exec(command);
       if (!result.ok) return fail(ctx, `${show(command)} exited ${result.status}: ${failingLine(result.stdout, result.stderr)}`);
     }
@@ -660,6 +707,11 @@ const STEPS = {
     const info = registryInfo(run, config);
     if (!info.ok) return fail(ctx, `could not read the integrity of ${config.package}@${config.version}: ${info.error}`);
     if (info.gitHead !== null && info.gitHead !== commit) return fail(ctx, `the registry gitHead ${info.gitHead} differs from the commit ${commit}`);
+    if (info.gitHead === null) {
+      // Without a gitHead nothing ties the published tarball to this commit, so verify stops unless the person accepts that.
+      if (!flags.has("--allow-no-githead")) return fail(ctx, "the registry has no gitHead for this version, so the tarball can not be tied to this commit. Pass --allow-no-githead to go on anyway");
+      warn(ctx, "the registry has no gitHead, so the published tarball is not tied to this commit (--allow-no-githead)");
+    }
     const known = state.verify;
     if (!flags.has("--force") && known?.commit === commit && known.integrity === info.integrity && known.gitHead === info.gitHead) return done(ctx, { commit });
     // The import runs under the Node permission model. Without it the published code would run as ordinary code, so verify stops,
@@ -710,7 +762,7 @@ const STEPS = {
     const expected = await expectedApiCount(root, config);
     const actual = Number(counted.stdout.trim());
     if (actual !== expected) return fail(ctx, `the package exports ${actual} names, the public API list has ${expected}`);
-    state.verify = { commit, integrity: info.integrity, gitHead: info.gitHead };
+    state.verify = { commit, integrity: info.integrity, gitHead: info.gitHead, ...(info.gitHead === null ? { noGitHead: true } : {}) };
     const bad = record(ctx, state);
     return bad ?? ok(ctx, `verify passed: ${config.npmTag} is ${config.version} and the package exports ${actual} names`, { commit, exports: actual });
   },
@@ -733,6 +785,13 @@ const STEPS = {
     const info = registryInfo(run, config);
     if (!info.ok) return fail(ctx, `refused: could not read the integrity: ${info.error}`);
     if (info.integrity !== state.verify.integrity || info.gitHead !== state.verify.gitHead) return fail(ctx, "refused: the registry integrity or gitHead changed since verify. Run verify again");
+    // The note is not trusted on its own. The registry must say the tarball came from the commit that preflight saw.
+    if (info.gitHead === null) {
+      if (!flags.has("--allow-no-githead") || state.verify.noGitHead !== true) return fail(ctx, "refused: the registry has no gitHead, so the tarball is not tied to the commit. Run verify and tag with --allow-no-githead to go on anyway");
+      warn(ctx, "the registry has no gitHead, so the tag is not backed by the registry (--allow-no-githead)");
+    } else if (info.gitHead !== commit) {
+      return fail(ctx, `refused: the registry gitHead ${info.gitHead} is not the preflight commit ${commit}`);
+    }
     const local = run.exec(["git", "rev-list", "-n", "1", ref]);
     const hasLocal = local.ok;
     const localHash = local.stdout.trim();
@@ -763,6 +822,7 @@ const STEPS = {
   claims(ctx) {
     const { run, root, config } = ctx;
     const found = runClaims(run, root, config);
+    for (const warning of found.warnings) warn(ctx, warning);
     if (!found.ok) return fail(ctx, found.first);
     return ok(ctx, `claims check passed: no stale claim in ${found.paths.join(", ")}`, { searched: found.paths });
   },
@@ -773,12 +833,26 @@ const STEPS = {
     const commit = head(run);
     const lock = lockHash(root);
     const phases = [];
-    const add = (name, finished, note = "") => phases.push({ name, state: finished === null ? "unknown" : finished ? "done" : "todo", note });
+    const add = (name, finished, note = "") => phases.push({ name, state: finished === null ? "unknown" : finished === "stale" ? "stale" : finished ? "done" : "todo", note });
     const known = commit !== null;
     const noHead = known ? "" : "could not read HEAD";
-    add("preflight", known ? state.preflight?.commit === commit : null, noHead);
-    add("gates", known ? state.gates?.commit === commit && state.gates?.lock === lock : null, noHead);
-    add("dry-run", known ? state.dryRun?.commit === commit && state.dryRun?.lock === lock : null, noHead);
+    const clean = known ? treeIsClean(run) : null;
+    // A note counts as done only for this commit and a clean tree. A note for another commit, or a dirty tree, is "stale": not done.
+    const recorded = (entry, matches = true) => {
+      if (!known) return { value: null, note: noHead };
+      if (!entry) return { value: false, note: "" };
+      if (entry.commit !== commit || !matches) return { value: "stale", note: "the note is for another commit or other dependencies" };
+      if (!clean.ok) return { value: "stale", note: `the working tree is not clean: ${clean.first}` };
+      return { value: true, note: "" };
+    };
+    for (const [name, entry, matches] of [
+      ["preflight", state.preflight, true],
+      ["gates", state.gates, state.gates?.lock === lock],
+      ["dry-run", state.dryRun, state.dryRun?.lock === lock],
+    ]) {
+      const result = recorded(entry, matches);
+      add(name, result.value, result.note);
+    }
     const view = distTags(run, config);
     // A 404 from the registry is the normal state before the first publish. It counts as "not published" only when nothing
     // else contradicts it: no verify record, the same package name in package.json, and the public registry.
@@ -800,7 +874,10 @@ const STEPS = {
       return { accepted: true, note: "registry says not found" };
     })();
     add("publish", view.ok ? view.tags[config.npmTag] === config.version : notFound.accepted ? false : null, view.ok ? "" : notFound.note);
-    add("verify", known ? state.verify?.commit === commit : null, noHead);
+    {
+      const result = recorded(state.verify);
+      add("verify", result.value, result.note);
+    }
     const ref = `refs/tags/${gitTagName(config)}`;
     // `git rev-parse -q --verify` exits 1 when the tag is absent. Any other failure means the lookup itself failed.
     const lookup = run.exec(["git", "rev-parse", "-q", "--verify", ref]);
@@ -825,6 +902,7 @@ const STEPS = {
     }
     add("retire", view.ok ? isRetired(run, config, view) : notFound.accepted ? false : null, view.ok ? "" : notFound.note);
     const claims = runClaims(run, root, config);
+    for (const warning of claims.warnings) warn(ctx, warning);
     add("claims", claims.errored ? null : claims.ok, claims.errored ? claims.first : "");
     const left = phases.filter((phase) => phase.state !== "done").map((phase) => phase.name);
     run.say(`${config.package}@${config.version} on the ${config.npmTag} tag`);
@@ -860,7 +938,7 @@ function humanOnly(ctx) {
 
 // ---------- entry ----------
 
-const KNOWN_FLAGS = new Set(["--json", "--force", "--dry-run", "--allow-unsandboxed", "--help"]);
+const KNOWN_FLAGS = new Set(["--json", "--force", "--dry-run", "--allow-unsandboxed", "--allow-no-githead", "--help"]);
 
 /**
  * Runs one subcommand. `context` is `{ root, env, isTTY, out }`. It returns `{ exit, result }` and never exits the process,
@@ -883,7 +961,7 @@ export async function runRelease(argv, context) {
   if (words.length !== 1 || !Object.hasOwn(SAFETY, command)) {
     return usageError(base, command === undefined ? "No subcommand given." : `Unknown subcommand: ${words.join(" ")}`);
   }
-  const bad = [...flags].find((flag) => !KNOWN_FLAGS.has(flag) || (flag === "--dry-run" && command !== "tag") || (flag === "--allow-unsandboxed" && command !== "verify"));
+  const bad = [...flags].find((flag) => !KNOWN_FLAGS.has(flag) || (flag === "--dry-run" && command !== "tag") || (flag === "--allow-unsandboxed" && command !== "verify") || (flag === "--allow-no-githead" && command !== "verify" && command !== "tag"));
   if (bad !== undefined) return usageError(base, `The flag ${bad} does not belong to ${command}.`);
   try {
     const config = loadConfig(root);

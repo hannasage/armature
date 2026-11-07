@@ -173,7 +173,14 @@ export function processesInside(tree, listing, ownPids) {
   return found;
 }
 
+const OTHER_USERS = " (lsof can not see the processes of other users, such as root, so this check covers your own processes)";
+
 function checkIdle(tree) {
+  const result = checkIdleInner(tree);
+  return { ...result, detail: `${result.detail}${OTHER_USERS}` };
+}
+
+function checkIdleInner(tree) {
   const result = spawnSync("lsof", ["-a", "-d", "cwd", "-Fpcn"], { cwd: "/", encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   if (result.error !== undefined) return { ok: false, detail: `lsof could not run: ${result.error.message}` };
   // lsof exits 0 when it lists everything and 1 when it lists most but warns about some. Any other end is a failure.
@@ -238,7 +245,7 @@ export function main(argv) {
   const ok = checks.every((check) => check.ok);
   if (json) console.log(jsonLine({ ok, status: ok ? "pass" : "fail", exit: ok ? 0 : 1, path: tree.top, removes: "nothing", checks }));
   else {
-    for (const check of checks) console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name} - ${check.detail}`);
+    for (const check of checks) console.log(redact(`${check.ok ? "PASS" : "FAIL"} ${check.name} - ${check.detail}`));
     console.log(ok ? "Result: the tree is safe to remove. This tool removed nothing." : "Result: the tree is not safe to remove. This tool removed nothing.");
   }
   return ok ? 0 : 1;

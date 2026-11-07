@@ -150,7 +150,7 @@ describe("3. pr-open", () => {
 
   it("says a PR may exist on a timeout, on no URL, and on a non-zero exit whose output holds a PR URL", () => {
     const { run, base } = setup();
-    expect(run(base, { FAKE_GH_SLEEP_MS: "4000", RELEASE_TIMEOUT_MS: "400" }).stdout).toContain("a PR may exist");
+    expect(run(base, { FAKE_GH_SLEEP_MS: "9000", RELEASE_TIMEOUT_MS: "2500" }).stdout).toContain("a PR may exist");
     expect(run(base, { FAKE_GH_EMPTY: "1" }).stdout).toContain("a PR may exist");
     expect(run(base, { FAKE_GH_FAIL_URL: "1" }).stdout).toContain("a PR may exist");
   });

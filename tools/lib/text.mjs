@@ -2,7 +2,7 @@
 
 // Key names whose value is a secret. Used inside text ("token: x") and, in redactDeep, as the name of a field.
 // Any name that ends in _key, _secret, _token, _password, or _passwd counts too (AWS_SECRET_ACCESS_KEY, MY_SERVICE_KEY).
-const FIXED_NAMES = "_authToken|_auth|_password|passwd|private_?key|access_token|authToken|client_secret|secret|token|password|passphrase|accountkey|api[-_]?key";
+const FIXED_NAMES = "_authToken|_auth|_password|passwd|private_?key|access_token|authToken|client_secret|secret|token|password|passphrase|pwd|otp|accountkey|api[-_]?key";
 const SUFFIX_NAMES = "[A-Za-z][A-Za-z0-9_]{0,60}(?:_key|_secret|_token|_password|_passwd)";
 const KEY_NAMES = `${FIXED_NAMES}|${SUFFIX_NAMES}`;
 // A value after a key: a double-quoted string (with escapes), a single-quoted string, or a run of non-space characters.
@@ -31,7 +31,7 @@ const SECRET_PATTERNS = [
   [/(\b(?:Set-)?Cookie:[ \t]*)[^\r\n]{1,4000}/gi, "$1[redacted]"],
   [/\b(Bearer\s+)[A-Za-z0-9._~+/=-]{1,2000}/gi, "$1[redacted]"],
   // An environment variable or a key in a config file (KEY=value, KEY: value, key = value), with or without quotes.
-  [new RegExp(String.raw`(\b(?:${KEY_NAMES}|[A-Z][A-Z0-9]{0,60}(?:TOKEN|SECRET|PASSWORD))\s{0,8}[=:]\s{0,8})(${VALUE})`, "gi"), (whole, head, value) => (keepsValue(value) ? whole : `${head}[redacted]`)],
+  [new RegExp(String.raw`(\b(?:${KEY_NAMES}|[A-Z][A-Z0-9]{0,60}(?:TOKEN|SECRET|PASSWORD|OTP)|npm_config_[a-z0-9_]{0,60}(?:auth|password|token|otp))\s{0,8}[=:]\s{0,8})(${VALUE})`, "gi"), (whole, head, value) => (keepsValue(value) ? whole : `${head}[redacted]`)],
   // Flags that carry a one-time code or a secret.
   [/(\s--?(?:otp|one-time-password|token|password|pass|passphrase|secret|api-key|auth-token)(?:=|\s+))\S{1,200}/g, "$1[redacted]"],
   [/^(--?(?:otp|one-time-password|token|password|pass|passphrase|secret|api-key|auth-token)(?:=|\s+))\S{1,200}/g, "$1[redacted]"],
@@ -44,6 +44,10 @@ const SECRET_PATTERNS = [
   [/\bsk-[A-Za-z0-9_-]{20,255}/g, "[redacted]"],
   [/\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{10,255}/g, "[redacted]"],
   [/glpat-[A-Za-z0-9_-]{20,255}/g, "[redacted]"],
+  [/\bpypi-[A-Za-z0-9_-]{20,500}/g, "[redacted]"],
+  [/\bSG\.[A-Za-z0-9_-]{16,100}\.[A-Za-z0-9_-]{16,100}/g, "[redacted]"],
+  [/\bshpat_[A-Za-z0-9]{20,100}/g, "[redacted]"],
+  [/\bdop_v1_[A-Za-z0-9]{20,100}/g, "[redacted]"],
   [/whsec_[A-Za-z0-9]{20,255}/g, "[redacted]"],
   [/\bya29\.[A-Za-z0-9_-]{20,500}/g, "[redacted]"],
   [/AGE-SECRET-KEY-[A-Z0-9]{20,255}/g, "[redacted]"],

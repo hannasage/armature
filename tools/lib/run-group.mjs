@@ -22,7 +22,8 @@ export function effectiveTimeout(env, ms) {
 export function usesGroup(command) {
   const [name, sub] = command;
   if (name === "npm" && sub === "view") return false;
-  if (name === "npm" || name === "node" || name === "gh") return true;
+  // The Node binary counts as "node": release.mjs runs the verify import with the full path.
+  if (name === "npm" || name === "node" || name === process.execPath || name === "gh") return true;
   if (name === "git") return ["fetch", "ls-remote", "push", "pull", "clone"].includes(sub);
   return false;
 }

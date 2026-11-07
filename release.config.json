@@ -4,6 +4,13 @@
   "npmTag": "beta",
   "access": "public",
   "expectedFileCount": 122,
+  "gates": [
+    "typecheck",
+    "lint",
+    "test",
+    "build",
+    "check:pack"
+  ],
   "releaseBranch": "release/1.0.0",
   "remote": "origin",
   "publicApi": {
@@ -20,18 +27,55 @@
     "removeTag": "next",
     "promoteTag": "latest",
     "commands": [
-      ["npm", "deprecate", "{package}@{oldVersion}", "{deprecateMessage}"],
-      ["npm", "dist-tag", "rm", "{package}", "{removeTag}"],
-      ["npm", "dist-tag", "add", "{package}@{version}", "{promoteTag}"]
+      [
+        "npm",
+        "deprecate",
+        "{package}@{oldVersion}",
+        "{deprecateMessage}"
+      ],
+      [
+        "npm",
+        "dist-tag",
+        "rm",
+        "{package}",
+        "{removeTag}"
+      ],
+      [
+        "npm",
+        "dist-tag",
+        "add",
+        "{package}@{version}",
+        "{promoteTag}"
+      ]
     ],
     "checks": [
-      ["npm", "view", "{package}", "dist-tags", "--json"],
-      ["npm", "view", "{package}@{oldVersion}", "deprecated"]
+      [
+        "npm",
+        "view",
+        "{package}",
+        "dist-tags",
+        "--json"
+      ],
+      [
+        "npm",
+        "view",
+        "{package}@{oldVersion}",
+        "deprecated"
+      ]
     ]
   },
   "claims": {
-    "patterns": ["Nothing is published", "Not published yet", "armature@next"],
-    "paths": ["README.md", "docs"],
-    "skipFileNames": ["releasing.md"]
+    "patterns": [
+      "Nothing is published",
+      "Not published yet",
+      "armature@next"
+    ],
+    "paths": [
+      "README.md",
+      "docs"
+    ],
+    "skipFileNames": [
+      "releasing.md"
+    ]
   }
 }

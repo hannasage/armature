@@ -143,7 +143,7 @@
           "description": "Print one JSON object instead of text."
         }
       ],
-      "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { package, version, phases: [{ name, state }], left: [...] }.",
+      "output": "{ ok, command, status (\"pass\" | \"unknown\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { package, version, phases: [{ name, state: \"done\" | \"todo\" | \"stale\" | \"unknown\", note }], left: [...], unknown: [...] }. status is \"unknown\" and exit is 1 when a phase can not be read.",
       "safety_class": "read-only",
       "destructive": false,
       "mcp_exposure": "expose",
@@ -285,6 +285,12 @@
           "type": "flag",
           "required": false,
           "description": "Import the installed package without the Node permission model when this Node lacks it. Without the flag, verify stops with exit 1."
+        },
+        {
+          "name": "--allow-no-githead",
+          "type": "flag",
+          "required": false,
+          "description": "Go on when the registry has no gitHead for the version. Verify then warns and records that the tarball is not tied to the commit."
         }
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commit, exports }.",
@@ -313,6 +319,12 @@
           "type": "flag",
           "required": false,
           "description": "Print the git commands and run none of them."
+        },
+        {
+          "name": "--allow-no-githead",
+          "type": "flag",
+          "required": false,
+          "description": "Go on when the registry has no gitHead, if verify was run with the same flag."
         }
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { tag, commit, commands? }.",

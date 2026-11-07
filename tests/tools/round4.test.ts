@@ -177,7 +177,7 @@ describe("D. pr-open identity and timeout", () => {
 
   it("says a pull request may exist when gh pr create times out", () => {
     const { run, base } = setup();
-    const result = run(base, { FAKE_GH_SLEEP_MS: "4000", RELEASE_TIMEOUT_MS: "400" });
+    const result = run(base, { FAKE_GH_SLEEP_MS: "9000", RELEASE_TIMEOUT_MS: "2500" });
     expect(result.status).toBe(1);
     expect(result.stdout).toContain("a PR may exist: check before retrying");
   });

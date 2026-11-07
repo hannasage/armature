@@ -167,7 +167,7 @@ describe("4. pr-open", () => {
     expect(run(base, { FAKE_GH_FAIL: "1" }).stdout).not.toContain("a PR may exist");
     expect(run(base, { FAKE_GH_FAIL_URL: "1" }).stdout).toContain("a PR may exist");
     expect(run(base, { FAKE_GH_EMPTY: "1" }).stdout).toContain("a PR may exist");
-    expect(run(base, { FAKE_GH_SLEEP_MS: "4000", RELEASE_TIMEOUT_MS: "400" }).stdout).toContain("a PR may exist");
+    expect(run(base, { FAKE_GH_SLEEP_MS: "9000", RELEASE_TIMEOUT_MS: "2500" }).stdout).toContain("a PR may exist");
     expect(fake.lines("gh").length).toBeGreaterThan(3);
     const identity = run(base, { FAKE_GH_API_FAIL: "network down" });
     expect(identity.stdout).not.toContain("a PR may exist");
@@ -194,7 +194,7 @@ describe("5. registryInfo with a bare string", () => {
   it("takes a bare string from npm view as the integrity, with no gitHead", () => {
     const repo = makeReleaseRepo();
     writeFileSync(join(repo.fake.fixtures, "dist-tags.json"), BETA);
-    const result = repo.run(["verify", "--json"], { FAKE_BARE_INTEGRITY: "1" });
+    const result = repo.run(["verify", "--json", "--allow-no-githead"], { FAKE_BARE_INTEGRITY: "1" });
     expect(result.status, result.stdout).toBe(0);
     const state = JSON.parse(readFileSync(join(repo.work, ".git", "release-state.json"), "utf8"));
     expect(state.verify.integrity).toBe("sha512-FAKEINTEGRITY");

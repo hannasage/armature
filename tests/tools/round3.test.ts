@@ -175,7 +175,7 @@ describe("pr-open gh handling", () => {
 
   it("times out a gh that hangs", () => {
     const { run, body } = setup();
-    const result = run(["--title", "x", "--body-file", body, "--base", "main"], { FAKE_GH_SLEEP_MS: "4000", RELEASE_TIMEOUT_MS: "400" });
+    const result = run(["--title", "x", "--body-file", body, "--base", "main"], { FAKE_GH_SLEEP_MS: "9000", RELEASE_TIMEOUT_MS: "2500" });
     expect(result.status).toBe(1);
     expect(result.stdout).toContain("timed out");
   });

@@ -87,6 +87,10 @@ To replace these guesses with facts, sum the token usage of a few real runs befo
 - A grandchild that starts its own session (for example with `setsid`) can outlive the supervisor, because only the process group is killed.
 - When a step times out, the step itself reports exit code 124, and the process that runs the script exits 1.
 - A registry "not found" counts as "not published yet" only when no verify record exists, the package name in `package.json` matches the config, and the registry is the public one (every `npm view` names it with `--registry`), and then `status` prints a warning.
+- `verify` stops when the registry has no `gitHead` for the version, because nothing then ties the tarball to the commit. `--allow-no-githead` goes on with a visible warning and records that fact, and `tag` needs the same flag. `tag` reads the registry itself: the `gitHead` must be the preflight commit, so a hand-written note is not enough.
+- A tree is clean only when `git status` shows nothing, with every untracked file listed, and no file is marked assume-unchanged or skip-worktree. `status` shows a phase as `stale`, not done, when its note is for another commit or the tree is dirty.
+- `claims` reads files that hold a NUL byte as text, lists symlinks in the searched paths as warnings, and fails when one points outside the repository.
+- The list of gates is in `release.config.json`, and both `scripts/release.mjs` and `tools/gates.mjs` read it.
 - `status` reads the registry with a throwaway HOME and cache, so it writes nothing in the repository or the home folder. When the registry says the package is not found, which is the normal state before the first publish, status exits 0. When a read fails or times out, status exits 1 and marks that phase unknown.
 - `status` and `claims` are `read-only`. A test runs every release subcommand in a temporary repository and checks that each one changes only the paths that `tools/manifest.json` lists for it.
 - A refused precondition exits 1. Exit 2 means wrong use or a human-only step.
