@@ -1,6 +1,10 @@
 // Small text helpers shared by the tools and by scripts/release.mjs.
 
 const SECRET_PATTERNS = [
+  [/(\/\/[^\s/:@]+:)[^\s/@]+@/g, "$1[redacted]@"],
+  [/sk-ant-[A-Za-z0-9_-]{10,}/g, "[redacted]"],
+  [/\bAKIA[0-9A-Z]{16}\b/g, "[redacted]"],
+  [/("(?:_auth|_authToken|_password|token|password|apiKey|api_key)"\s*:\s*")[^"]*(")/gi, "$1[redacted]$2"],
   [/github_pat_[A-Za-z0-9_]{20,}/g, "[redacted]"],
   [/gh[pousr]_[A-Za-z0-9]{20,}/g, "[redacted]"],
   [/npm_[A-Za-z0-9]{20,}/g, "[redacted]"],

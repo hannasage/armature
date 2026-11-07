@@ -21,21 +21,22 @@
 //   - Child commands get a short allowlist of variables, never the whole environment. npm runs with a throwaway HOME and cache.
 //     Every command has a time limit (2 minutes for git and npm view, 15 minutes for the gates). `status` exits 1 with status
 //     "unknown" when it can not read the registry or the remote.
-//   - verify runs the import of the installed package under Node's permission model (read access to the throwaway project only)
-//     when this Node has it. If this Node lacks the model, the import runs without it and a warning says so. The residual risk is
-//     that the published package then runs as ordinary code with the filesystem access of the user, in a project with no secrets.
+//   - verify runs the import of the installed package under Node's permission model (read access to the throwaway project only).
+//     If this Node lacks the model, verify stops with exit 1 unless the person passes --allow-unsandboxed. With that flag the import
+//     runs as ordinary code with the access of the user, in a project with no secrets, and a warning says so.
+//   - A command that may start grandchildren runs in its own process group. On a timeout the whole group is killed.
 // Preflight, gates, dry-run, and verify are local-write: they write a small note, `release-state.json`, inside the .git folder
 // (preflight also runs git fetch, and verify also uses a temporary folder and the npm cache). The note holds the commit hash, the
 // version, a hash of package-lock.json, and the integrity string of the published tarball. `tag` reads it so that it tags
 // exactly the commit that preflight saw and refuses until verify has passed. The note holds no secret and is not in the working tree.
 // A refused precondition exits 1. Exit 2 means wrong use of the script, or a human-only step run without a terminal.
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { gitEnv, makeScratch, toolEnv, viewEnv, baseEnv } from "../tools/lib/env.mjs";
+import { effectiveTimeout, runCommand } from "../tools/lib/run-group.mjs";
 import { failingLine, redact, redactDeep, show } from "../tools/lib/text.mjs";
 import { sizeLimit } from "./pack-rules.mjs";
 
@@ -67,9 +68,10 @@ const USAGE = [
   "Usage: node scripts/release.mjs <subcommand> [--json] [--force] [--help]",
   "  status | preflight | gates | dry-run | publish | verify | tag | retire | claims",
   "  tag also takes --dry-run, which prints the git commands and runs none of them.",
+  "  verify also takes --allow-unsandboxed: without the Node permission model verify stops, and this flag lets it import the package anyway.",
   "  publish and retire are human-only: they print the commands and never run them.",
   "Exit codes: 0 pass, 1 a check failed (or status could not read a source), 2 wrong use.",
-  "verify imports the installed package under the Node permission model when this Node has it, and says so when it does not.",
+  "verify imports the installed package under the Node permission model. Without the model it stops unless --allow-unsandboxed is given.",
 ];
 
 // ---------- config ----------
@@ -322,13 +324,19 @@ function makeRun(root, env, out, json) {
   // One throwaway folder for the whole run, made when a command first needs it and removed at the end.
   let scratch = null;
   const getScratch = () => (scratch ??= makeScratch());
+  /** Removes the scratch folder. It returns a warning text when the removal failed, so the result is still reported. */
   const cleanup = () => {
-    scratch?.remove();
-    scratch = null;
+    try {
+      scratch?.remove();
+      return null;
+    } catch (error) {
+      return `could not remove the scratch folder: ${error instanceof Error ? error.message : String(error)}`;
+    } finally {
+      scratch = null;
+    }
   };
   // RELEASE_TIMEOUT_MS can only shorten a limit. A test uses it to see a timeout.
-  const override = Number(env.RELEASE_TIMEOUT_MS);
-  const limit = (ms) => (Number.isInteger(override) && override > 0 ? Math.min(ms, override) : ms);
+  const limit = (ms) => effectiveTimeout(env, ms);
   const envFor = (command) => {
     if (command[0] === "git") return gitEnv(env);
     if (command[0] === "npm" && command[1] === "view") return viewEnv(env, getScratch());
@@ -343,27 +351,24 @@ function makeRun(root, env, out, json) {
     const timeout = limit(options.timeout ?? timeoutFor(command));
     // "node" runs the same Node that runs this script, but the command is printed as "node" so no absolute path shows.
     const bin = command[0] === "node" ? process.execPath : command[0];
-    const result = spawnSync(bin, command.slice(1), {
-      cwd: options.cwd ?? root,
-      env: options.env ?? envFor(command),
-      encoding: "utf8",
-      maxBuffer: 256 * 1024 * 1024,
-      timeout,
-    });
-    const timedOut = result.error?.code === "ETIMEDOUT";
-    const status = timedOut ? 124 : result.error !== undefined ? 127 : (result.status ?? (result.signal ? 128 : 1));
+    // A command that may start grandchildren runs in its own process group, so a timeout kills the whole group.
+    const result = runCommand({ command: [bin, ...command.slice(1)], cwd: options.cwd ?? root, env: options.env ?? envFor(command), timeout });
+    const status = result.timedOut ? 124 : result.error !== null ? 127 : (result.status ?? (result.signal ? 128 : 1));
     steps.push({ command: redact(show(shown)), exit: status });
     return {
       ok: status === 0,
       status,
-      stdout: result.stdout ?? "",
-      stderr: timedOut ? `timed out after ${timeout} ms` : result.error !== undefined ? String(result.error.message) : (result.stderr ?? ""),
+      stdout: result.stdout,
+      stderr: result.timedOut ? `timed out after ${timeout} ms` : result.error !== null ? result.error : result.stderr,
     };
   };
   return { steps, say, exec, scratch: getScratch, cleanup };
 }
 
 function finish(ctx, base) {
+  // The scratch folder goes first, so a failed removal becomes a warning in the result and not a crash after it.
+  const problem = ctx.run.cleanup();
+  if (problem !== null) ctx.warnings.push(problem);
   const body = {
     ok: base.exit === 0,
     command: base.command,
@@ -434,12 +439,14 @@ function registryInfo(run, config) {
   }
 }
 
+/** True when the old version is retired, false when it is not, and null when the deprecation could not be read. */
 function isRetired(run, config, view) {
   if (!view.ok) return false;
   const tags = view.tags;
   if (tags[config.npmTag] !== config.version || tags[config.retire.promoteTag] !== config.version || config.retire.removeTag in tags) return false;
   const deprecated = run.exec(retireChecks(config)[1]);
-  return deprecated.ok && deprecated.stdout.trim() !== "";
+  if (!deprecated.ok) return null;
+  return deprecated.stdout.trim() !== "";
 }
 
 /** The commit that the remote tag points at (the peeled one for an annotated tag), null when there is none, or an error. */
@@ -608,7 +615,7 @@ const STEPS = {
 
   retire(ctx) {
     const { run, config } = ctx;
-    if (isRetired(run, config, distTags(run, config))) return done(ctx, {}, `${config.retire.oldVersion} is retired`);
+    if (isRetired(run, config, distTags(run, config)) === true) return done(ctx, {}, `${config.retire.oldVersion} is retired`);
     // Without a terminal the answer is exit 2 whatever the state is. With a terminal, verify must have passed first.
     if (!ctx.isTTY) return humanOnly(ctx);
     if (readState(ctx).verify === undefined) return fail(ctx, "refused: verify has not passed. Run: npm run release -- verify");
@@ -629,6 +636,13 @@ const STEPS = {
     if (info.gitHead !== null && info.gitHead !== commit) return fail(ctx, `the registry gitHead ${info.gitHead} differs from the commit ${commit}`);
     const known = state.verify;
     if (!flags.has("--force") && known?.commit === commit && known.integrity === info.integrity && known.gitHead === info.gitHead) return done(ctx, { commit });
+    // The import runs under the Node permission model. Without it the published code would run as ordinary code, so verify stops,
+    // unless the person says to go on. RELEASE_FORCE_NO_PERMISSION=1 pretends the model is missing, for a test. It can only stop more.
+    const flag = ctx.env.RELEASE_FORCE_NO_PERMISSION === "1" ? undefined : ["--permission", "--experimental-permission"].find((name) => process.allowedNodeEnvironmentFlags.has(name));
+    if (flag === undefined) {
+      if (!flags.has("--allow-unsandboxed")) return fail(ctx, "the Node permission model is not available, so verify will not import the package without a sandbox. Pass --allow-unsandboxed to run it anyway");
+      warn(ctx, "the Node permission model is not available, so the import ran without it (--allow-unsandboxed)");
+    }
     // Everything below runs in a throwaway project inside the scratch folder, with a throwaway HOME, cache, and npm config.
     const scratch = run.scratch();
     const temp = join(scratch.dir, "project");
@@ -652,9 +666,8 @@ const STEPS = {
     // it may read only the throwaway project, may not write, and may not start a process. If this Node lacks the model, the import
     // runs without it and a warning says so.
     const code = "const name = process.argv[1]; const e = await import(name); console.log(Object.keys(e).length)";
-    const flag = ["--permission", "--experimental-permission"].find((name) => process.allowedNodeEnvironmentFlags.has(name));
+    if (/[,*]/.test(temp)) return fail(ctx, "the scratch folder path holds a comma or an asterisk, which the permission flag can not take");
     const guard = flag === undefined ? [] : [flag, `--allow-fs-read=${temp}`];
-    if (flag === undefined) warn(ctx, "the Node permission model is not available in this Node, so the import ran without it");
     const command = ["node", ...guard, "--input-type=module", "-e", code, config.package];
     const display = ["node", ...(flag === undefined ? [] : [flag, "--allow-fs-read=<project>"]), "--input-type=module", "-e", code, config.package];
     const counted = run.exec(command, { cwd: temp, env: isolated, display });
@@ -726,12 +739,14 @@ const STEPS = {
     const lock = lockHash(root);
     const phases = [];
     const add = (name, finished, note = "") => phases.push({ name, state: finished === null ? "unknown" : finished ? "done" : "todo", note });
-    add("preflight", commit !== null && state.preflight?.commit === commit);
-    add("gates", commit !== null && state.gates?.commit === commit && state.gates?.lock === lock);
-    add("dry-run", commit !== null && state.dryRun?.commit === commit && state.dryRun?.lock === lock);
+    const known = commit !== null;
+    const noHead = known ? "" : "could not read HEAD";
+    add("preflight", known ? state.preflight?.commit === commit : null, noHead);
+    add("gates", known ? state.gates?.commit === commit && state.gates?.lock === lock : null, noHead);
+    add("dry-run", known ? state.dryRun?.commit === commit && state.dryRun?.lock === lock : null, noHead);
     const view = distTags(run, config);
-    add("publish", view.ok ? view.tags[config.npmTag] === config.version : view.missing ? false : null, view.ok ? "" : view.error);
-    add("verify", commit !== null && state.verify?.commit === commit);
+    add("publish", view.ok ? view.tags[config.npmTag] === config.version : view.missing ? false : null, view.ok ? "" : view.missing ? "registry says not found" : view.error);
+    add("verify", known ? state.verify?.commit === commit : null, noHead);
     const ref = `refs/tags/${gitTagName(config)}`;
     const hasLocal = run.exec(["git", "rev-parse", "-q", "--verify", ref]).ok;
     const remote = remoteTag(run, config, ref);
@@ -748,7 +763,7 @@ const STEPS = {
       else if (remote.hash !== wanted) tagNote = `remote tag ${remote.hash ? `points at ${remote.hash}` : "is missing"}, expected ${wanted}`;
       add("tag", wanted !== undefined && localHash === wanted && remote.hash === wanted, tagNote);
     }
-    add("retire", view.ok ? isRetired(run, config, view) : null);
+    add("retire", view.ok ? isRetired(run, config, view) : view.missing ? false : null, view.ok || view.missing ? "" : view.error);
     add("claims", runClaims(run, root, config).ok);
     const left = phases.filter((phase) => phase.state !== "done").map((phase) => phase.name);
     run.say(`${config.package}@${config.version} on the ${config.npmTag} tag`);
@@ -784,7 +799,7 @@ function humanOnly(ctx) {
 
 // ---------- entry ----------
 
-const KNOWN_FLAGS = new Set(["--json", "--force", "--dry-run", "--help"]);
+const KNOWN_FLAGS = new Set(["--json", "--force", "--dry-run", "--allow-unsandboxed", "--help"]);
 
 /**
  * Runs one subcommand. `context` is `{ root, env, isTTY, out }`. It returns `{ exit, result }` and never exits the process,
@@ -806,7 +821,7 @@ export async function runRelease(argv, context) {
   if (words.length !== 1 || !Object.hasOwn(SAFETY, command)) {
     return usageError(base, command === undefined ? "No subcommand given." : `Unknown subcommand: ${words.join(" ")}`);
   }
-  const bad = [...flags].find((flag) => !KNOWN_FLAGS.has(flag) || (flag === "--dry-run" && command !== "tag"));
+  const bad = [...flags].find((flag) => !KNOWN_FLAGS.has(flag) || (flag === "--dry-run" && command !== "tag") || (flag === "--allow-unsandboxed" && command !== "verify"));
   if (bad !== undefined) return usageError(base, `The flag ${bad} does not belong to ${command}.`);
   try {
     const config = loadConfig(root);
@@ -819,9 +834,9 @@ export async function runRelease(argv, context) {
 }
 
 function usageError(ctx, message) {
-  const body = { ok: false, command: ctx.command ?? null, status: "usage", exit: 2, message, steps: ctx.run.steps, usage: USAGE };
+  const body = redactDeep({ ok: false, command: ctx.command ?? null, status: "usage", exit: 2, message, steps: ctx.run.steps, usage: USAGE });
   if (ctx.json) ctx.out(JSON.stringify(body));
-  else for (const line of [message, ...USAGE]) ctx.out(line);
+  else for (const line of [body.message, ...USAGE]) ctx.out(line);
   return { exit: 2, result: body };
 }
 

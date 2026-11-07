@@ -17,7 +17,7 @@ import process from "node:process";
 import { parseArgs } from "node:util";
 import { isMainModule } from "./lib/main.mjs";
 import { resolveWorkTree } from "./lib/paths.mjs";
-import { jsonLine } from "./lib/text.mjs";
+import { jsonLine, redact } from "./lib/text.mjs";
 
 const USAGE = [
   "Usage: node tools/tree-clean.mjs <tree> [--json]",
@@ -113,7 +113,7 @@ function checkIdle(tree) {
 
 function usageError(json, message, exit = 2) {
   if (json) console.log(jsonLine({ ok: false, status: exit === 2 ? "usage" : "fail", exit, message }));
-  else console.error(exit === 2 ? `${message}\n${USAGE}` : message);
+  else console.error(redact(exit === 2 ? `${message}\n${USAGE}` : message));
   return exit;
 }
 

@@ -273,6 +273,12 @@
           "type": "flag",
           "required": false,
           "description": "Run the step again even if it is already done."
+        },
+        {
+          "name": "--allow-unsandboxed",
+          "type": "flag",
+          "required": false,
+          "description": "Import the installed package without the Node permission model when this Node lacks it. Without the flag, verify stops with exit 1."
         }
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commit, exports }.",

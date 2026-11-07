@@ -481,13 +481,20 @@ describe("environment of child commands", () => {
     }
   });
 
-  it("gives git a non-interactive environment and no npm token", () => {
+  it("gives git a non-interactive environment and no npm token, and sets BatchMode only when the person set no ssh command", () => {
     const repo = makeReleaseRepo();
     const log = addGitSpy(repo.fake);
-    expect(repo.run(["preflight"], { NPM_TOKEN: "secret-token-value", GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no" }).status).toBe(0);
+    expect(repo.run(["preflight"], { NPM_TOKEN: "secret-token-value", GIT_SSH_COMMAND: "" }).status).toBe(0);
     const lines = readFileSync(log, "utf8").trim().split("\n");
     expect(lines.length).toBeGreaterThan(3);
     for (const line of lines) expect(line).toBe("0|ssh -o BatchMode=yes|none");
+  });
+
+  it("keeps the ssh command that the person set", () => {
+    const repo = makeReleaseRepo();
+    const log = addGitSpy(repo.fake);
+    expect(repo.run(["preflight"], { GIT_SSH_COMMAND: "ssh -i /keys/mine" }).status).toBe(0);
+    for (const line of readFileSync(log, "utf8").trim().split("\n")) expect(line).toBe("0|ssh -i /keys/mine|none");
   });
 });
 

@@ -66,6 +66,12 @@ const knob = (name) => knobs[name] ?? process.env[name];
 const args = process.argv.slice(2);
 appendFileSync(join(here, "..", "calls.log"), JSON.stringify({ tool: "npm", args, cwd: process.cwd(), env: Object.keys(process.env).sort(), values: { HOME: process.env.HOME, cache: process.env.npm_config_cache } }) + "\\n");
 const [command, ...rest] = args;
+if (knob("FAKE_GRANDCHILD")) {
+  const { spawn } = await import("node:child_process");
+  const child = spawn("sleep", ["60"], { stdio: "ignore" });
+  writeFileSync(join(dir, "grandchild.pid"), String(child.pid));
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 60000);
+}
 if (knob("FAKE_SLEEP_MS")) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(knob("FAKE_SLEEP_MS")));
 
 if (["login", "adduser", "whoami", "deprecate", "dist-tag", "unpublish", "token"].includes(command) || (command === "publish" && !rest.includes("--dry-run"))) {
@@ -90,6 +96,7 @@ if (command === "view") {
     console.log(text);
     process.exit(0);
   }
+  if (fields[0] === "deprecated" && knob("FAKE_FAIL_DEPRECATED")) { console.error("npm error network down"); process.exit(1); }
   if (fields[0] === "deprecated") { const text = read("deprecated.txt"); console.log(text ?? ""); process.exit(0); }
   if (fields.includes("dist.integrity")) {
     const body = { "dist.integrity": (read("integrity.txt") ?? "sha512-FAKEINTEGRITY").trim() };
@@ -141,6 +148,8 @@ const args = process.argv.slice(2);
 let stdin = null;
 if (args.includes("-")) { try { stdin = readFileSync(0, "utf8"); } catch { stdin = ""; } }
 appendFileSync(join(here, "..", "calls.log"), JSON.stringify({ tool: "gh", args, cwd: process.cwd(), stdin }) + "\\n");
+if (knobs.FAKE_GH_SLEEP_MS && args[0] === "pr") Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(knobs.FAKE_GH_SLEEP_MS));
+if (args[0] === "api" && args[1] === "user") { console.log("example-user"); process.exit(0); }
 if (knobs.FAKE_GH_FAIL) { console.error("gh: could not create the pull request"); process.exit(1); }
 if (knobs.FAKE_GH_EMPTY) process.exit(0);
 console.log(knobs.FAKE_GH_OUTPUT ?? "https://github.com/example/repo/pull/1");
@@ -223,7 +232,7 @@ export function makeReleaseRepo(): ReleaseRepo {
   copyFileSync(join(repoRoot, "release.config.json"), join(work, "release.config.json"));
   for (const file of ["release.mjs", "public-api.mjs", "pack-rules.mjs"]) copyFileSync(join(repoRoot, "scripts", file), join(work, "scripts", file));
   mkdirSync(join(work, "tools", "lib"), { recursive: true });
-  for (const file of ["text.mjs", "env.mjs"]) copyFileSync(join(repoRoot, "tools", "lib", file), join(work, "tools", "lib", file));
+  for (const file of ["text.mjs", "env.mjs", "run-group.mjs"]) copyFileSync(join(repoRoot, "tools", "lib", file), join(work, "tools", "lib", file));
   writeFileSync(join(work, "README.md"), "# Package\n\nThe version is on the beta tag.\n");
   // The releasing page quotes the stale phrases on purpose, so the claim check must skip it.
   writeFileSync(join(work, "docs", "releasing.md"), "Search for `Not published yet` and `Nothing is published`.\n");

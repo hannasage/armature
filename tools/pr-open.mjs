@@ -12,7 +12,6 @@
 // There is no flag to open a ready pull request. A person or the merge gate marks it ready later.
 // With --dry-run it checks the body and prints the command, and it does not call gh.
 // Exit codes: 0 opened (or dry run passed), 1 the body or gh failed, 2 wrong use.
-import { spawnSync } from "node:child_process";
 import { readFileSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { sep } from "node:path";
@@ -20,6 +19,7 @@ import process from "node:process";
 import { parseArgs } from "node:util";
 import { isMainModule } from "./lib/main.mjs";
 import { resolveFile, resolveWorkTree } from "./lib/paths.mjs";
+import { effectiveTimeout, runCommand } from "./lib/run-group.mjs";
 import { failingLine, jsonLine, redact, show } from "./lib/text.mjs";
 import { validateBody } from "./lib/pr-body.mjs";
 
@@ -27,11 +27,12 @@ const USAGE = [
   "Usage: node tools/pr-open.mjs --title <text> --body-file <file> --base <branch> [--dir <folder>] [--dry-run] [--json]",
   "Opens a DRAFT pull request. The body is checked first. Exit codes: 0 opened, 1 the body, gh, or git failed, 2 wrong use.",
   "Note: --dir must name a folder in a git work tree. Git and gh read the configuration of that repository, so only use one you trust.",
+  "Note: gh gets the full environment on purpose, because it needs its own login (its config folder and any token it uses). The tool prints the gh identity before it creates anything, and stops gh after 2 minutes.",
 ].join("\n");
 
 function usageError(json, message, exit = 2) {
   if (json) console.log(jsonLine({ ok: false, status: exit === 2 ? "usage" : "fail", exit, message }));
-  else console.error(exit === 2 ? `${message}\n${USAGE}` : message);
+  else console.error(redact(exit === 2 ? `${message}\n${USAGE}` : message));
   return exit;
 }
 
@@ -77,27 +78,35 @@ export function main(argv, env = process.env) {
 
   // --draft is always in the command. No option turns it off.
   const command = ["gh", "pr", "create", "--draft", "--base", base, "--title", title, "--body-file", "-"];
-  if (!json) console.log(`$ ${show(command)}`);
   if (values["dry-run"]) {
+    if (!json) console.log(`$ ${redact(show(command))}`);
     if (json) console.log(jsonLine({ ok: true, status: "dry-run", exit: 0, draft: true, command: show(command), url: null }));
     else console.log("Dry run: the body is valid and gh was not called.");
     return 0;
   }
-  const result = spawnSync(command[0], command.slice(1), { cwd: folder.path, env, encoding: "utf8", input: text, maxBuffer: 16 * 1024 * 1024 });
-  if (result.error !== undefined || result.status !== 0) {
-    const line = result.error !== undefined ? `could not start gh: ${result.error.message}` : failingLine(result.stdout, result.stderr);
-    if (json) console.log(jsonLine({ ok: false, status: "gh-failed", exit: 1, draft: true, command: show(command), failingLine: line }));
-    else console.log(`FAILED gh pr create: ${line}`);
+  const timeout = effectiveTimeout(env, 2 * 60 * 1000);
+  const failure = (status, line, extra = {}) => {
+    if (json) console.log(jsonLine({ ok: false, status, exit: 1, draft: true, command: show(command), failingLine: line, ...extra }));
+    else console.log(`FAILED gh pr create: ${redact(line)}`);
     return 1;
-  }
+  };
+  const describe = (result) => (result.timedOut ? `timed out after ${timeout} ms` : result.error !== null ? `could not start gh: ${result.error}` : failingLine(result.stdout, result.stderr));
+
+  // Say which account gh uses before anything is created.
+  const whoCommand = ["gh", "api", "user", "--jq", ".login"];
+  if (!json) console.log(`$ ${show(whoCommand)}`);
+  const who = runCommand({ command: whoCommand, cwd: folder.path, env, timeout });
+  if (who.timedOut || who.error !== null || who.status !== 0) return failure("gh-identity-failed", `could not read the gh identity: ${describe(who)}`);
+  const identity = redact(who.stdout.trim().split("\n").at(-1) ?? "");
+  if (!json) console.log(`gh identity: ${identity}`);
+
+  // --draft is always in the command. No option turns it off.
+  if (!json) console.log(`$ ${redact(show(command))}`);
+  const result = runCommand({ command, cwd: folder.path, env, timeout, input: text });
+  if (result.timedOut || result.error !== null || result.status !== 0) return failure("gh-failed", describe(result), { identity });
   const url = redact(result.stdout.trim().split("\n").at(-1) ?? "");
-  if (!/^https:\/\/\S+\/pull\/\d+$/.test(url)) {
-    const line = `gh printed no pull request URL on its last line (it printed: ${url === "" ? "nothing" : url.slice(0, 100)})`;
-    if (json) console.log(jsonLine({ ok: false, status: "no-url", exit: 1, draft: true, command: show(command), failingLine: line }));
-    else console.log(`FAILED gh pr create: ${line}`);
-    return 1;
-  }
-  if (json) console.log(jsonLine({ ok: true, status: "pass", exit: 0, draft: true, command: show(command), url }));
+  if (!/^https:\/\/\S+\/pull\/\d+$/.test(url)) return failure("no-url", `gh printed no pull request URL on its last line (it printed: ${url === "" ? "nothing" : url.slice(0, 100)})`, { identity });
+  if (json) console.log(jsonLine({ ok: true, status: "pass", exit: 0, draft: true, command: show(command), url, identity }));
   else console.log(url);
   return 0;
 }

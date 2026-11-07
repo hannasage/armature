@@ -146,4 +146,15 @@ describe("validateBody", () => {
       expect(problems, JSON.stringify(text)).toMatch(/home path|session link/);
     }
   });
+
+  it("finds a home path or a session link hidden behind format, selector, tag, or filler characters", () => {
+    const hidden = [0xFE0F, 0x180B, 0xE0041, 0x115F, 0x1160, 0x3164, 0xFFA0, 0x200B, 0x00AD, 0x2062];
+    for (const code of hidden) {
+      const mark = String.fromCodePoint(code);
+      const path = lib.validateBody(good.replace("config file", `file at /Us${mark}ers/someone/x`)).join();
+      expect(path, code.toString(16)).toMatch(/home path/);
+      const link = lib.validateBody(good.replace("config file", `link https://claude${mark}.ai/code/x`)).join();
+      expect(link, code.toString(16)).toMatch(/session link/);
+    }
+  });
 });

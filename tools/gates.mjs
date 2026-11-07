@@ -7,13 +7,13 @@
 // A gate that exits with another code prints its first failing line. With --bail the run stops at the first failure.
 // The commands write to node_modules (npm ci) and dist (build) in the folder. Nothing is written to a remote.
 // Exit codes: 0 every gate passed, 1 a gate failed, 2 wrong use.
-import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { parseArgs } from "node:util";
 import { makeScratch, toolEnv } from "./lib/env.mjs";
 import { isMainModule } from "./lib/main.mjs";
 import { resolveWorkTree } from "./lib/paths.mjs";
-import { failingLine, jsonLine } from "./lib/text.mjs";
+import { effectiveTimeout, runCommand } from "./lib/run-group.mjs";
+import { failingLine, jsonLine, redact } from "./lib/text.mjs";
 
 const USAGE = [
   "Usage: node tools/gates.mjs [--ci] [--bail] [--cwd <folder>] [--json]",
@@ -24,7 +24,7 @@ const GATES = ["typecheck", "lint", "test", "build", "check:pack"];
 
 function usageError(json, message, exit = 2) {
   if (json) console.log(jsonLine({ ok: false, status: exit === 2 ? "usage" : "fail", exit, message }));
-  else console.error(exit === 2 ? `${message}\n${USAGE}` : message);
+  else console.error(redact(exit === 2 ? `${message}\n${USAGE}` : message));
   return exit;
 }
 
@@ -43,24 +43,29 @@ export function main(argv, env = process.env) {
   if (!folder.ok) return usageError(values.json === true, folder.error, folder.gitFailed ? 1 : 2);
 
   const commands = [...(values.ci ? [{ name: "ci", command: ["npm", "ci"] }] : []), ...GATES.map((name) => ({ name, command: ["npm", "run", name] }))];
-  const results = [];
   // The gates get an allowlisted environment and a throwaway HOME, so a token in the caller environment can not reach them.
   const scratch = makeScratch();
-  const childEnv = toolEnv(env, scratch);
-  for (const { name, command } of commands) {
-    const result = spawnSync(command[0], command.slice(1), { cwd: folder.path, env: childEnv, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
-    const exit = result.status;
-    const passed = exit === 0 && result.error === undefined;
-    const gate = { name, command: command.join(" "), exit, signal: result.signal ?? null, ok: passed };
-    if (!passed) gate.firstFailingLine = result.error !== undefined ? `could not start: ${result.error.message}` : failingLine(result.stdout, result.stderr);
-    results.push(gate);
-    if (!values.json) {
-      const code = exit === null ? (result.error !== undefined ? "did not run" : `signal ${result.signal}`) : `exit ${exit}`;
-      console.log(passed ? `PASS ${gate.command} (${code})` : `FAIL ${gate.command} (${code}) - ${gate.firstFailingLine}`);
+  const results = [];
+  try {
+    const childEnv = toolEnv(env, scratch);
+    // Each gate may run for 15 minutes. If it runs longer, the whole process group is killed. RELEASE_TIMEOUT_MS can shorten the limit.
+    const timeout = effectiveTimeout(env, 15 * 60 * 1000);
+    for (const { name, command } of commands) {
+      const result = runCommand({ command, cwd: folder.path, env: childEnv, timeout });
+      const exit = result.timedOut ? 124 : result.status;
+      const passed = exit === 0 && result.error === null;
+      const gate = { name, command: command.join(" "), exit, signal: result.signal ?? null, ok: passed };
+      if (!passed) gate.firstFailingLine = result.timedOut ? `timed out after ${timeout} ms` : result.error !== null ? `could not start: ${result.error}` : failingLine(result.stdout, result.stderr);
+      results.push(gate);
+      if (!values.json) {
+        const code = exit === null ? (result.error !== null ? "did not run" : `signal ${result.signal}`) : `exit ${exit}`;
+        console.log(passed ? `PASS ${gate.command} (${code})` : `FAIL ${gate.command} (${code}) - ${gate.firstFailingLine}`);
+      }
+      if (!passed && values.bail) break;
     }
-    if (!passed && values.bail) break;
+  } finally {
+    scratch.remove();
   }
-  scratch.remove();
   const ok = results.every((gate) => gate.ok) && results.length === commands.length;
   if (values.json) console.log(jsonLine({ ok, status: ok ? "pass" : "fail", exit: ok ? 0 : 1, path: folder.path, gates: results }));
   else {

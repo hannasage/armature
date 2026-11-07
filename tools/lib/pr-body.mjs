@@ -15,6 +15,10 @@ const CONTRACTION = /\p{L}['\u2018\u2019\u201b\u2032\u02b9\u02bb\u02bc\u02c8](?:
 // Built from a string because some of these characters combine with their neighbors when written inside a character class.
 // eslint-disable-next-line no-misleading-character-class
 const INVISIBLE = new RegExp("[\\u00ad\\u034f\\u061c\\u180e\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2064\\u2066-\\u206f\\ufeff]", "g");
+// Everything that shows as nothing: format characters (\p{Cf}), variation selectors, Mongolian selectors, tag characters, and fillers.
+// These are removed before the path and link checks, so none of them can split a path or a link.
+// eslint-disable-next-line no-misleading-character-class
+const HIDDEN = new RegExp("[\\p{Cf}\\u{fe00}-\\u{fe0f}\\u{180b}-\\u{180d}\\u{e0000}-\\u{e0fff}\\u{115f}\\u{1160}\\u{3164}\\u{ffa0}\\u{34f}]", "gu");
 const HOME_PATHS = [/\/Users\/[^\s/]+/, /\/home\/[^\s/]+/, /[A-Za-z]:\\Users\\[^\s\\]+/];
 const SESSION_LINKS = [/claude\.ai\/(?:code|chat|share)\b/i, /\bsession_[A-Za-z0-9]{8,}/];
 
@@ -40,7 +44,7 @@ export function validateBody(text) {
   if (body !== FOOTER && !body.endsWith(`\n${FOOTER}`)) problems.push(`the body must end with the line: ${FOOTER}`);
   // The patterns run on the raw text and on a cleaned copy: invisible characters removed, then normalized, so a path or a link
   // can not hide behind a zero-width character, a soft hyphen, or a full-width slash.
-  const views = [text, text.replace(INVISIBLE, "").normalize("NFKC")];
+  const views = [text, text.replace(HIDDEN, "").normalize("NFKC")];
   if (HOME_PATHS.some((pattern) => views.some((view) => pattern.test(view)))) problems.push("the body has a home path (such as /Users/name). Remove it");
   if (SESSION_LINKS.some((pattern) => views.some((view) => pattern.test(view)))) problems.push("the body has a session link. Remove it");
   return problems;

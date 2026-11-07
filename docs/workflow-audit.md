@@ -81,11 +81,12 @@ To replace these guesses with facts, sum the token usage of a few real runs befo
 - `gates` and `dry-run` write to `node_modules` and `dist`. They record a result only when the working tree was clean before and after the run.
 - `verify` makes a throwaway folder with its own HOME, npm cache, and npm config files, installs the package there with install scripts turned off, and removes the folder when it finishes.
 - `verify` imports the installed package under the Node permission model when the running Node has it. The import can read only the throwaway project, and it can not write or start a process. This works on the Node used in the tests.
-  If a Node does not have the model, the import runs without it and a warning says so. The remaining risk is then that the published package runs as ordinary code with the access of the user, in a project that holds no secret.
+  If a Node does not have the model, `verify` stops with exit 1. The person can pass `--allow-unsandboxed` to run the import anyway. The published package then runs as ordinary code with the access of the user, in a project that holds no secret, and a warning says so.
 - Child commands get a short list of variables (PATH, LANG, TERM, CI, and a throwaway HOME) and not the whole environment. Tokens, SSH_AUTH_SOCK, and cloud keys never reach npm or the gates. git keeps the real HOME and never prompts.
-- Every command has a time limit: 2 minutes for git and `npm view`, and 15 minutes for the gates.
-- `status` reads the registry with a throwaway HOME and cache, so it writes nothing in the repository or the home folder. When it can not read the registry or the remote, it exits 1 and marks that phase unknown.
+- Every command has a time limit: 2 minutes for git and `npm view`, and 15 minutes for the gates. A command that may start other processes runs in its own process group, and a timeout kills the whole group.
+- `status` reads the registry with a throwaway HOME and cache, so it writes nothing in the repository or the home folder. When the registry says the package is not found, which is the normal state before the first publish, status exits 0. When a read fails or times out, status exits 1 and marks that phase unknown.
 - `status` and `claims` are `read-only`. A test runs every release subcommand in a temporary repository and checks that each one changes only the paths that `tools/manifest.json` lists for it.
 - A refused precondition exits 1. Exit 2 means wrong use or a human-only step.
 - `tree-clean` compares with the last fetch. It does not fetch, so run `git fetch` first if the remote may have changed.
+- `pr-open` prints the gh identity before it creates a draft, and it gives gh the full environment on purpose, because gh needs its own login.
 - `--cwd`, `--dir`, and the tree path let git read the configuration of that repository, so only point the tools at a repository you trust.

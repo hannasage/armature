@@ -102,4 +102,11 @@ describe("gates", () => {
     const lib = await import(pathToFileURL(script).href);
     expect(typeof lib.main).toBe("function");
   });
+
+  it("fails a gate that runs longer than the limit, and says it timed out", () => {
+    const { run } = setup();
+    const result = run(["--bail"], { FAKE_SLEEP_MS: "4000", RELEASE_TIMEOUT_MS: "400" });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toMatch(/FAIL npm run typecheck \(exit 124\).*timed out/);
+  });
 });

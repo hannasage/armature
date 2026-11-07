@@ -24,11 +24,17 @@ describe("redact", () => {
       "//r/:_auth=dXNlcjpwYXNz",
       "_password=cGFzcw==",
       "Authorization: Basic dXNlcjpwYXNz",
+      "https://alice:s3cretpw@registry.example.com/x",
+      "//bob:hunter22@host/path",
+      "key sk-ant-api03-abcdefghijklmnop",
+      "id AKIAABCDEFGHIJKLMNOP end",
+      '{"_authToken":"tok123value"}',
+      '{"_password": "cGFzcw"}',
     ];
     for (const sample of samples) {
       const out = lib.redact(`x ${sample} y`);
       expect(out, sample).toContain("[redacted]");
-      expect(out, sample).not.toMatch(/ghp_a|gho_a|github_pat_a|npm_b|abc123secret|abc\.def|hunter2|123456|654321|dXNlcjpwYXNz|cGFzcw==/);
+      expect(out, sample).not.toMatch(/ghp_a|gho_a|github_pat_a|npm_b|abc123secret|abc\.def|hunter2|123456|654321|dXNlcjpwYXNz|cGFzcw==|s3cretpw|hunter22|sk-ant-api03|AKIAABCDEFGHIJKLMNOP|tok123value|cGFzcw"/);
     }
   });
 

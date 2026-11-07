@@ -13,11 +13,27 @@ export function pick(env, names) {
 }
 
 /**
+ * The folder that holds the scratch folder. The Node permission flag takes a list that is split at commas and may read a star
+ * as a pattern, so a path with a comma or a star is not safe. If the temporary folder has one, use /tmp. If that fails too, stop.
+ */
+function safeBase() {
+  for (const candidate of [tmpdir(), "/tmp"]) {
+    try {
+      const real = realpathSync(candidate);
+      if (!/[,*]/.test(real)) return real;
+    } catch {
+      // Try the next one.
+    }
+  }
+  throw new Error("the temporary folder path holds a comma or an asterisk, which the Node permission flag can not take. Set TMPDIR to a plain path");
+}
+
+/**
  * A throwaway folder with a HOME, an npm cache, and an empty npm config file. `remove` deletes all of it.
  * Callers make one when they first need it and remove it when they finish.
  */
 export function makeScratch() {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), "release-scratch-")));
+  const dir = realpathSync(mkdtempSync(join(safeBase(), "release-scratch-")));
   const home = join(dir, "home");
   const cache = join(dir, "cache");
   const npmrc = join(dir, "npmrc");
@@ -70,6 +86,7 @@ export function gitEnv(env) {
     ...pick(env, ["PATH", "HOME", "LANG", "TERM", "SSH_AUTH_SOCK", "GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM"]),
     GIT_TERMINAL_PROMPT: "0",
     GIT_OPTIONAL_LOCKS: "0",
-    GIT_SSH_COMMAND: "ssh -o BatchMode=yes",
+    // A person's own ssh command is kept. BatchMode, which stops every prompt, is added only when there is none.
+    GIT_SSH_COMMAND: env.GIT_SSH_COMMAND || "ssh -o BatchMode=yes",
   };
 }

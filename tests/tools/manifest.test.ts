@@ -1,5 +1,5 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { join, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import { repoRoot } from "./support";
@@ -28,6 +28,21 @@ const SAFETY_CLASS_NAMES = ["read-only", "local-write", "remote-write", "human-o
 const MAX_TOOLS = 1000;
 
 /** Problems with the exposure field. An empty list means the manifest is sound. It never throws on a malformed manifest. */
+// Format characters, selectors, tag characters, and fillers that can hide a difference between two names.
+const INVISIBLE = new RegExp("[\\p{Cf}\\u{fe00}-\\u{fe0f}\\u{180b}-\\u{180d}\\u{e0000}-\\u{e0fff}\\u{115f}\\u{1160}\\u{3164}\\u{ffa0}]", "gu");
+
+/** True when the script is a regular file inside the repository root. */
+function scriptIsFileInside(root: string, script: unknown): boolean {
+  if (typeof script !== "string" || script === "" || script.startsWith("/")) return false;
+  try {
+    const real = realpathSync(join(root, script));
+    const top = realpathSync(root);
+    return real.startsWith(top + sep) && statSync(real).isFile();
+  } catch {
+    return false;
+  }
+}
+
 const TOP_KEYS = ["schema", "version", "project", "description", "safety_classes", "exit_codes", "exposure_default", "mcp_exposure", "tools", "held_back"];
 
 function exposureProblems(manifest: any, root: string = repoRoot): string[] {
@@ -43,7 +58,7 @@ function exposureProblems(manifest: any, root: string = repoRoot): string[] {
     if (typeof name !== "string" || name.trim() === "") problems.push(`tool #${index}: needs a name`);
     else names.push(name);
   });
-  const folded = names.map((n) => n.trim().toLowerCase());
+  const folded = names.map((n) => n.normalize("NFKC").replace(INVISIBLE, "").trim().toLowerCase());
   for (const name of [...new Set(folded.filter((n) => folded.filter((m) => m === n).length > 1))].sort()) problems.push(`${name}: the name appears more than once`);
   const held = "held_back" in manifest ? manifest.held_back : [];
   const heldNames: string[] = [];
@@ -70,8 +85,9 @@ function exposureProblems(manifest: any, root: string = repoRoot): string[] {
     if (exposed) {
       if (safety !== "read-only") problems.push(`${name}: an exposed tool must be read-only`);
       if (!Array.isArray(tool.writesPaths) || tool.writesPaths.length !== 0) problems.push(`${name}: an exposed tool must have writesPaths: []`);
-      if (typeof tool.script !== "string" || !existsSync(join(root, tool.script))) problems.push(`${name}: an exposed tool needs a script file that exists`);
+      if (!scriptIsFileInside(root, tool.script)) problems.push(`${name}: an exposed tool needs a script that is a file inside the repository`);
     }
+    if (tool.script === "scripts/release.mjs" && release.SAFETY[tool.subcommand] !== safety) problems.push(`${name}: safety_class ${safety} differs from the class the release script declares`);
     if (heldNames.includes(name) && exposed) problems.push(`${name}: a held-back tool must be hidden`);
   }
   return problems;
@@ -215,8 +231,35 @@ describe("MCP exposure", () => {
     expect(exposedTools(writes)).toEqual([]);
     const missing = make(["a", "read-only", "expose"]);
     missing.tools[0].script = "tools/nope.mjs";
-    expect(exposureProblems(missing).join()).toContain("script file that exists");
+    expect(exposureProblems(missing).join()).toContain("a file inside the repository");
     expect(exposedTools(missing)).toEqual([]);
+  });
+
+  it("fails a script that is outside the repository or is a folder", () => {
+    for (const script of ["../README.md", "tools", "/etc/hosts", ""]) {
+      const broken = make(["a", "read-only", "expose"]);
+      broken.tools[0].script = script;
+      expect(exposureProblems(broken).join(), script).toContain("a file inside the repository");
+      expect(exposedTools(broken)).toEqual([]);
+    }
+  });
+
+  it("fails a release entry whose class differs from the class the script declares", () => {
+    for (const [subcommand, safety] of [["publish", "read-only"], ["retire", "read-only"], ["tag", "read-only"], ["status", "local-write"]]) {
+      const broken = make([`release ${subcommand}`, safety, "hidden"]);
+      Object.assign(broken.tools[0], { script: "scripts/release.mjs", subcommand });
+      expect(exposureProblems(broken).join(), subcommand).toContain("differs from the class the release script declares");
+    }
+    const copied = make(["release publish", "read-only", "expose"]);
+    Object.assign(copied.tools[0], { script: "scripts/release.mjs", subcommand: "publish" });
+    expect(exposedTools(copied)).toEqual([]);
+  });
+
+  it("finds duplicate names that differ only by invisible characters or width", () => {
+    for (const twin of ["ga\u200btes", "GATES", "\uff47ates", "gates\ufe0f"]) {
+      const broken = make(["gates", "read-only", "expose"], [twin, "read-only", "hidden"]);
+      expect(exposureProblems(broken).join(), JSON.stringify(twin)).toContain("appears more than once");
+    }
   });
 
   it("fails an unknown top-level key, such as a misspelled held_back", () => {

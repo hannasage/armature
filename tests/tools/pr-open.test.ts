@@ -28,7 +28,7 @@ describe("pr-open", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("https://github.com/example/repo/pull/1");
     expect(result.stdout).toContain("$ gh pr create --draft --base release/1.0.0");
-    const calls = fake.lines("gh");
+    const calls = fake.lines("gh").filter((line) => line.startsWith("pr create"));
     expect(calls).toHaveLength(1);
     expect(calls[0]).toMatch(/^pr create --draft --base release\/1\.0\.0 --title Add release script --body-file /);
   });
@@ -113,7 +113,7 @@ describe("pr-open", () => {
   it("runs gh in the folder given by --dir", () => {
     const { fake, run, base, repo } = setup();
     expect(run([...base, "--dir", repo]).status).toBe(0);
-    expect(fake.calls()[0]?.cwd).toBe(repo);
+    expect(fake.calls().find((entry) => entry.args[0] === "pr")?.cwd).toBe(repo);
   });
 
   it("does not change the body file", () => {
@@ -136,7 +136,7 @@ describe("pr-open", () => {
   it("passes the checked text to gh on standard input and does not read the path again", () => {
     const { fake, run, base } = setup();
     expect(run(base).status).toBe(0);
-    const call = fake.calls()[0];
+    const call = fake.calls().find((entry) => entry.tool === "gh" && entry.args[0] === "pr")!;
     expect(call.args.slice(-2)).toEqual(["--body-file", "-"]);
     expect(call.stdin).toBe(GOOD);
   });
