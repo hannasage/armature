@@ -40,7 +40,7 @@
       ],
       "output": "{ ok, status, exit, path, gates: [{ name, command, exit, signal, ok, firstFailingLine? }] }. Exit 0 all passed, 1 a gate failed, 2 wrong use.",
       "safety_class": "local-write",
-      "destructive": false,
+      "destructive": true,
       "mcp_exposure": "hidden",
       "writes": "node_modules (with --ci) and dist, in the folder.",
       "writesPaths": [
@@ -128,7 +128,7 @@
       "name": "release status",
       "script": "scripts/release.mjs",
       "subcommand": "status",
-      "description": "Read the version, the git tags, and the registry. List what is left to do.",
+      "description": "Read the version, the git tags, and the registry. List what is left to do. Reads the network with a throwaway home folder and cache.",
       "arguments": [
         {
           "name": "--json",
@@ -141,7 +141,7 @@
       "safety_class": "read-only",
       "destructive": false,
       "mcp_exposure": "expose",
-      "writes": "Nothing.",
+      "writes": "Network reads only. It changes nothing in the repository and nothing in the home folder.",
       "writesPaths": []
     },
     {

@@ -17,6 +17,7 @@ import process from "node:process";
 import { parseArgs } from "node:util";
 import { isMainModule } from "./lib/main.mjs";
 import { resolveWorkTree } from "./lib/paths.mjs";
+import { jsonLine } from "./lib/text.mjs";
 
 const USAGE = [
   "Usage: node tools/tree-clean.mjs <tree> [--json]",
@@ -111,7 +112,7 @@ function checkIdle(tree) {
 }
 
 function usageError(json, message, exit = 2) {
-  if (json) console.log(JSON.stringify({ ok: false, status: exit === 2 ? "usage" : "fail", exit, message }));
+  if (json) console.log(jsonLine({ ok: false, status: exit === 2 ? "usage" : "fail", exit, message }));
   else console.error(exit === 2 ? `${message}\n${USAGE}` : message);
   return exit;
 }
@@ -139,7 +140,7 @@ export function main(argv) {
     { name: "idle", ...checkIdle(tree.top) },
   ];
   const ok = checks.every((check) => check.ok);
-  if (json) console.log(JSON.stringify({ ok, status: ok ? "pass" : "fail", exit: ok ? 0 : 1, path: tree.top, removes: "nothing", checks }));
+  if (json) console.log(jsonLine({ ok, status: ok ? "pass" : "fail", exit: ok ? 0 : 1, path: tree.top, removes: "nothing", checks }));
   else {
     for (const check of checks) console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name} - ${check.detail}`);
     console.log(ok ? "Result: the tree is safe to remove. This tool removed nothing." : "Result: the tree is not safe to remove. This tool removed nothing.");

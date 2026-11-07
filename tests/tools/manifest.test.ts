@@ -28,11 +28,14 @@ const SAFETY_CLASS_NAMES = ["read-only", "local-write", "remote-write", "human-o
 const MAX_TOOLS = 1000;
 
 /** Problems with the exposure field. An empty list means the manifest is sound. It never throws on a malformed manifest. */
-function exposureProblems(manifest: any): string[] {
+const TOP_KEYS = ["schema", "version", "project", "description", "safety_classes", "exit_codes", "exposure_default", "mcp_exposure", "tools", "held_back"];
+
+function exposureProblems(manifest: any, root: string = repoRoot): string[] {
   const isObject = (value: unknown): value is Record<string, any> => value !== null && typeof value === "object" && !Array.isArray(value);
   if (!isObject(manifest) || !Array.isArray(manifest.tools) || manifest.tools.length === 0) return ["the manifest needs a non-empty tools list"];
   if (manifest.tools.length > MAX_TOOLS) return [`the manifest has more than ${MAX_TOOLS} tools`];
   const problems: string[] = [];
+  for (const key of Object.keys(manifest)) if (!TOP_KEYS.includes(key)) problems.push(`unknown top-level key ${key}`);
   if ("exposure_default" in manifest && manifest.exposure_default !== "hidden") problems.push("exposure_default must be hidden");
   const names: string[] = [];
   manifest.tools.forEach((tool: unknown, index: number) => {
@@ -40,8 +43,9 @@ function exposureProblems(manifest: any): string[] {
     if (typeof name !== "string" || name.trim() === "") problems.push(`tool #${index}: needs a name`);
     else names.push(name);
   });
-  for (const name of [...new Set(names.filter((n) => names.filter((m) => m === n).length > 1))].sort()) problems.push(`${name}: the name appears more than once`);
-  const held = manifest.held_back ?? [];
+  const folded = names.map((n) => n.trim().toLowerCase());
+  for (const name of [...new Set(folded.filter((n) => folded.filter((m) => m === n).length > 1))].sort()) problems.push(`${name}: the name appears more than once`);
+  const held = "held_back" in manifest ? manifest.held_back : [];
   const heldNames: string[] = [];
   if (!Array.isArray(held)) problems.push("held_back must be a list");
   else {
@@ -63,6 +67,11 @@ function exposureProblems(manifest: any): string[] {
     if ("destructive" in tool && typeof tool.destructive !== "boolean") problems.push(`${name}: destructive must be true or false`);
     else if (tool.destructive === true && exposed) problems.push(`${name}: a destructive tool must be hidden`);
     else if (exposed && tool.destructive !== false) problems.push(`${name}: an exposed tool must say destructive: false`);
+    if (exposed) {
+      if (safety !== "read-only") problems.push(`${name}: an exposed tool must be read-only`);
+      if (!Array.isArray(tool.writesPaths) || tool.writesPaths.length !== 0) problems.push(`${name}: an exposed tool must have writesPaths: []`);
+      if (typeof tool.script !== "string" || !existsSync(join(root, tool.script))) problems.push(`${name}: an exposed tool needs a script file that exists`);
+    }
     if (heldNames.includes(name) && exposed) problems.push(`${name}: a held-back tool must be hidden`);
   }
   return problems;
@@ -141,7 +150,7 @@ describe("tools/manifest.json", () => {
 
 describe("MCP exposure", () => {
   const make = (...tools: [string, string, string | undefined][]) => ({
-    tools: tools.map(([name, safety_class, mcp_exposure]) => ({ name, safety_class, destructive: false, ...(mcp_exposure === undefined ? {} : { mcp_exposure }) })),
+    tools: tools.map(([name, safety_class, mcp_exposure]) => ({ name, safety_class, destructive: false, script: "tools/gates.mjs", writesPaths: [] as string[], ...(mcp_exposure === undefined ? {} : { mcp_exposure }) })),
   });
 
   it("the real manifest passes the shared check", () => {
@@ -189,6 +198,51 @@ describe("MCP exposure", () => {
     expect(exposureProblems(silent).join()).toContain("must say destructive: false");
     expect(exposedTools(destructive)).toEqual([]);
     expect(exposedTools(silent)).toEqual([]);
+  });
+
+  it("fails an exposed tool that is remote-write or local-write", () => {
+    for (const safety of ["remote-write", "local-write"]) {
+      const broken = make(["a", safety, "expose"]);
+      expect(exposureProblems(broken).join(), safety).toContain("must be read-only");
+      expect(exposedTools(broken)).toEqual([]);
+    }
+  });
+
+  it("fails an exposed tool with writesPaths or with a script that does not exist", () => {
+    const writes = make(["a", "read-only", "expose"]);
+    writes.tools[0].writesPaths = ["x"];
+    expect(exposureProblems(writes).join()).toContain("writesPaths");
+    expect(exposedTools(writes)).toEqual([]);
+    const missing = make(["a", "read-only", "expose"]);
+    missing.tools[0].script = "tools/nope.mjs";
+    expect(exposureProblems(missing).join()).toContain("script file that exists");
+    expect(exposedTools(missing)).toEqual([]);
+  });
+
+  it("fails an unknown top-level key, such as a misspelled held_back", () => {
+    const broken = { ...make(["a", "read-only", "expose"]), held_bak: [{ tool: "a" }] };
+    expect(exposureProblems(broken).join()).toContain("unknown top-level key held_bak");
+    expect(exposedTools(broken)).toEqual([]);
+  });
+
+  it("compares names after trimming and lowercasing", () => {
+    const broken = make(["Gates", "read-only", "expose"], [" gates ", "read-only", "hidden"]);
+    expect(exposureProblems(broken).join()).toContain("appears more than once");
+  });
+
+  it("fails a null held_back", () => {
+    const broken = { ...make(["a", "read-only", "expose"]), held_back: null };
+    expect(exposureProblems(broken).join()).toContain("held_back must be a list");
+    expect(exposedTools(broken)).toEqual([]);
+  });
+
+  it("marks gates destructive, like release gates, because npm ci wipes node_modules", () => {
+    expect(entry("gates")?.destructive).toBe(true);
+    expect(entry("release gates")?.destructive).toBe(true);
+  });
+
+  it("says in the manifest that status reads the network and changes nothing", () => {
+    expect(entry("release status")?.writes).toMatch(/network reads only/i);
   });
 
   it("treats a missing field as hidden", () => {

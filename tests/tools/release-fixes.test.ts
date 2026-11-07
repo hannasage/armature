@@ -3,7 +3,9 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { basename, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, git, makeReleaseRepo, tempDir, type ReleaseRepo } from "./support";
+import { addGitSpy, changedPaths, cleanup, git, makeReleaseRepo, snapshot, tempDir, type ReleaseRepo } from "./support";
+import { realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
 
 afterEach(cleanup);
 
@@ -445,6 +447,142 @@ describe("verify output", () => {
     const asJson = json.run(["verify", "--json"]);
     for (const out of [text.stdout, text.stderr, asJson.stdout, asJson.stderr]) expect(out).not.toMatch(/\/(Users|home)\//);
     expect(text.status).toBe(0);
-    expect(parse(asJson.stdout).steps).toEqual(expect.arrayContaining([expect.objectContaining({ command: expect.stringMatching(/^node --input-type=module/) })]));
+    expect(parse(asJson.stdout).steps).toEqual(expect.arrayContaining([expect.objectContaining({ command: expect.stringMatching(/^node --(experimental-)?permission '?--allow-fs-read=<project>'? --input-type=module/) })]));
+  });
+});
+
+
+const SECRETS = {
+  NODE_AUTH_TOKEN: "a",
+  NPM_TOKEN: "b",
+  GH_TOKEN: "c",
+  GITHUB_TOKEN: "d",
+  NPM_CONFIG__AUTH: "e",
+  NPM_CONFIG_OTP: "f",
+  SSH_AUTH_SOCK: "/tmp/agent.sock",
+  AWS_SECRET_ACCESS_KEY: "g",
+  ANTHROPIC_API_KEY: "h",
+};
+const SECRET_KEYS = Object.keys(SECRETS);
+
+describe("environment of child commands", () => {
+  it("gives npm ci, the gates, and the dry run only an allowlisted environment and a throwaway HOME", () => {
+    const home = tempDir();
+    const repo = makeReleaseRepo();
+    expect(repo.run(["gates"], { ...SECRETS, HOME: home }).status).toBe(0);
+    expect(repo.run(["dry-run"], { ...SECRETS, HOME: home }).status).toBe(0);
+    const calls = repo.fake.calls().filter((call) => call.tool === "npm" && !["view"].includes(call.args[0]));
+    expect(calls.length).toBeGreaterThan(6);
+    for (const call of calls) {
+      for (const key of SECRET_KEYS) expect(call.env, `${call.args.join(" ")} ${key}`).not.toContain(key);
+      expect(call.env).toContain("PATH");
+      expect(call.values?.HOME).toBeDefined();
+      expect(call.values?.HOME).not.toBe(home);
+    }
+  });
+
+  it("gives git a non-interactive environment and no npm token", () => {
+    const repo = makeReleaseRepo();
+    const log = addGitSpy(repo.fake);
+    expect(repo.run(["preflight"], { NPM_TOKEN: "secret-token-value", GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no" }).status).toBe(0);
+    const lines = readFileSync(log, "utf8").trim().split("\n");
+    expect(lines.length).toBeGreaterThan(3);
+    for (const line of lines) expect(line).toBe("0|ssh -o BatchMode=yes|none");
+  });
+});
+
+describe("timeouts", () => {
+  it("fails a registry read that takes longer than the limit, with a clear line", () => {
+    const repo = makeReleaseRepo();
+    const result = repo.run(["verify", "--json"], { FAKE_SLEEP_MS: "4000", RELEASE_TIMEOUT_MS: "400" });
+    expect(result.status).toBe(1);
+    const body = parse(result.stdout);
+    expect(body.ok).toBe(false);
+    expect(body.message).toContain("timed out");
+  });
+
+  it("fails a gate that takes longer than the limit", () => {
+    const repo = makeReleaseRepo();
+    const result = repo.run(["gates"], { FAKE_SLEEP_MS: "4000", RELEASE_TIMEOUT_MS: "400" });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("timed out");
+  });
+});
+
+describe("status writes nothing", () => {
+  it("leaves the repository and the home folder unchanged, and reads the registry with a throwaway HOME and cache", () => {
+    const home = tempDir();
+    writeFileSync(join(home, ".npmrc"), "//registry.npmjs.org/:_authToken=should-not-be-read\n");
+    const repo = makeReleaseRepo();
+    const beforeRepo = snapshot(repo.work);
+    const beforeHome = snapshot(home);
+    const result = repo.run(["status", "--json"], { HOME: home });
+    expect(result.status).toBe(0);
+    expect(changedPaths(beforeRepo, snapshot(repo.work))).toEqual([]);
+    expect(changedPaths(beforeHome, snapshot(home))).toEqual([]);
+    const views = repo.fake.calls().filter((call) => call.tool === "npm" && call.args[0] === "view");
+    expect(views.length).toBeGreaterThan(0);
+    for (const view of views) {
+      expect(view.values?.HOME).not.toBe(home);
+      expect(view.values?.cache?.startsWith(realpathSync(tmpdir()))).toBe(true);
+      expect(view.env).toContain("npm_config_loglevel");
+      expect(view.env).toContain("npm_config_update_notifier");
+      expect(existsSync(view.values?.cache ?? "")).toBe(false);
+    }
+  });
+});
+
+describe("status when the remote can not be read", () => {
+  it("reports the tag phase as unknown, with the remote error first, and does not pass", () => {
+    const repo = makeReleaseRepo();
+    git(repo.work, "remote", "set-url", "origin", join(tempDir(), "missing.git"));
+    const result = repo.run(["status", "--json"]);
+    const body = parse(result.stdout);
+    const tag = body.phases?.find((phase) => phase.name === "tag") as unknown as { state: string; note: string };
+    expect(tag.state).toBe("unknown");
+    expect(tag.note.startsWith("could not read the remote tags")).toBe(true);
+    expect(body).toMatchObject({ ok: false, status: "unknown", exit: 1 });
+    expect(result.status).toBe(1);
+  });
+});
+
+describe("verify isolation", () => {
+  it("runs with a small environment, a throwaway HOME, and the Node permission model, and prints no absolute path", () => {
+    const repo = makeReleaseRepo();
+    setDistTags(repo);
+    const result = repo.run(["verify", "--json"], { ...SECRETS, HOME: "/Users/example-person" });
+    expect(result.status, result.stdout).toBe(0);
+    const install = repo.fake.calls().find((call) => call.tool === "npm" && call.args[0] === "install");
+    for (const key of SECRET_KEYS) expect(install?.env).not.toContain(key);
+    expect(install?.env).toEqual(expect.arrayContaining(["NPM_CONFIG_USERCONFIG", "NPM_CONFIG_GLOBALCONFIG", "npm_config_cache"]));
+    expect(install?.values?.HOME).not.toBe("/Users/example-person");
+    const body = parse(result.stdout);
+    const commands = (body.steps as unknown as { command: string }[]).map((step) => step.command);
+    expect(commands.some((command) => /^node --(experimental-)?permission /.test(command))).toBe(true);
+    for (const text of [result.stdout, result.stderr]) {
+      expect(text).not.toContain(process.execPath);
+      expect(text).not.toContain(realpathSync(tmpdir()));
+      expect(text).not.toMatch(/\/(Users|home)\//);
+    }
+  });
+});
+
+describe("JSON redaction", () => {
+  it("keeps one valid JSON line when a field ends with a token", () => {
+    const repo = makeReleaseRepo();
+    const result = repo.run(["gates", "--json"], { FAKE_FAIL_RUN: "lint", FAKE_FAIL_MESSAGE: "error in //registry/:_authToken=abc123" });
+    const lines = result.stdout.trim().split("\n");
+    expect(lines).toHaveLength(1);
+    const body = parse(lines[0]);
+    expect(body.failingLine).toContain("error in //registry/:_authToken=[redacted]");
+    expect(body.message.endsWith("[redacted]")).toBe(true);
+  });
+
+  it("redacts the new token shapes in a field", () => {
+    const repo = makeReleaseRepo();
+    const message = "error _auth=dXNlcjpwYXNz _password=cGFzcw== Authorization: Basic dXNlcjpwYXNz --otp 123456";
+    const result = repo.run(["gates", "--json"], { FAKE_FAIL_RUN: "lint", FAKE_FAIL_MESSAGE: message });
+    expect(result.stdout).not.toMatch(/dXNlcjpwYXNz|cGFzcw==|123456/);
+    expect(parse(result.stdout).ok).toBe(false);
   });
 });

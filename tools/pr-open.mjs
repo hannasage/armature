@@ -20,7 +20,7 @@ import process from "node:process";
 import { parseArgs } from "node:util";
 import { isMainModule } from "./lib/main.mjs";
 import { resolveFile, resolveWorkTree } from "./lib/paths.mjs";
-import { failingLine, redact, show } from "./lib/text.mjs";
+import { failingLine, jsonLine, redact, show } from "./lib/text.mjs";
 import { validateBody } from "./lib/pr-body.mjs";
 
 const USAGE = [
@@ -30,7 +30,7 @@ const USAGE = [
 ].join("\n");
 
 function usageError(json, message, exit = 2) {
-  if (json) console.log(JSON.stringify({ ok: false, status: exit === 2 ? "usage" : "fail", exit, message }));
+  if (json) console.log(jsonLine({ ok: false, status: exit === 2 ? "usage" : "fail", exit, message }));
   else console.error(exit === 2 ? `${message}\n${USAGE}` : message);
   return exit;
 }
@@ -70,7 +70,7 @@ export function main(argv, env = process.env) {
   const text = readFileSync(file.path, "utf8");
   const problems = validateBody(text);
   if (problems.length > 0) {
-    if (json) console.log(JSON.stringify({ ok: false, status: "invalid-body", exit: 1, problems }));
+    if (json) console.log(jsonLine({ ok: false, status: "invalid-body", exit: 1, problems }));
     else for (const problem of problems) console.log(`INVALID ${problem}`);
     return 1;
   }
@@ -79,25 +79,25 @@ export function main(argv, env = process.env) {
   const command = ["gh", "pr", "create", "--draft", "--base", base, "--title", title, "--body-file", "-"];
   if (!json) console.log(`$ ${show(command)}`);
   if (values["dry-run"]) {
-    if (json) console.log(JSON.stringify({ ok: true, status: "dry-run", exit: 0, draft: true, command: show(command), url: null }));
+    if (json) console.log(jsonLine({ ok: true, status: "dry-run", exit: 0, draft: true, command: show(command), url: null }));
     else console.log("Dry run: the body is valid and gh was not called.");
     return 0;
   }
   const result = spawnSync(command[0], command.slice(1), { cwd: folder.path, env, encoding: "utf8", input: text, maxBuffer: 16 * 1024 * 1024 });
   if (result.error !== undefined || result.status !== 0) {
     const line = result.error !== undefined ? `could not start gh: ${result.error.message}` : failingLine(result.stdout, result.stderr);
-    if (json) console.log(JSON.stringify({ ok: false, status: "gh-failed", exit: 1, draft: true, command: show(command), failingLine: line }));
+    if (json) console.log(jsonLine({ ok: false, status: "gh-failed", exit: 1, draft: true, command: show(command), failingLine: line }));
     else console.log(`FAILED gh pr create: ${line}`);
     return 1;
   }
   const url = redact(result.stdout.trim().split("\n").at(-1) ?? "");
   if (!/^https:\/\/\S+\/pull\/\d+$/.test(url)) {
     const line = `gh printed no pull request URL on its last line (it printed: ${url === "" ? "nothing" : url.slice(0, 100)})`;
-    if (json) console.log(JSON.stringify({ ok: false, status: "no-url", exit: 1, draft: true, command: show(command), failingLine: line }));
+    if (json) console.log(jsonLine({ ok: false, status: "no-url", exit: 1, draft: true, command: show(command), failingLine: line }));
     else console.log(`FAILED gh pr create: ${line}`);
     return 1;
   }
-  if (json) console.log(JSON.stringify({ ok: true, status: "pass", exit: 0, draft: true, command: show(command), url }));
+  if (json) console.log(jsonLine({ ok: true, status: "pass", exit: 0, draft: true, command: show(command), url }));
   else console.log(url);
   return 0;
 }

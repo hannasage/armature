@@ -64,8 +64,9 @@ const read = (name) => { try { return readFileSync(join(dir, name), "utf8"); } c
 const knobs = JSON.parse(read("knobs.json") ?? "{}");
 const knob = (name) => knobs[name] ?? process.env[name];
 const args = process.argv.slice(2);
-appendFileSync(join(here, "..", "calls.log"), JSON.stringify({ tool: "npm", args, cwd: process.cwd(), env: Object.keys(process.env).sort() }) + "\\n");
+appendFileSync(join(here, "..", "calls.log"), JSON.stringify({ tool: "npm", args, cwd: process.cwd(), env: Object.keys(process.env).sort(), values: { HOME: process.env.HOME, cache: process.env.npm_config_cache } }) + "\\n");
 const [command, ...rest] = args;
+if (knob("FAKE_SLEEP_MS")) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(knob("FAKE_SLEEP_MS")));
 
 if (["login", "adduser", "whoami", "deprecate", "dist-tag", "unpublish", "token"].includes(command) || (command === "publish" && !rest.includes("--dry-run"))) {
   console.error("FAKE NPM: " + command + " is never allowed in a test");
@@ -150,7 +151,7 @@ export interface FakeBin {
   fixtures: string;
   log: string;
   env(extra?: Record<string, string>): NodeJS.ProcessEnv;
-  calls(): { tool: string; args: string[]; cwd: string; stdin?: string | null; env?: string[] }[];
+  calls(): { tool: string; args: string[]; cwd: string; stdin?: string | null; env?: string[]; values?: { HOME?: string; cache?: string } }[];
   /** The calls to one tool, as space-joined text. */
   lines(tool: string): string[];
 }
@@ -175,7 +176,7 @@ export function makeFakeBin(): FakeBin {
     readFileSync(log, "utf8")
       .split("\n")
       .filter((line) => line !== "")
-      .map((line) => JSON.parse(line) as { tool: string; args: string[]; cwd: string; stdin?: string | null; env?: string[] });
+      .map((line) => JSON.parse(line) as { tool: string; args: string[]; cwd: string; stdin?: string | null; env?: string[]; values?: { HOME?: string; cache?: string } });
   return {
     bin,
     fixtures,
@@ -222,7 +223,7 @@ export function makeReleaseRepo(): ReleaseRepo {
   copyFileSync(join(repoRoot, "release.config.json"), join(work, "release.config.json"));
   for (const file of ["release.mjs", "public-api.mjs", "pack-rules.mjs"]) copyFileSync(join(repoRoot, "scripts", file), join(work, "scripts", file));
   mkdirSync(join(work, "tools", "lib"), { recursive: true });
-  copyFileSync(join(repoRoot, "tools", "lib", "text.mjs"), join(work, "tools", "lib", "text.mjs"));
+  for (const file of ["text.mjs", "env.mjs"]) copyFileSync(join(repoRoot, "tools", "lib", file), join(work, "tools", "lib", file));
   writeFileSync(join(work, "README.md"), "# Package\n\nThe version is on the beta tag.\n");
   // The releasing page quotes the stale phrases on purpose, so the claim check must skip it.
   writeFileSync(join(work, "docs", "releasing.md"), "Search for `Not published yet` and `Nothing is published`.\n");
@@ -267,4 +268,18 @@ export function snapshot(dir: string): Map<string, string> {
 export function changedPaths(before: Map<string, string>, after: Map<string, string>): string[] {
   const paths = new Set([...before.keys(), ...after.keys()]);
   return [...paths].filter((path) => before.get(path) !== after.get(path)).sort();
+}
+
+/**
+ * Puts a `git` on PATH that records three environment values and then runs the real git.
+ * The record is one line per call: GIT_TERMINAL_PROMPT, GIT_SSH_COMMAND, and NPM_TOKEN (or "none").
+ */
+export function addGitSpy(fake: FakeBin): string {
+  const real = spawnSync("sh", ["-c", "command -v git"], { encoding: "utf8" }).stdout.trim();
+  const log = join(fake.bin, "..", "git-env.log");
+  writeFileSync(log, "");
+  const file = join(fake.bin, "git");
+  writeFileSync(file, `#!/bin/sh\nprintf '%s|%s|%s\\n' "$GIT_TERMINAL_PROMPT" "$GIT_SSH_COMMAND" "\${NPM_TOKEN:-none}" >> '${log}'\nexec '${real}' "$@"\n`);
+  chmodSync(file, 0o755);
+  return log;
 }

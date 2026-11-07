@@ -38,7 +38,10 @@ export function validateBody(text) {
   // One final line feed is allowed. Nothing else may follow the footer line: not a blank line, not a space.
   const body = text.endsWith("\n") ? text.slice(0, -1) : text;
   if (body !== FOOTER && !body.endsWith(`\n${FOOTER}`)) problems.push(`the body must end with the line: ${FOOTER}`);
-  if (HOME_PATHS.some((pattern) => pattern.test(text))) problems.push("the body has a home path (such as /Users/name). Remove it");
-  if (SESSION_LINKS.some((pattern) => pattern.test(text))) problems.push("the body has a session link. Remove it");
+  // The patterns run on the raw text and on a cleaned copy: invisible characters removed, then normalized, so a path or a link
+  // can not hide behind a zero-width character, a soft hyphen, or a full-width slash.
+  const views = [text, text.replace(INVISIBLE, "").normalize("NFKC")];
+  if (HOME_PATHS.some((pattern) => views.some((view) => pattern.test(view)))) problems.push("the body has a home path (such as /Users/name). Remove it");
+  if (SESSION_LINKS.some((pattern) => views.some((view) => pattern.test(view)))) problems.push("the body has a session link. Remove it");
   return problems;
 }

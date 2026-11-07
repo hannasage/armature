@@ -18,6 +18,12 @@
 //   - publish and retire refuse unless standard input is a terminal. They print the commands and exit 2.
 //     Even with a terminal they only print: the script never runs npm publish, npm login, npm deprecate, or npm dist-tag.
 //   - The script never reads, stores, or prints a token, a password, or a one-time code. Output is scrubbed of token shapes.
+//   - Child commands get a short allowlist of variables, never the whole environment. npm runs with a throwaway HOME and cache.
+//     Every command has a time limit (2 minutes for git and npm view, 15 minutes for the gates). `status` exits 1 with status
+//     "unknown" when it can not read the registry or the remote.
+//   - verify runs the import of the installed package under Node's permission model (read access to the throwaway project only)
+//     when this Node has it. If this Node lacks the model, the import runs without it and a warning says so. The residual risk is
+//     that the published package then runs as ordinary code with the filesystem access of the user, in a project with no secrets.
 // Preflight, gates, dry-run, and verify are local-write: they write a small note, `release-state.json`, inside the .git folder
 // (preflight also runs git fetch, and verify also uses a temporary folder and the npm cache). The note holds the commit hash, the
 // version, a hash of package-lock.json, and the integrity string of the published tarball. `tag` reads it so that it tags
@@ -25,12 +31,12 @@
 // A refused precondition exits 1. Exit 2 means wrong use of the script, or a human-only step run without a terminal.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { failingLine, redact, show } from "../tools/lib/text.mjs";
+import { gitEnv, makeScratch, toolEnv, viewEnv, baseEnv } from "../tools/lib/env.mjs";
+import { failingLine, redact, redactDeep, show } from "../tools/lib/text.mjs";
 import { sizeLimit } from "./pack-rules.mjs";
 
 export { failingLine, redact };
@@ -62,7 +68,8 @@ const USAGE = [
   "  status | preflight | gates | dry-run | publish | verify | tag | retire | claims",
   "  tag also takes --dry-run, which prints the git commands and runs none of them.",
   "  publish and retire are human-only: they print the commands and never run them.",
-  "Exit codes: 0 pass, 1 a check failed, 2 wrong use.",
+  "Exit codes: 0 pass, 1 a check failed (or status could not read a source), 2 wrong use.",
+  "verify imports the installed package under the Node permission model when this Node has it, and says so when it does not.",
 ];
 
 // ---------- config ----------
@@ -305,32 +312,55 @@ function writeState(ctx, state) {
 
 // ---------- running commands ----------
 
+const MINUTE = 60 * 1000;
+
 function makeRun(root, env, out, json) {
   const steps = [];
   const say = (line) => {
     if (!json) out(redact(line));
   };
-  // The optional git locks stay off, so a read-only step never rewrites the index.
-  const baseEnv = { ...env, GIT_OPTIONAL_LOCKS: "0" };
-  /** Prints the command, runs it, and records the exit code. */
+  // One throwaway folder for the whole run, made when a command first needs it and removed at the end.
+  let scratch = null;
+  const getScratch = () => (scratch ??= makeScratch());
+  const cleanup = () => {
+    scratch?.remove();
+    scratch = null;
+  };
+  // RELEASE_TIMEOUT_MS can only shorten a limit. A test uses it to see a timeout.
+  const override = Number(env.RELEASE_TIMEOUT_MS);
+  const limit = (ms) => (Number.isInteger(override) && override > 0 ? Math.min(ms, override) : ms);
+  const envFor = (command) => {
+    if (command[0] === "git") return gitEnv(env);
+    if (command[0] === "npm" && command[1] === "view") return viewEnv(env, getScratch());
+    if (command[0] === "npm") return toolEnv(env, getScratch());
+    return baseEnv(env);
+  };
+  const timeoutFor = (command) => (command[0] === "npm" && command[1] !== "view" ? 15 * MINUTE : 2 * MINUTE);
+  /** Prints the command, runs it, and records the exit code. `display` is what is printed and recorded, when it must differ. */
   const exec = (command, options = {}) => {
-    say(`$ ${show(command)}`);
-    const result = spawnSync(command[0], command.slice(1), {
+    const shown = options.display ?? command;
+    say(`$ ${show(shown)}`);
+    const timeout = limit(options.timeout ?? timeoutFor(command));
+    // "node" runs the same Node that runs this script, but the command is printed as "node" so no absolute path shows.
+    const bin = command[0] === "node" ? process.execPath : command[0];
+    const result = spawnSync(bin, command.slice(1), {
       cwd: options.cwd ?? root,
-      env: options.env ?? baseEnv,
+      env: options.env ?? envFor(command),
       encoding: "utf8",
       maxBuffer: 256 * 1024 * 1024,
+      timeout,
     });
-    const status = result.error !== undefined ? 127 : (result.status ?? (result.signal ? 128 : 1));
-    steps.push({ command: redact(show(command)), exit: status });
+    const timedOut = result.error?.code === "ETIMEDOUT";
+    const status = timedOut ? 124 : result.error !== undefined ? 127 : (result.status ?? (result.signal ? 128 : 1));
+    steps.push({ command: redact(show(shown)), exit: status });
     return {
       ok: status === 0,
       status,
       stdout: result.stdout ?? "",
-      stderr: result.error !== undefined ? String(result.error.message) : (result.stderr ?? ""),
+      stderr: timedOut ? `timed out after ${timeout} ms` : result.error !== undefined ? String(result.error.message) : (result.stderr ?? ""),
     };
   };
-  return { steps, say, exec };
+  return { steps, say, exec, scratch: getScratch, cleanup };
 }
 
 function finish(ctx, base) {
@@ -339,15 +369,16 @@ function finish(ctx, base) {
     command: base.command,
     status: base.status,
     exit: base.exit,
-    message: redact(base.message),
+    message: base.message,
     steps: ctx.run.steps,
     ...base.extra,
   };
-  if (typeof body.failingLine === "string") body.failingLine = redact(body.failingLine);
-  if (ctx.warnings.length > 0) body.warnings = ctx.warnings.map(redact);
-  if (ctx.json) ctx.out(JSON.stringify(body));
-  else if (base.message) ctx.out(redact(base.message));
-  return { exit: base.exit, result: body };
+  if (ctx.warnings.length > 0) body.warnings = ctx.warnings;
+  // Each string field is redacted on its own before the JSON is written.
+  const safe = redactDeep(body);
+  if (ctx.json) ctx.out(JSON.stringify(safe));
+  else if (base.message) ctx.out(safe.message);
+  return { exit: base.exit, result: safe };
 }
 
 function ok(ctx, message, extra = {}) {
@@ -598,39 +629,42 @@ const STEPS = {
     if (info.gitHead !== null && info.gitHead !== commit) return fail(ctx, `the registry gitHead ${info.gitHead} differs from the commit ${commit}`);
     const known = state.verify;
     if (!flags.has("--force") && known?.commit === commit && known.integrity === info.integrity && known.gitHead === info.gitHead) return done(ctx, { commit });
-    const temp = mkdtempSync(join(tmpdir(), "release-verify-"));
-    try {
-      // The install runs with a small environment: no token, no user npm settings, and no install scripts.
-      const npmrc = join(temp, "npmrc");
-      writeFileSync(npmrc, "");
-      const scrubbed = { PATH: ctx.env.PATH ?? "", HOME: ctx.env.HOME ?? temp, NPM_CONFIG_USERCONFIG: npmrc };
-      for (const command of [
-        ["npm", "init", "-y"],
-        ["npm", "install", "--ignore-scripts", `${config.package}@${config.npmTag}`, "react"],
-      ]) {
-        const result = run.exec(command, { cwd: temp, env: scrubbed });
-        if (!result.ok) return fail(ctx, `${show(command)} exited ${result.status}: ${failingLine(result.stdout, result.stderr)}`);
-      }
-      let installed = "unknown";
-      try {
-        installed = JSON.parse(readFileSync(join(temp, "node_modules", config.package, "package.json"), "utf8")).version;
-      } catch {
-        // The version check below reports it.
-      }
-      if (installed !== config.version) return fail(ctx, `the installed version is ${installed}, expected ${config.version}`);
-      // The package name is an argument, not part of the code.
-      const code = "const name = process.argv[1]; const e = await import(name); console.log(Object.keys(e).length)";
-      const counted = run.exec(["node", "--input-type=module", "-e", code, config.package], { cwd: temp, env: scrubbed });
-      if (!counted.ok) return fail(ctx, `the import failed: ${failingLine(counted.stdout, counted.stderr)}`);
-      const expected = await expectedApiCount(root, config);
-      const actual = Number(counted.stdout.trim());
-      if (actual !== expected) return fail(ctx, `the package exports ${actual} names, the public API list has ${expected}`);
-      state.verify = { commit, integrity: info.integrity, gitHead: info.gitHead };
-      const bad = record(ctx, state);
-      return bad ?? ok(ctx, `verify passed: ${config.npmTag} is ${config.version} and the package exports ${actual} names`, { commit, exports: actual });
-    } finally {
-      rmSync(temp, { recursive: true, force: true });
+    // Everything below runs in a throwaway project inside the scratch folder, with a throwaway HOME, cache, and npm config.
+    const scratch = run.scratch();
+    const temp = join(scratch.dir, "project");
+    mkdirSync(temp);
+    const isolated = viewEnv(ctx.env, scratch);
+    for (const command of [
+      ["npm", "init", "-y"],
+      ["npm", "install", "--ignore-scripts", `${config.package}@${config.npmTag}`, "react"],
+    ]) {
+      const result = run.exec(command, { cwd: temp, env: isolated, timeout: 5 * MINUTE });
+      if (!result.ok) return fail(ctx, `${show(command)} exited ${result.status}: ${failingLine(result.stdout, result.stderr)}`);
     }
+    let installed = "unknown";
+    try {
+      installed = JSON.parse(readFileSync(join(temp, "node_modules", config.package, "package.json"), "utf8")).version;
+    } catch {
+      // The version check below reports it.
+    }
+    if (installed !== config.version) return fail(ctx, `the installed version is ${installed}, expected ${config.version}`);
+    // The package name is an argument, not part of the code. The import runs under the Node permission model when this Node has it:
+    // it may read only the throwaway project, may not write, and may not start a process. If this Node lacks the model, the import
+    // runs without it and a warning says so.
+    const code = "const name = process.argv[1]; const e = await import(name); console.log(Object.keys(e).length)";
+    const flag = ["--permission", "--experimental-permission"].find((name) => process.allowedNodeEnvironmentFlags.has(name));
+    const guard = flag === undefined ? [] : [flag, `--allow-fs-read=${temp}`];
+    if (flag === undefined) warn(ctx, "the Node permission model is not available in this Node, so the import ran without it");
+    const command = ["node", ...guard, "--input-type=module", "-e", code, config.package];
+    const display = ["node", ...(flag === undefined ? [] : [flag, "--allow-fs-read=<project>"]), "--input-type=module", "-e", code, config.package];
+    const counted = run.exec(command, { cwd: temp, env: isolated, display });
+    if (!counted.ok) return fail(ctx, `the import failed: ${failingLine(counted.stdout, counted.stderr)}`);
+    const expected = await expectedApiCount(root, config);
+    const actual = Number(counted.stdout.trim());
+    if (actual !== expected) return fail(ctx, `the package exports ${actual} names, the public API list has ${expected}`);
+    state.verify = { commit, integrity: info.integrity, gitHead: info.gitHead };
+    const bad = record(ctx, state);
+    return bad ?? ok(ctx, `verify passed: ${config.npmTag} is ${config.version} and the package exports ${actual} names`, { commit, exports: actual });
   },
 
   tag(ctx) {
@@ -703,19 +737,28 @@ const STEPS = {
     const remote = remoteTag(run, config, ref);
     const wanted = state.preflight?.commit;
     const localHash = hasLocal ? run.exec(["git", "rev-list", "-n", "1", ref]).stdout.trim() : null;
-    let tagNote = "";
-    if (!wanted) tagNote = "preflight has not recorded a commit";
-    else if (!remote.ok) tagNote = `could not read the remote tags: ${remote.error}`;
-    else if (localHash === null && !remote.hash) tagNote = "";
-    else if (localHash !== wanted) tagNote = `local tag ${localHash === null ? "is missing" : `points at ${localHash}`}, expected ${wanted}`;
-    else if (remote.hash !== wanted) tagNote = `remote tag ${remote.hash ? `points at ${remote.hash}` : "is missing"}, expected ${wanted}`;
-    add("tag", wanted !== undefined && remote.ok && localHash === wanted && remote.hash === wanted, tagNote);
+    if (!remote.ok) {
+      // The remote error comes first, so it is never hidden behind another note.
+      add("tag", null, `could not read the remote tags: ${remote.error}${wanted ? "" : ". Preflight has not recorded a commit"}`);
+    } else {
+      let tagNote = "";
+      if (!wanted) tagNote = "preflight has not recorded a commit";
+      else if (localHash === null && !remote.hash) tagNote = "";
+      else if (localHash !== wanted) tagNote = `local tag ${localHash === null ? "is missing" : `points at ${localHash}`}, expected ${wanted}`;
+      else if (remote.hash !== wanted) tagNote = `remote tag ${remote.hash ? `points at ${remote.hash}` : "is missing"}, expected ${wanted}`;
+      add("tag", wanted !== undefined && localHash === wanted && remote.hash === wanted, tagNote);
+    }
     add("retire", view.ok ? isRetired(run, config, view) : null);
     add("claims", runClaims(run, root, config).ok);
     const left = phases.filter((phase) => phase.state !== "done").map((phase) => phase.name);
     run.say(`${config.package}@${config.version} on the ${config.npmTag} tag`);
     for (const phase of phases) run.say(`  ${phase.state.padEnd(7)} ${phase.name}${phase.note ? ` (${phase.note})` : ""}`);
     run.say(left.length === 0 ? "Nothing is left to do." : `Left to do: ${left.join(", ")}`);
+    const unknown = phases.filter((phase) => phase.state === "unknown").map((phase) => phase.name);
+    if (unknown.length > 0) {
+      const message = `Could not determine: ${unknown.join(", ")}`;
+      return finish(ctx, { command: "status", status: "unknown", exit: 1, message, extra: { package: config.package, version: config.version, phases, left, unknown } });
+    }
     return finish(ctx, { command: "status", status: "pass", exit: 0, message: "", extra: { package: config.package, version: config.version, phases, left } });
   },
 };
@@ -770,6 +813,8 @@ export async function runRelease(argv, context) {
     return await STEPS[command]({ ...base, config });
   } catch (error) {
     return fail(base, `internal error: ${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    run.cleanup();
   }
 }
 

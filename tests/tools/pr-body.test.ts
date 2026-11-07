@@ -131,4 +131,19 @@ describe("validateBody", () => {
   it("refuses contractions after non-English letters", () => {
     expect(lib.validateBody(good.replace("reads", "caf\u00e9\u2019s reads")).join()).toMatch(/contraction/);
   });
+
+  it("finds a home path or a session link hidden with invisible characters", () => {
+    const hidden = [
+      "file at /Us\u200bers/someone/x",
+      "file at /Us\u00aders/someone/x",
+      "file at /ho\u2060me/someone/x",
+      "link https://claude.ai/c\u200bode/session_0123456789abcdef",
+      "link https://claude.a\u00ad\u200di/chat/x",
+      "file at \uff0fUsers\uff0fsomeone",
+    ];
+    for (const text of hidden) {
+      const problems = lib.validateBody(good.replace("config file", text)).join();
+      expect(problems, JSON.stringify(text)).toMatch(/home path|session link/);
+    }
+  });
 });

@@ -10,9 +10,10 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { parseArgs } from "node:util";
+import { makeScratch, toolEnv } from "./lib/env.mjs";
 import { isMainModule } from "./lib/main.mjs";
 import { resolveWorkTree } from "./lib/paths.mjs";
-import { failingLine } from "./lib/text.mjs";
+import { failingLine, jsonLine } from "./lib/text.mjs";
 
 const USAGE = [
   "Usage: node tools/gates.mjs [--ci] [--bail] [--cwd <folder>] [--json]",
@@ -22,7 +23,7 @@ const USAGE = [
 const GATES = ["typecheck", "lint", "test", "build", "check:pack"];
 
 function usageError(json, message, exit = 2) {
-  if (json) console.log(JSON.stringify({ ok: false, status: exit === 2 ? "usage" : "fail", exit, message }));
+  if (json) console.log(jsonLine({ ok: false, status: exit === 2 ? "usage" : "fail", exit, message }));
   else console.error(exit === 2 ? `${message}\n${USAGE}` : message);
   return exit;
 }
@@ -43,8 +44,11 @@ export function main(argv, env = process.env) {
 
   const commands = [...(values.ci ? [{ name: "ci", command: ["npm", "ci"] }] : []), ...GATES.map((name) => ({ name, command: ["npm", "run", name] }))];
   const results = [];
+  // The gates get an allowlisted environment and a throwaway HOME, so a token in the caller environment can not reach them.
+  const scratch = makeScratch();
+  const childEnv = toolEnv(env, scratch);
   for (const { name, command } of commands) {
-    const result = spawnSync(command[0], command.slice(1), { cwd: folder.path, env, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
+    const result = spawnSync(command[0], command.slice(1), { cwd: folder.path, env: childEnv, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
     const exit = result.status;
     const passed = exit === 0 && result.error === undefined;
     const gate = { name, command: command.join(" "), exit, signal: result.signal ?? null, ok: passed };
@@ -56,8 +60,9 @@ export function main(argv, env = process.env) {
     }
     if (!passed && values.bail) break;
   }
+  scratch.remove();
   const ok = results.every((gate) => gate.ok) && results.length === commands.length;
-  if (values.json) console.log(JSON.stringify({ ok, status: ok ? "pass" : "fail", exit: ok ? 0 : 1, path: folder.path, gates: results }));
+  if (values.json) console.log(jsonLine({ ok, status: ok ? "pass" : "fail", exit: ok ? 0 : 1, path: folder.path, gates: results }));
   else {
     const failed = results.filter((gate) => !gate.ok).map((gate) => gate.name);
     console.log(ok ? `Result: all ${results.length} gates passed` : `Result: failed - ${failed.join(", ")}`);
