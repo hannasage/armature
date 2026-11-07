@@ -31,7 +31,7 @@
   },
   "claims": {
     "patterns": ["Nothing is published", "Not published yet", "armature@next"],
-    "paths": ["README.md", "docs", "docs-site"],
+    "paths": ["README.md", "docs"],
     "skipFileNames": ["releasing.md"]
   }
 }

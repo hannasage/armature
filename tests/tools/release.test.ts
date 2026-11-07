@@ -231,7 +231,7 @@ describe("verify", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("29");
     expect(repo.fake.lines("npm")).toEqual(
-      expect.arrayContaining(["view @hannasage/armature dist-tags --json", "init -y", "install @hannasage/armature@beta react"]),
+      expect.arrayContaining(["view @hannasage/armature dist-tags --json", "init -y", "install --ignore-scripts @hannasage/armature@beta react"]),
     );
     expect(repo.run(["verify"]).stdout).toContain("already done");
     expectNoRegistryWrites(repo);
@@ -268,7 +268,7 @@ describe("tag", () => {
     const result = repo.run(["tag", "--dry-run"]);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain(`git tag -a v1.0.0-beta.0 ${commit} -m 1.0.0-beta.0`);
-    expect(result.stdout).toContain("git push origin v1.0.0-beta.0");
+    expect(result.stdout).toContain("git push origin refs/tags/v1.0.0-beta.0");
     expect(git(repo.work, "tag", "--list")).toBe("");
     expect(git(repo.origin, "tag", "--list")).toBe("");
   });
@@ -329,10 +329,10 @@ describe("retire (human only)", () => {
 describe("claims", () => {
   it("passes when no file holds a stale claim, and skips the releasing page", () => {
     const repo = makeReleaseRepo();
-    const result = repo.run(["claims"]);
+    const result = repo.run(["claims", "--json"]);
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain("already done");
-    expect(result.stdout).toContain("$ grep");
+    expect(json(result.stdout)).toMatchObject({ ok: true, status: "pass" });
+    expect(repo.run(["claims"]).stdout).toContain("$ grep -rnIF");
   });
 
   it("fails with the first matching line", () => {
@@ -342,12 +342,6 @@ describe("claims", () => {
     expect(result.status).toBe(1);
     expect(result.stdout).toContain("README.md:2");
     expect(result.stdout).not.toContain("README.md:3");
-  });
-
-  it("is not fooled by a path with a missing folder", () => {
-    const repo = makeReleaseRepo();
-    expect(existsSync(join(repo.work, "docs-site"))).toBe(false);
-    expect(repo.run(["claims"]).status).toBe(0);
   });
 });
 

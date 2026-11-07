@@ -2,7 +2,8 @@
 // A test builds a temporary git repository and a temporary folder with a fake `npm` and a fake `gh`. The fakes go first on PATH.
 // They log each call and never reach a real registry or a real remote. The only remote is a bare repository in the temporary folder.
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
-import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +11,16 @@ import { fileURLToPath } from "node:url";
 export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 const temps: string[] = [];
+
+/** The environment of this process without tokens, npm settings, or fake-tool settings, so no test passes a secret through. */
+export function cleanEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (/token|secret|password|^npm_|^GH_|^GITHUB_|^FAKE_|^NODE_AUTH|^NPM_/i.test(key)) continue;
+    env[key] = value;
+  }
+  return { ...env, ...extra };
+}
 
 /** Makes a temporary folder. `cleanup` removes every folder made so far. */
 export function tempDir(prefix = "armature-tools-"): string {
@@ -24,7 +35,7 @@ export function cleanup(): void {
 
 /** Runs git and returns trimmed standard output. A failure throws, so a broken setup stops the test early. */
 export function git(cwd: string, ...args: string[]): string {
-  const result = spawnSync("git", args, { cwd, encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
+  const result = spawnSync("git", args, { cwd, encoding: "utf8", env: cleanEnv({ GIT_TERMINAL_PROMPT: "0" }) });
   if (result.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
   return result.stdout.trim();
 }
@@ -43,12 +54,17 @@ export function makeRepo(branch = "main"): string {
 
 const FAKE_NPM = `#!/usr/bin/env node
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const args = process.argv.slice(2);
-if (process.env.FAKE_LOG) appendFileSync(process.env.FAKE_LOG, JSON.stringify({ tool: "npm", args, cwd: process.cwd() }) + "\\n");
-const dir = process.env.FAKE_DIR ?? "";
+// The fake finds its log and its fixtures next to itself, so it works with a scrubbed environment.
+const here = dirname(fileURLToPath(import.meta.url));
+const dir = join(here, "..", "fixtures");
 const read = (name) => { try { return readFileSync(join(dir, name), "utf8"); } catch { return null; } };
+const knobs = JSON.parse(read("knobs.json") ?? "{}");
+const knob = (name) => knobs[name] ?? process.env[name];
+const args = process.argv.slice(2);
+appendFileSync(join(here, "..", "calls.log"), JSON.stringify({ tool: "npm", args, cwd: process.cwd(), env: Object.keys(process.env).sort() }) + "\\n");
 const [command, ...rest] = args;
 
 if (["login", "adduser", "whoami", "deprecate", "dist-tag", "unpublish", "token"].includes(command) || (command === "publish" && !rest.includes("--dry-run"))) {
@@ -56,28 +72,35 @@ if (["login", "adduser", "whoami", "deprecate", "dist-tag", "unpublish", "token"
   process.exit(99);
 }
 if (command === "run") {
-  if (process.env.FAKE_FAIL_RUN === rest[0]) {
-    console.error(process.env.FAKE_FAIL_MESSAGE ?? rest[0] + ": 1 error found");
-    process.exit(Number(process.env.FAKE_FAIL_CODE ?? 1));
+  if (knob("FAKE_FAIL_RUN") === rest[0]) {
+    console.error(knob("FAKE_FAIL_MESSAGE") ?? rest[0] + ": 1 error found");
+    process.exit(Number(knob("FAKE_FAIL_CODE") ?? 1));
   }
   console.log(rest[0] + " ok");
   process.exit(0);
 }
-if (command === "ci") process.exit(process.env.FAKE_FAIL_RUN === "ci" ? 1 : 0);
+if (command === "ci") process.exit(knob("FAKE_FAIL_RUN") === "ci" ? 1 : 0);
 if (command === "init") { writeFileSync("package.json", JSON.stringify({ name: "temp", version: "1.0.0" })); process.exit(0); }
 if (command === "view") {
-  const field = rest[1];
-  if (field === "dist-tags") {
+  const fields = rest.slice(1).filter((field) => !field.startsWith("--"));
+  if (fields[0] === "dist-tags") {
     const text = read("dist-tags.json");
     if (text === null) { console.error("npm error code E404"); process.exit(1); }
     console.log(text);
     process.exit(0);
   }
-  if (field === "deprecated") { const text = read("deprecated.txt"); console.log(text ?? ""); process.exit(0); }
+  if (fields[0] === "deprecated") { const text = read("deprecated.txt"); console.log(text ?? ""); process.exit(0); }
+  if (fields.includes("dist.integrity")) {
+    const body = { "dist.integrity": (read("integrity.txt") ?? "sha512-FAKEINTEGRITY").trim() };
+    const head = read("gitHead.txt");
+    if (head !== null) body.gitHead = head.trim();
+    console.log(JSON.stringify(body));
+    process.exit(0);
+  }
   process.exit(0);
 }
 if (command === "install") {
-  const spec = rest[0];
+  const spec = rest.find((part) => !part.startsWith("-"));
   const at = spec.lastIndexOf("@");
   const name = at > 0 ? spec.slice(0, at) : spec;
   const tag = at > 0 ? spec.slice(at + 1) : "latest";
@@ -85,7 +108,7 @@ if (command === "install") {
   const folder = join(process.cwd(), "node_modules", name);
   mkdirSync(folder, { recursive: true });
   writeFileSync(join(folder, "package.json"), JSON.stringify({ name, version: tags[tag] ?? "0.0.0", type: "module", main: "index.js" }));
-  const count = Number(process.env.FAKE_EXPORTS ?? 29);
+  const count = Number(knob("FAKE_EXPORTS") ?? 29);
   writeFileSync(join(folder, "index.js"), Array.from({ length: count }, (_, index) => "export const name" + index + " = " + index + ";").join("\\n") + "\\n");
   process.exit(0);
 }
@@ -95,8 +118,8 @@ if (command === "publish") {
   const tag = tagIndex >= 0 ? rest[tagIndex + 1] : "latest";
   const notices = [
     "package: " + manifest.name + "@" + manifest.version,
-    "package size: " + (process.env.FAKE_SIZE ?? "137 kB"),
-    "total files: " + (process.env.FAKE_FILES ?? 122),
+    "package size: " + (knob("FAKE_SIZE") ?? "137 kB"),
+    "total files: " + (knob("FAKE_FILES") ?? 122),
     "Publishing to https://registry.npmjs.org/ with tag " + tag + " and public access (dry-run)",
   ];
   for (const line of notices) console.error("npm notice " + line);
@@ -107,11 +130,19 @@ process.exit(0);
 `;
 
 const FAKE_GH = `#!/usr/bin/env node
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+const here = dirname(fileURLToPath(import.meta.url));
+const read = (name) => { try { return readFileSync(join(here, "..", "fixtures", name), "utf8"); } catch { return null; } };
+const knobs = JSON.parse(read("knobs.json") ?? "{}");
 const args = process.argv.slice(2);
-if (process.env.FAKE_LOG) appendFileSync(process.env.FAKE_LOG, JSON.stringify({ tool: "gh", args, cwd: process.cwd() }) + "\\n");
-if (process.env.FAKE_GH_FAIL) { console.error("gh: could not create the pull request"); process.exit(1); }
-console.log("https://github.com/example/repo/pull/1");
+let stdin = null;
+if (args.includes("-")) { try { stdin = readFileSync(0, "utf8"); } catch { stdin = ""; } }
+appendFileSync(join(here, "..", "calls.log"), JSON.stringify({ tool: "gh", args, cwd: process.cwd(), stdin }) + "\\n");
+if (knobs.FAKE_GH_FAIL) { console.error("gh: could not create the pull request"); process.exit(1); }
+if (knobs.FAKE_GH_EMPTY) process.exit(0);
+console.log(knobs.FAKE_GH_OUTPUT ?? "https://github.com/example/repo/pull/1");
 `;
 
 export interface FakeBin {
@@ -119,7 +150,7 @@ export interface FakeBin {
   fixtures: string;
   log: string;
   env(extra?: Record<string, string>): NodeJS.ProcessEnv;
-  calls(): { tool: string; args: string[]; cwd: string }[];
+  calls(): { tool: string; args: string[]; cwd: string; stdin?: string | null; env?: string[] }[];
   /** The calls to one tool, as space-joined text. */
   lines(tool: string): string[];
 }
@@ -144,21 +175,16 @@ export function makeFakeBin(): FakeBin {
     readFileSync(log, "utf8")
       .split("\n")
       .filter((line) => line !== "")
-      .map((line) => JSON.parse(line) as { tool: string; args: string[]; cwd: string });
+      .map((line) => JSON.parse(line) as { tool: string; args: string[]; cwd: string; stdin?: string | null; env?: string[] });
   return {
     bin,
     fixtures,
     log,
     env(extra = {}) {
-      return {
-        ...process.env,
-        PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
-        FAKE_LOG: log,
-        FAKE_DIR: fixtures,
-        GIT_TERMINAL_PROMPT: "0",
-        GIT_CONFIG_GLOBAL: "/dev/null",
-        ...extra,
-      };
+      // The fakes read their settings from a file next to them, because the release script scrubs the environment of some commands.
+      const knobs = Object.fromEntries(Object.entries(extra).filter(([key]) => key.startsWith("FAKE_")));
+      writeFileSync(join(fixtures, "knobs.json"), JSON.stringify(knobs));
+      return cleanEnv({ PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`, GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_GLOBAL: "/dev/null", ...extra });
     },
     calls,
     lines: (tool) => calls().filter((call) => call.tool === tool).map((call) => call.args.join(" ")),
@@ -195,6 +221,8 @@ export function makeReleaseRepo(): ReleaseRepo {
   );
   copyFileSync(join(repoRoot, "release.config.json"), join(work, "release.config.json"));
   for (const file of ["release.mjs", "public-api.mjs", "pack-rules.mjs"]) copyFileSync(join(repoRoot, "scripts", file), join(work, "scripts", file));
+  mkdirSync(join(work, "tools", "lib"), { recursive: true });
+  copyFileSync(join(repoRoot, "tools", "lib", "text.mjs"), join(work, "tools", "lib", "text.mjs"));
   writeFileSync(join(work, "README.md"), "# Package\n\nThe version is on the beta tag.\n");
   // The releasing page quotes the stale phrases on purpose, so the claim check must skip it.
   writeFileSync(join(work, "docs", "releasing.md"), "Search for `Not published yet` and `Nothing is published`.\n");
@@ -203,7 +231,6 @@ export function makeReleaseRepo(): ReleaseRepo {
   git(work, "remote", "add", "origin", origin);
   git(work, "push", "-q", "-u", "origin", "release/1.0.0");
   const script = join(work, "scripts", "release.mjs");
-  fake.env();
   writeFileSync(join(fake.fixtures, "dist-tags.json"), JSON.stringify({ next: "1.0.0-next.0", latest: "1.0.0-next.0" }));
   const env = (extra: Record<string, string> = {}) => fake.env(extra);
   return {
@@ -218,5 +245,26 @@ export function makeReleaseRepo(): ReleaseRepo {
 
 /** Runs a node script with the given arguments. */
 export function runNode(script: string, args: string[], options: { cwd?: string; env?: NodeJS.ProcessEnv } = {}): SpawnSyncReturns<string> {
-  return spawnSync(process.execPath, [script, ...args], { cwd: options.cwd ?? repoRoot, env: options.env ?? process.env, encoding: "utf8" });
+  return spawnSync(process.execPath, [script, ...args], { cwd: options.cwd ?? repoRoot, env: options.env ?? cleanEnv(), encoding: "utf8" });
+}
+
+/** A map of every file under a folder (path from the folder, to a hash of its bytes). Used to see what a command changed. */
+export function snapshot(dir: string): Map<string, string> {
+  const files = new Map<string, string>();
+  const walk = (folder: string) => {
+    for (const name of readdirSync(folder)) {
+      const full = join(folder, name);
+      const info = statSync(full);
+      if (info.isDirectory()) walk(full);
+      else files.set(full.slice(dir.length + 1), createHash("sha1").update(readFileSync(full)).digest("hex"));
+    }
+  };
+  walk(dir);
+  return files;
+}
+
+/** The paths that were added, changed, or removed between two snapshots. */
+export function changedPaths(before: Map<string, string>, after: Map<string, string>): string[] {
+  const paths = new Set([...before.keys(), ...after.keys()]);
+  return [...paths].filter((path) => before.get(path) !== after.get(path)).sort();
 }
