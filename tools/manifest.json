@@ -1,6 +1,11 @@
 {
   "schema": 1,
-  "description": "Every script in this repository that an agent or a person may run. The safety class is one of read-only, local-write, remote-write, or human-only. An agent never runs a human-only entry.",
+  "description": "Every script in this repository that an agent or a person may run. The safety class is one of read-only, local-write, remote-write, or human-only. An agent never runs a human-only entry. A later MCP server lists only the tools whose mcp_exposure is expose.",
+  "exposure_default": "hidden",
+  "mcp_exposure": {
+    "expose": "The MCP server lists the tool.",
+    "hidden": "The MCP server never lists the tool. This is the default when the field is missing, so a new tool stays out of the server until someone marks it. A human-only tool must be hidden."
+  },
   "tools": [
     {
       "name": "gates",
@@ -34,7 +39,9 @@
         }
       ],
       "output": "{ ok, status, exit, path, gates: [{ name, command, exit, signal, ok, firstFailingLine? }] }. Exit 0 all passed, 1 a gate failed, 2 wrong use.",
-      "safety": "local-write",
+      "safety_class": "local-write",
+      "destructive": false,
+      "mcp_exposure": "hidden",
       "writes": "node_modules (with --ci) and dist, in the folder.",
       "writesPaths": [
         "node_modules/",
@@ -85,7 +92,9 @@
         }
       ],
       "output": "{ ok, status (\"pass\" | \"dry-run\" | \"invalid-body\" | \"gh-failed\" | \"usage\"), exit, draft, command, url } or { problems: [...] } for an invalid body. Exit 0 opened, 1 body or gh failed, 2 wrong use.",
-      "safety": "remote-write",
+      "safety_class": "remote-write",
+      "destructive": false,
+      "mcp_exposure": "hidden",
       "writes": "Opens a draft pull request on GitHub. It writes no local file.",
       "writesPaths": []
     },
@@ -109,7 +118,9 @@
         }
       ],
       "output": "{ ok, status, exit, path, removes: \"nothing\", checks: [{ name: \"clean\" | \"pushed\" | \"idle\", ok, detail }] }. Exit 0 all pass, 1 a check failed, 2 wrong use.",
-      "safety": "read-only",
+      "safety_class": "read-only",
+      "destructive": false,
+      "mcp_exposure": "expose",
       "writes": "Nothing.",
       "writesPaths": []
     },
@@ -127,7 +138,9 @@
         }
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { package, version, phases: [{ name, state }], left: [...] }.",
-      "safety": "read-only",
+      "safety_class": "read-only",
+      "destructive": false,
+      "mcp_exposure": "expose",
       "writes": "Nothing.",
       "writesPaths": []
     },
@@ -151,7 +164,9 @@
         }
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commit }.",
-      "safety": "local-write",
+      "safety_class": "local-write",
+      "destructive": false,
+      "mcp_exposure": "hidden",
       "writes": "Runs git fetch, which updates FETCH_HEAD and the remote-tracking refs inside .git. Writes release-state.json inside .git.",
       "writesPaths": [
         ".git/release-state.json",
@@ -182,7 +197,9 @@
         }
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commit, failingLine? }.",
-      "safety": "local-write",
+      "safety_class": "local-write",
+      "destructive": true,
+      "mcp_exposure": "hidden",
       "writes": "node_modules (npm ci) and dist (build) in the working tree, and release-state.json inside .git.",
       "writesPaths": [
         ".git/release-state.json",
@@ -210,7 +227,9 @@
         }
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commit, failingLine? }.",
-      "safety": "local-write",
+      "safety_class": "local-write",
+      "destructive": false,
+      "mcp_exposure": "hidden",
       "writes": "dist in the working tree (the dry run repeats the gates) and release-state.json inside .git. Nothing is uploaded.",
       "writesPaths": [
         ".git/release-state.json",
@@ -231,7 +250,9 @@
         }
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commands: [...] }.",
-      "safety": "human-only",
+      "safety_class": "human-only",
+      "destructive": true,
+      "mcp_exposure": "hidden",
       "writes": "Nothing. It never runs npm publish or npm login.",
       "writesPaths": []
     },
@@ -255,7 +276,9 @@
         }
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commit, exports }.",
-      "safety": "local-write",
+      "safety_class": "local-write",
+      "destructive": false,
+      "mcp_exposure": "hidden",
       "writes": "A temporary project folder outside the repository (removed afterward), the npm cache, and release-state.json inside .git.",
       "writesPaths": [
         ".git/release-state.json"
@@ -281,7 +304,9 @@
         }
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { tag, commit, commands? }.",
-      "safety": "remote-write",
+      "safety_class": "remote-write",
+      "destructive": true,
+      "mcp_exposure": "hidden",
       "writes": "A git tag in .git and the same tag pushed to the remote.",
       "writesPaths": [
         ".git/refs/tags/",
@@ -304,7 +329,9 @@
         }
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commands: [...] }.",
-      "safety": "human-only",
+      "safety_class": "human-only",
+      "destructive": true,
+      "mcp_exposure": "hidden",
       "writes": "Nothing. It never runs npm deprecate or npm dist-tag.",
       "writesPaths": []
     },
@@ -322,7 +349,9 @@
         }
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { failingLine? }.",
-      "safety": "read-only",
+      "safety_class": "read-only",
+      "destructive": false,
+      "mcp_exposure": "expose",
       "writes": "Nothing.",
       "writesPaths": []
     }

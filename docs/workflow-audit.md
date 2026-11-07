@@ -60,6 +60,7 @@ To replace these guesses with facts, sum the token usage of a few real runs befo
 - `tools/tree-clean.mjs`. Run `npm run tree-clean -- <tree>`.
 - `tools/manifest.json` lists every script with its arguments, its output shape, and its safety class.
   A test checks that each listed file exists and that every `tools/*.mjs` file is listed. Another test runs each release subcommand and checks what it changed against the listed paths.
+- Each manifest entry also has `destructive` and `mcp_exposure`. A later MCP server lists a tool only when `mcp_exposure` is `expose`, and only the read-only tools that change nothing are marked that way (`release status`, `release claims`, and `tree-clean`).
 
 ## Rules that every script follows
 

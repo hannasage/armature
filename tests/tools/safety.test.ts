@@ -9,7 +9,7 @@ interface Entry {
   name: string;
   script: string;
   subcommand: string | null;
-  safety: string;
+  safety_class: string;
   writesPaths: string[];
 }
 
@@ -32,14 +32,14 @@ const entries = manifest.tools.filter((tool) => tool.script === "scripts/release
 
 describe("what each release subcommand changes", () => {
   for (const entry of entries) {
-    it(`${entry.name} (${entry.safety}) changes only the paths it declares`, () => {
+    it(`${entry.name} (${entry.safety_class}) changes only the paths it declares`, () => {
       const repo = makeReleaseRepo();
       prepare(repo, entry.subcommand ?? "");
       const before = snapshot(repo.work);
       const result = repo.run([entry.subcommand ?? ""]);
       expect([0, 1, 2], result.stdout).toContain(result.status);
       const changed = changedPaths(before, snapshot(repo.work));
-      if (entry.safety === "read-only" || entry.safety === "human-only") {
+      if (entry.safety_class === "read-only" || entry.safety_class === "human-only") {
         expect(entry.writesPaths, entry.name).toEqual([]);
         expect(changed, entry.name).toEqual([]);
       } else {
