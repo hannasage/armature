@@ -40,7 +40,7 @@ describe("A. the real npm under the scrubbed environments", () => {
     });
   }
 
-  it.skipIf(!hasNpm)("status against an unreachable registry reports unknown with a JSON result and no crash", () => {
+  it.skipIf(!hasNpm)("status with a non-public registry reports unknown with a JSON result and no crash", () => {
     const repo = makeReleaseRepo();
     const result = spawnSync(process.execPath, [repo.script, "status", "--json"], {
       cwd: repo.work,
@@ -102,13 +102,15 @@ describe("B. when a registry 404 means not published", () => {
     expect(phase(parse(result.stdout), "publish").note).toContain("name");
   });
 
-  it("is unknown for a registry other than the public one, and the view names that registry", () => {
+  it("is unknown for a registry other than the public one, with a visible warning and no registry read", () => {
     const repo = makeReleaseRepo();
     noTags(repo);
     const result = repo.run(["status", "--json"], { RELEASE_REGISTRY: "https://registry.example.test/" });
     expect(result.status).toBe(1);
-    expect(phase(parse(result.stdout), "publish").state).toBe("unknown");
-    expect(repo.fake.lines("npm").some((line) => line.includes("--registry https://registry.example.test/"))).toBe(true);
+    const body = parse(result.stdout);
+    expect(phase(body, "publish").state).toBe("unknown");
+    expect(body.warnings?.join()).toContain("not the public registry");
+    expect(repo.fake.lines("npm").some((line) => line.startsWith("view"))).toBe(false);
   });
 });
 
@@ -199,8 +201,9 @@ describe("H. tree-clean runs git without the repository hooks", () => {
     chmodSync(hook, 0o755);
     git(repo, "config", "core.fsmonitor", hook);
     const result = runNode(join(repoRoot, "tools/tree-clean.mjs"), [repo]);
-    expect(result.stdout).toContain("clean");
+    expect(result.stdout).toContain("core.fsmonitor");
     expect(existsSync(marker)).toBe(false);
+    expect(result.status).toBe(1);
   });
 
   it("does not pass a token to git", () => {

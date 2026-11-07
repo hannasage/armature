@@ -1,5 +1,6 @@
 // The rules for the body of a pull request. `tools/pr-open.mjs` checks them before it calls GitHub.
 import { spaceHidden, stripHidden } from "./invisible.mjs";
+import { redact } from "./text.mjs";
 
 // No rule uses a pattern that can backtrack badly: the checks are string compares, a split on white space, and short fixed patterns.
 
@@ -12,23 +13,26 @@ export const MAX_WORDS = 300;
 // Every apostrophe shape in use: straight, curly, high-reversed, prime, and the modifier letters. The text is normalized first,
 // so a full-width apostrophe becomes a straight one. The test ignores case and covers a letter from any alphabet.
 const CONTRACTION = /\p{L}['\u2018\u2019\u201b\u2032\u02b9\u02bb\u02bc\u02c8](?:t|s|re|ve|ll|d|m)(?!\p{L})/iu;
-const HOME_PATHS = [/\/Users\/[^\s/]+/, /\/home\/[^\s/]+/, /[A-Za-z]:\\Users\\[^\s\\]+/, /\\Users\\[^\s\\]+/];
-const SESSION_LINKS = [/claude\.ai\/(?:code|chat|share|artifact|local_sessions)\b/i, /\bsession_[A-Za-z0-9]{8,}/];
+const HOME_PATHS = [/\/Users\/[^\s/]+/i, /\/home\/[^\s/]+/i, /(?:^|[^\w.-])\/root(?:\/|\s|$)/, /\/var\/root\b/i, /[A-Za-z]:\\Users\\[^\s\\]+/, /\\Users\\[^\s\\]+/];
+const SESSION_LINKS = [/claude\.ai\/(?:code|chat|share|artifact|local_sessions|s|project|projects)\b/i, /\bsession_[A-Za-z0-9]{8,}/];
 
-/** Decodes the ways a slash or a path can be written in text: percent codes and HTML entities. A bad code is left as it is. */
+/** Decodes the ways a slash or a path can be written in text: percent codes, HTML entities, and look-alike slashes. A bad code is left as it is. */
 function decoded(text) {
-  let out = text.replace(/&#(?:x([0-9a-f]{1,6})|(\d{1,7}));|&sol;|&bsol;/gi, (whole, hex, dec) => {
-    if (/^&sol;$/i.test(whole)) return "/";
-    if (/^&bsol;$/i.test(whole)) return "\\";
+  let out = text.replace(/&#(?:x([0-9a-f]{1,6})|(\d{1,7}));|&(sol|bsol|apos|quot);/gi, (whole, hex, dec, name) => {
+    if (name !== undefined) return { sol: "/", bsol: "\\", apos: "'", quot: '"' }[name.toLowerCase()];
     const code = hex !== undefined ? parseInt(hex, 16) : Number(dec);
     return code <= 0x10ffff ? String.fromCodePoint(code) : whole;
   });
-  try {
-    out = decodeURIComponent(out);
-  } catch {
-    // Keep the text as it is.
-  }
-  return out;
+  // Each run of percent codes is decoded on its own, so one bad code does not stop the others from being decoded.
+  out = out.replace(/(?:%[0-9a-f]{2}){1,200}/gi, (run) => {
+    try {
+      return decodeURIComponent(run);
+    } catch {
+      return run;
+    }
+  });
+  // Division slash, fraction slash, big solidus, and the set-minus look-alikes of the backslash.
+  return out.replace(/[\u2215\u2044\u29f8]/g, "/").replace(/[\u2216\u29f5]/g, "\\");
 }
 
 /** The text in the forms a check must look at: the raw text, the cleaned text, and the cleaned text with codes decoded. */
@@ -56,7 +60,10 @@ function contentProblems(text, name) {
 /** Returns the list of problems with a pull request title. An empty list means the title is allowed. */
 export function validateTitle(text) {
   if (typeof text !== "string" || text.trim() === "") return ["the title is empty or is not text"];
-  return contentProblems(text, "title");
+  const problems = contentProblems(text, "title");
+  // A title is printed in the command and sent to GitHub, so it must not hold anything shaped like a secret.
+  if (redact(text) !== text) problems.push("the title holds something shaped like a secret. Remove it");
+  return problems;
 }
 
 /** Returns the list of problems with a body. An empty list means the body is allowed. */

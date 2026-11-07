@@ -1,6 +1,6 @@
 // Opens a draft pull request with a checked body. Safety class: remote-write.
 //
-//   node tools/pr-open.mjs --title <text> --body-file <file> --base <branch> [--dir <folder>] [--dry-run] [--json]
+//   node tools/pr-open.mjs --title <text> --body-file <file> --base <branch> [--dir <folder>] [--expect-identity <login>] [--dry-run] [--json]
 //
 // The tool checks the body before it touches GitHub (see tools/lib/pr-body.mjs): the first line is a GitHub alert,
 // at most 300 words, no contractions, the body ends with the footer line, and it holds no home path and no session link.
@@ -24,7 +24,7 @@ import { failingLine, jsonLine, redact, show } from "./lib/text.mjs";
 import { validateBody, validateTitle } from "./lib/pr-body.mjs";
 
 const USAGE = [
-  "Usage: node tools/pr-open.mjs --title <text> --body-file <file> --base <branch> [--dir <folder>] [--dry-run] [--json]",
+  "Usage: node tools/pr-open.mjs --title <text> --body-file <file> --base <branch> [--dir <folder>] [--expect-identity <login>] [--dry-run] [--json]",
   "Opens a DRAFT pull request. The body is checked first. Exit codes: 0 opened, 1 the body, gh, or git failed, 2 wrong use.",
   "Note: --dir must name a folder in a git work tree. Git and gh read the configuration of that repository, so only use one you trust.",
   "Note: gh gets the full environment on purpose, because it needs its own login (its config folder and any token it uses). The tool prints the gh identity before it creates anything (a warning if gh can not read it, as with a GitHub App token), and stops gh after 2 minutes. If gh pr create times out, a PR may exist, so check before retrying.",
@@ -43,7 +43,7 @@ export function main(argv, env = process.env) {
       args: argv,
       strict: true,
       allowPositionals: false,
-      options: { title: { type: "string" }, "body-file": { type: "string" }, base: { type: "string" }, dir: { type: "string" }, "dry-run": { type: "boolean" }, json: { type: "boolean" }, help: { type: "boolean" } },
+      options: { title: { type: "string" }, "body-file": { type: "string" }, base: { type: "string" }, dir: { type: "string" }, "expect-identity": { type: "string" }, "dry-run": { type: "boolean" }, json: { type: "boolean" }, help: { type: "boolean" } },
     }));
   } catch (error) {
     return usageError(argv.includes("--json"), error instanceof Error ? error.message : String(error));
@@ -92,25 +92,34 @@ export function main(argv, env = process.env) {
     return 0;
   }
   const timeout = effectiveTimeout(env, 2 * 60 * 1000);
-  const failure = (status, line, extra = {}) => {
-    if (json) console.log(jsonLine({ ok: false, status, exit: 1, draft: true, command: show(command), failingLine: line, ...extra }));
-    else console.log(`FAILED gh pr create: ${redact(line)}`);
+  const warnings = [];
+  const failure = (status, line, extra = {}, step = "gh pr create") => {
+    if (json) console.log(jsonLine({ ok: false, status, exit: 1, draft: true, command: show(command), failingLine: line, ...(warnings.length > 0 ? { warnings } : {}), ...extra }));
+    else {
+      for (const warning of warnings) console.log(`WARNING ${redact(warning)}`);
+      console.log(`FAILED ${step}: ${redact(line)}`);
+    }
     return 1;
   };
   const describe = (result) => (result.timedOut ? `timed out after ${timeout} ms` : result.error !== null ? `could not start gh: ${result.error}` : failingLine(result.stdout, result.stderr));
+  const mayExist = "a PR may exist: check before retrying";
 
-  // Say which account gh uses before anything is created. A GitHub App token can not read it (403), so a failure is only a warning.
+  // Say which account gh uses before anything is created. A GitHub App token can not read it (403), and that case is only a
+  // warning, unless --expect-identity asks for a proof. Any other failure stops the run, and a timeout is not waited for twice.
   // A login that was read must look like a login.
-  const warnings = [];
+  const expected = values["expect-identity"];
   const whoCommand = ["gh", "api", "user", "--jq", ".login"];
   if (!json) console.log(`$ ${show(whoCommand)}`);
   const who = runCommand({ command: whoCommand, cwd: folder.path, env, timeout });
   let identity = null;
   if (who.timedOut || who.error !== null || who.status !== 0) {
+    const forbidden = !who.timedOut && who.error === null && /\b403\b|Resource not accessible by integration/i.test(`${who.stderr}\n${who.stdout}`);
+    if (expected !== undefined || !forbidden) return failure("gh-identity-failed", `could not read the gh identity: ${describe(who)}`, {}, "gh identity");
     warnings.push(`could not read the gh identity: ${describe(who)}`);
   } else {
     identity = redact(who.stdout.trim().split("\n").at(-1) ?? "");
-    if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})(?:\[bot\])?$/.test(identity)) return failure("gh-identity-invalid", "gh printed an identity that is not a login");
+    if (!/^[A-Za-z0-9](?:[A-Za-z0-9_-]{0,38})(?:\[bot\])?$/.test(identity)) return failure("gh-identity-invalid", "gh printed an identity that is not a login", {}, "gh identity");
+    if (expected !== undefined && identity.toLowerCase() !== expected.toLowerCase()) return failure("gh-identity-mismatch", `gh is signed in as ${identity}, not as ${expected}`, { identity }, "gh identity");
   }
   if (!json) {
     for (const warning of warnings) console.log(`WARNING ${redact(warning)}`);
@@ -118,12 +127,12 @@ export function main(argv, env = process.env) {
   }
 
   // --draft is always in the command. No option turns it off.
-  if (!json) console.log(`$ ${redact(show(command))}`);
+  if (!json) console.log(`$ ${show(command)}`);
   const result = runCommand({ command, cwd: folder.path, env, timeout, input: text });
-  if (result.timedOut) return failure("gh-timeout", `${describe(result)}. a PR may exist: check before retrying`, { identity });
-  if (result.error !== null || result.status !== 0) return failure("gh-failed", describe(result), { identity });
+  if (result.timedOut) return failure("gh-timeout", `${describe(result)}. ${mayExist}`, { identity });
+  if (result.error !== null || result.status !== 0) return failure("gh-failed", `${describe(result)}. ${mayExist}`, { identity });
   const url = redact(result.stdout.trim().split("\n").at(-1) ?? "");
-  if (!/^https:\/\/\S+\/pull\/\d+$/.test(url)) return failure("no-url", `gh printed no pull request URL on its last line (it printed: ${url === "" ? "nothing" : url.slice(0, 100)})`, { identity });
+  if (!/^https:\/\/\S+\/pull\/\d+$/.test(url)) return failure("no-url", `gh printed no pull request URL on its last line (it printed: ${url === "" ? "nothing" : url.slice(0, 100)}). ${mayExist}`, { identity });
   if (json) console.log(jsonLine({ ok: true, status: "pass", exit: 0, draft: true, command: show(command), url, identity, ...(warnings.length > 0 ? { warnings } : {}) }));
   else console.log(url);
   return 0;

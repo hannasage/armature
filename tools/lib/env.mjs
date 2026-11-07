@@ -32,18 +32,25 @@ function safeBase() {
  * A throwaway folder with a HOME, an npm cache, and an empty npm config file. `remove` deletes all of it.
  * Callers make one when they first need it and remove it when they finish.
  */
-export function makeScratch() {
+export function makeScratch(hooks = {}) {
   const dir = realpathSync(mkdtempSync(join(safeBase(), "release-scratch-")));
-  const home = join(dir, "home");
-  const cache = join(dir, "cache");
-  const npmrc = join(dir, "npmrc");
-  // npm refuses to load one file as both the user config and the global config, so each gets its own empty file.
-  const globalrc = join(dir, "globalrc");
-  mkdirSync(home);
-  mkdirSync(cache);
-  writeFileSync(npmrc, "");
-  writeFileSync(globalrc, "");
-  return { dir, home, cache, npmrc, globalrc, remove: () => rmSync(dir, { recursive: true, force: true }) };
+  try {
+    const home = join(dir, "home");
+    const cache = join(dir, "cache");
+    const npmrc = join(dir, "npmrc");
+    // npm refuses to load one file as both the user config and the global config, so each gets its own empty file.
+    const globalrc = join(dir, "globalrc");
+    hooks.onCreated?.(dir); // for a test: it can throw, to see that the folder is removed
+    mkdirSync(home);
+    mkdirSync(cache);
+    writeFileSync(npmrc, "");
+    writeFileSync(globalrc, "");
+    return { dir, home, cache, npmrc, globalrc, remove: () => rmSync(dir, { recursive: true, force: true }) };
+  } catch (error) {
+    // Nothing is left behind when a step after mkdtemp fails.
+    rmSync(dir, { recursive: true, force: true });
+    throw error;
+  }
 }
 
 /**

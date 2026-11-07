@@ -79,7 +79,7 @@ describe("redact: more shapes", () => {
     ["client_secret: topsecretvalue", /topsecretvalue/],
     ["authToken = spacedvalue1", /spacedvalue1/],
     ["password=hunter99", /hunter99/],
-    ["https://user:pa/ss@host.example/x", /pa\/ss/],
+    ["https://user:pa%2Fss@host.example/x", /pa%2Fss/],
     ["https://user:p@ss@host.example/x", /ss@host|p@ss/],
     ["https://ghp_notarealtokenbutlongenough000@github.com/a/b", /notarealtoken/],
     ["https://abcdefghijklmnopqrstuvwx@host.example/x", /abcdefghijklmnopqrstuvwx/],
@@ -122,6 +122,10 @@ describe("redact: more shapes", () => {
       `token${" ".repeat(100000)}x`,
       "Authorization:".repeat(7000),
       "NPM_TOKEN=\"".repeat(9000),
+      "-----BEGIN PRIVATE KEY-----".repeat(4000),
+      "a_key ".repeat(16000),
+      "Cookie:".repeat(14000),
+      "//a:".repeat(20000) + "@",
     ];
     const start = Date.now();
     for (const input of inputs) lib.redact(input);

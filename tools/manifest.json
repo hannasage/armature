@@ -79,6 +79,12 @@
           "description": "A folder inside a git work tree. Default: the current folder."
         },
         {
+          "name": "--expect-identity",
+          "type": "string",
+          "required": false,
+          "description": "The gh login that must be signed in. If it differs or can not be read, the tool stops before it creates anything."
+        },
+        {
           "name": "--dry-run",
           "type": "flag",
           "required": false,

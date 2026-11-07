@@ -316,7 +316,7 @@ function writeState(ctx, state) {
 
 const MINUTE = 60 * 1000;
 
-function makeRun(root, env, out, json) {
+function makeRun(root, env, out, json, warnings) {
   const steps = [];
   const say = (line) => {
     if (!json) out(redact(line));
@@ -347,6 +347,12 @@ function makeRun(root, env, out, json) {
     return baseEnv(env);
   };
   const timeoutFor = (command) => (command[0] === "npm" && command[1] !== "view" ? 15 * MINUTE : 2 * MINUTE);
+  /** Adds a warning once, shows it in text mode, and keeps it for the JSON result. */
+  const warnOnce = (message) => {
+    if (warnings.includes(message)) return;
+    warnings.push(message);
+    say(`WARNING: ${message}`);
+  };
   /** Prints the command, runs it, and records the exit code. `display` is what is printed and recorded, when it must differ. */
   const exec = (rawCommand, options = {}) => {
     const command = rawCommand[0] === "npm" && rawCommand[1] === "view" ? [...rawCommand, "--registry", registry] : rawCommand;
@@ -356,7 +362,9 @@ function makeRun(root, env, out, json) {
     // "node" runs the same Node that runs this script, but the command is printed as "node" so no absolute path shows.
     const bin = command[0] === "node" ? process.execPath : command[0];
     // A command that may start grandchildren runs in its own process group, so a timeout kills the whole group.
-    const result = runCommand({ command: [bin, ...command.slice(1)], cwd: options.cwd ?? root, env: options.env ?? envFor(command), timeout });
+    // `npm view` runs in the scratch folder, not in the repository, so a project .npmrc can not point it at another registry.
+    const where = options.cwd ?? (command[0] === "npm" && command[1] === "view" ? getScratch().dir : root);
+    const result = runCommand({ command: [bin, ...command.slice(1)], cwd: where, env: options.env ?? envFor(command), timeout });
     const status = result.timedOut ? 124 : result.error !== null ? 127 : (result.status ?? (result.signal ? 128 : 1));
     steps.push({ command: redact(show(shown)), exit: status });
     return {
@@ -366,7 +374,7 @@ function makeRun(root, env, out, json) {
       stderr: result.timedOut ? `timed out after ${timeout} ms` : result.error !== null ? result.error : result.stderr,
     };
   };
-  return { steps, say, exec, scratch: getScratch, cleanup, registry, defaultRegistry: registry === "https://registry.npmjs.org/" };
+  return { steps, say, warnOnce, exec, scratch: getScratch, cleanup, registry, defaultRegistry: registry === "https://registry.npmjs.org/" };
 }
 
 function finish(ctx, base) {
@@ -418,9 +426,18 @@ function treeIsClean(run) {
   return { ok: result.ok && first === undefined, first: first ?? failingLine(result.stdout, result.stderr) };
 }
 
+/** The sentence for a registry that is not the public one. Nothing is read from such a registry, because the result could not be trusted. */
+function untrustedRegistry(run) {
+  const message = `the registry is ${run.registry}, not the public registry, so no registry read is trusted`;
+  run.warnOnce(message);
+  return message;
+}
+
 function distTags(run, config) {
+  if (!run.defaultRegistry) return { ok: false, missing: false, tags: {}, error: untrustedRegistry(run) };
   const result = run.exec(["npm", "view", config.package, "dist-tags", "--json"]);
-  if (!result.ok) return { ok: false, missing: /E404/.test(result.stderr), tags: {}, error: failingLine(result.stdout, result.stderr) };
+  // Only npm's own error code line counts as "not found". The same letters in another message do not.
+  if (!result.ok) return { ok: false, missing: /^npm error code E404\b/m.test(result.stderr), tags: {}, error: failingLine(result.stdout, result.stderr) };
   try {
     const tags = JSON.parse(result.stdout);
     if (tags === null || typeof tags !== "object" || Array.isArray(tags)) throw new Error("not an object");
@@ -432,6 +449,7 @@ function distTags(run, config) {
 
 /** The integrity string and the git head that the registry holds for the version. */
 function registryInfo(run, config) {
+  if (!run.defaultRegistry) return { ok: false, error: untrustedRegistry(run) };
   const result = run.exec(["npm", "view", `${config.package}@${config.version}`, "dist.integrity", "gitHead", "--json"]);
   if (!result.ok) return { ok: false, error: failingLine(result.stdout, result.stderr) };
   try {
@@ -657,7 +675,7 @@ const STEPS = {
     const isolated = viewEnv(ctx.env, scratch);
     for (const command of [
       ["npm", "init", "-y"],
-      ["npm", "install", "--ignore-scripts", `${config.package}@${config.npmTag}`, "react"],
+      ["npm", "install", "--ignore-scripts", "--registry", run.registry, `${config.package}@${config.npmTag}`, "react"],
     ]) {
       const result = run.exec(command, { cwd: temp, env: isolated, timeout: 5 * MINUTE });
       if (!result.ok) return fail(ctx, `${show(command)} exited ${result.status}: ${failingLine(result.stdout, result.stderr)}`);
@@ -669,6 +687,14 @@ const STEPS = {
       // The version check below reports it.
     }
     if (installed !== config.version) return fail(ctx, `the installed version is ${installed}, expected ${config.version}`);
+    // The tarball that npm installed must be the one that npm view described.
+    let installedIntegrity = null;
+    try {
+      installedIntegrity = JSON.parse(readFileSync(join(temp, "package-lock.json"), "utf8")).packages?.[`node_modules/${config.package}`]?.integrity ?? null;
+    } catch {
+      // The check below reports it.
+    }
+    if (installedIntegrity !== info.integrity) return fail(ctx, `the installed integrity ${installedIntegrity ?? "(unreadable)"} differs from the registry integrity ${info.integrity}`);
     // The package name is an argument, not part of the code. The import runs under the Node permission model when this Node has it:
     // it may read only the throwaway project, may not write, and may not start a process. If this Node lacks the model, the import
     // runs without it and a warning says so.
@@ -766,6 +792,7 @@ const STEPS = {
       }
       if (name !== config.package) reasons.push("the name in package.json is not the name in release.config.json");
       if (!run.defaultRegistry) reasons.push(`the registry is ${run.registry}, not the public registry`);
+      if (config.access !== "public") reasons.push("the package is restricted, so a 404 can also mean no permission");
       if (reasons.length > 0) return { accepted: false, note: `registry says not found, but ${reasons.join(" and ")}` };
       warn(ctx, "registry says not found: normal before the first publish; otherwise check the package name");
       return { accepted: true, note: "registry says not found" };
@@ -843,9 +870,10 @@ export async function runRelease(argv, context) {
   const flags = new Set(argv.filter((arg) => arg.startsWith("-")));
   const words = argv.filter((arg) => !arg.startsWith("-"));
   const json = flags.has("--json");
-  const run = makeRun(root, env, out, json);
+  const warnings = [];
+  const run = makeRun(root, env, out, json, warnings);
   const command = words[0];
-  const base = { run, out, json, root, env, flags, isTTY, command, warnings: [] };
+  const base = { run, out, json, root, env, flags, isTTY, command, warnings };
   if (flags.has("--help")) {
     for (const line of USAGE) out(line);
     return { exit: 0, result: { ok: true } };

@@ -94,7 +94,7 @@ if (command === "view") {
   const fields = clean.slice(1).filter((field) => !field.startsWith("--"));
   if (fields[0] === "dist-tags") {
     const text = read("dist-tags.json");
-    if (text === null) { console.error("npm error code E404"); process.exit(1); }
+    if (text === null) { console.error(knob("FAKE_VIEW_ERROR") ?? "npm error code E404"); process.exit(1); }
     console.log(text);
     process.exit(0);
   }
@@ -110,7 +110,9 @@ if (command === "view") {
   process.exit(0);
 }
 if (command === "install") {
-  const spec = rest.find((part) => !part.startsWith("-"));
+  const regAt = rest.indexOf("--registry");
+  const noReg = regAt >= 0 ? rest.filter((_, index) => index !== regAt && index !== regAt + 1) : rest;
+  const spec = noReg.find((part) => !part.startsWith("-"));
   const at = spec.lastIndexOf("@");
   const name = at > 0 ? spec.slice(0, at) : spec;
   const tag = at > 0 ? spec.slice(at + 1) : "latest";
@@ -118,6 +120,7 @@ if (command === "install") {
   const folder = join(process.cwd(), "node_modules", name);
   mkdirSync(folder, { recursive: true });
   writeFileSync(join(folder, "package.json"), JSON.stringify({ name, version: tags[tag] ?? "0.0.0", type: "module", main: "index.js" }));
+  writeFileSync("package-lock.json", JSON.stringify({ lockfileVersion: 3, packages: { ["node_modules/" + name]: { version: tags[tag] ?? "0.0.0", integrity: knob("FAKE_INSTALL_INTEGRITY") ?? (read("integrity.txt") ?? "sha512-FAKEINTEGRITY").trim() } } }));
   const count = Number(knob("FAKE_EXPORTS") ?? 29);
   writeFileSync(join(folder, "index.js"), Array.from({ length: count }, (_, index) => "export const name" + index + " = " + index + ";").join("\\n") + "\\n");
   process.exit(0);
@@ -152,7 +155,7 @@ if (args.includes("-")) { try { stdin = readFileSync(0, "utf8"); } catch { stdin
 appendFileSync(join(here, "..", "calls.log"), JSON.stringify({ tool: "gh", args, cwd: process.cwd(), stdin }) + "\\n");
 if (knobs.FAKE_GH_SLEEP_MS && args[0] === "pr") Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(knobs.FAKE_GH_SLEEP_MS));
 if (args[0] === "api" && args[1] === "user") {
-  if (knobs.FAKE_GH_API_FAIL) { console.error("gh: HTTP 403 Resource not accessible by integration"); process.exit(1); }
+  if (knobs.FAKE_GH_API_FAIL) { console.error(knobs.FAKE_GH_API_FAIL === "1" ? "gh: HTTP 403 Resource not accessible by integration" : "gh: " + knobs.FAKE_GH_API_FAIL); process.exit(1); }
   console.log(knobs.FAKE_GH_API_OUTPUT ?? "example-user");
   process.exit(0);
 }
