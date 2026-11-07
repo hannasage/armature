@@ -231,7 +231,7 @@ describe("verify", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("29");
     expect(repo.fake.lines("npm")).toEqual(
-      expect.arrayContaining(["view @hannasage/armature dist-tags --json", "init -y", "install --ignore-scripts @hannasage/armature@beta react"]),
+      expect.arrayContaining(["view @hannasage/armature dist-tags --json --registry https://registry.npmjs.org/", "init -y", "install --ignore-scripts @hannasage/armature@beta react"]),
     );
     expect(repo.run(["verify"]).stdout).toContain("already done");
     expectNoRegistryWrites(repo);

@@ -337,6 +337,9 @@ function makeRun(root, env, out, json) {
   };
   // RELEASE_TIMEOUT_MS can only shorten a limit. A test uses it to see a timeout.
   const limit = (ms) => effectiveTimeout(env, ms);
+  // Every `npm view` names its registry. The default is the public one. RELEASE_REGISTRY changes it, for a test or a private registry,
+  // and then a 404 is never taken for "not published yet".
+  const registry = env.RELEASE_REGISTRY || "https://registry.npmjs.org/";
   const envFor = (command) => {
     if (command[0] === "git") return gitEnv(env);
     if (command[0] === "npm" && command[1] === "view") return viewEnv(env, getScratch());
@@ -345,7 +348,8 @@ function makeRun(root, env, out, json) {
   };
   const timeoutFor = (command) => (command[0] === "npm" && command[1] !== "view" ? 15 * MINUTE : 2 * MINUTE);
   /** Prints the command, runs it, and records the exit code. `display` is what is printed and recorded, when it must differ. */
-  const exec = (command, options = {}) => {
+  const exec = (rawCommand, options = {}) => {
+    const command = rawCommand[0] === "npm" && rawCommand[1] === "view" ? [...rawCommand, "--registry", registry] : rawCommand;
     const shown = options.display ?? command;
     say(`$ ${show(shown)}`);
     const timeout = limit(options.timeout ?? timeoutFor(command));
@@ -362,13 +366,16 @@ function makeRun(root, env, out, json) {
       stderr: result.timedOut ? `timed out after ${timeout} ms` : result.error !== null ? result.error : result.stderr,
     };
   };
-  return { steps, say, exec, scratch: getScratch, cleanup };
+  return { steps, say, exec, scratch: getScratch, cleanup, registry, defaultRegistry: registry === "https://registry.npmjs.org/" };
 }
 
 function finish(ctx, base) {
   // The scratch folder goes first, so a failed removal becomes a warning in the result and not a crash after it.
   const problem = ctx.run.cleanup();
-  if (problem !== null) ctx.warnings.push(problem);
+  if (problem !== null) {
+    ctx.warnings.push(problem);
+    ctx.run.say(`WARNING: ${problem}`);
+  }
   const body = {
     ok: base.exit === 0,
     command: base.command,
@@ -481,15 +488,15 @@ function claimPaths(root, config) {
 
 function runClaims(run, root, config) {
   const found = claimPaths(root, config);
-  if (found.problem !== undefined) return { ok: false, first: found.problem };
+  if (found.problem !== undefined) return { ok: false, errored: true, first: found.problem };
   const command = ["grep", "-rnIF"];
   for (const pattern of config.claims.patterns) command.push("-e", pattern);
   for (const name of config.claims.skipFileNames) command.push(`--exclude=${name}`);
   command.push("--", ...found.paths);
   const result = run.exec(command);
-  if (result.status === 1) return { ok: true, first: "", paths: found.paths };
-  if (result.status === 0) return { ok: false, first: result.stdout.split("\n").find((line) => line.trim() !== "") ?? "" };
-  return { ok: false, first: failingLine(result.stdout, result.stderr) };
+  if (result.status === 1) return { ok: true, errored: false, first: "", paths: found.paths };
+  if (result.status === 0) return { ok: false, errored: false, first: result.stdout.split("\n").find((line) => line.trim() !== "") ?? "" };
+  return { ok: false, errored: true, first: failingLine(result.stdout, result.stderr) };
 }
 
 function configDisagreement(root, config) {
@@ -745,16 +752,40 @@ const STEPS = {
     add("gates", known ? state.gates?.commit === commit && state.gates?.lock === lock : null, noHead);
     add("dry-run", known ? state.dryRun?.commit === commit && state.dryRun?.lock === lock : null, noHead);
     const view = distTags(run, config);
-    add("publish", view.ok ? view.tags[config.npmTag] === config.version : view.missing ? false : null, view.ok ? "" : view.missing ? "registry says not found" : view.error);
+    // A 404 from the registry is the normal state before the first publish. It counts as "not published" only when nothing
+    // else contradicts it: no verify record, the same package name in package.json, and the public registry.
+    const notFound = (() => {
+      if (!view.missing) return { accepted: false, note: view.error };
+      const reasons = [];
+      if (state.verify !== undefined) reasons.push("a verify record says the package was published");
+      let name = null;
+      try {
+        name = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).name;
+      } catch {
+        // The name stays null, which does not match.
+      }
+      if (name !== config.package) reasons.push("the name in package.json is not the name in release.config.json");
+      if (!run.defaultRegistry) reasons.push(`the registry is ${run.registry}, not the public registry`);
+      if (reasons.length > 0) return { accepted: false, note: `registry says not found, but ${reasons.join(" and ")}` };
+      warn(ctx, "registry says not found: normal before the first publish; otherwise check the package name");
+      return { accepted: true, note: "registry says not found" };
+    })();
+    add("publish", view.ok ? view.tags[config.npmTag] === config.version : notFound.accepted ? false : null, view.ok ? "" : notFound.note);
     add("verify", known ? state.verify?.commit === commit : null, noHead);
     const ref = `refs/tags/${gitTagName(config)}`;
-    const hasLocal = run.exec(["git", "rev-parse", "-q", "--verify", ref]).ok;
+    // `git rev-parse -q --verify` exits 1 when the tag is absent. Any other failure means the lookup itself failed.
+    const lookup = run.exec(["git", "rev-parse", "-q", "--verify", ref]);
     const remote = remoteTag(run, config, ref);
     const wanted = state.preflight?.commit;
-    const localHash = hasLocal ? run.exec(["git", "rev-list", "-n", "1", ref]).stdout.trim() : null;
+    const lookupFailed = lookup.status !== 0 && lookup.status !== 1;
+    const hasLocal = lookup.ok;
+    const localRun = hasLocal ? run.exec(["git", "rev-list", "-n", "1", ref]) : null;
+    const localHash = localRun?.ok ? localRun.stdout.trim() : null;
     if (!remote.ok) {
       // The remote error comes first, so it is never hidden behind another note.
       add("tag", null, `could not read the remote tags: ${remote.error}${wanted ? "" : ". Preflight has not recorded a commit"}`);
+    } else if (lookupFailed || (localRun !== null && !localRun.ok)) {
+      add("tag", null, `could not look up the local tag: ${failingLine(lookup.stdout, lookup.stderr)}`);
     } else {
       let tagNote = "";
       if (!wanted) tagNote = "preflight has not recorded a commit";
@@ -763,8 +794,9 @@ const STEPS = {
       else if (remote.hash !== wanted) tagNote = `remote tag ${remote.hash ? `points at ${remote.hash}` : "is missing"}, expected ${wanted}`;
       add("tag", wanted !== undefined && localHash === wanted && remote.hash === wanted, tagNote);
     }
-    add("retire", view.ok ? isRetired(run, config, view) : view.missing ? false : null, view.ok || view.missing ? "" : view.error);
-    add("claims", runClaims(run, root, config).ok);
+    add("retire", view.ok ? isRetired(run, config, view) : notFound.accepted ? false : null, view.ok ? "" : notFound.note);
+    const claims = runClaims(run, root, config);
+    add("claims", claims.errored ? null : claims.ok, claims.errored ? claims.first : "");
     const left = phases.filter((phase) => phase.state !== "done").map((phase) => phase.name);
     run.say(`${config.package}@${config.version} on the ${config.npmTag} tag`);
     for (const phase of phases) run.say(`  ${phase.state.padEnd(7)} ${phase.name}${phase.note ? ` (${phase.note})` : ""}`);

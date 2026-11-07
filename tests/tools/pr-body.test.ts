@@ -6,6 +6,7 @@ import { repoRoot } from "./support";
 const lib = (await import(pathToFileURL(join(repoRoot, "tools/lib/pr-body.mjs")).href)) as {
   FOOTER: string;
   validateBody(text: unknown): string[];
+  validateTitle(text: unknown): string[];
   countWords(text: string): number;
 };
 
@@ -155,6 +156,47 @@ describe("validateBody", () => {
       expect(path, code.toString(16)).toMatch(/home path/);
       const link = lib.validateBody(good.replace("config file", `link https://claude${mark}.ai/code/x`)).join();
       expect(link, code.toString(16)).toMatch(/session link/);
+    }
+  });
+
+  it("finds paths and links written in other forms", () => {
+    const forms = [
+      "file at C:\\Users\\someone\\x",
+      "file at \\Users\\someone\\x",
+      "file at %2FUsers%2Fsomeone%2Fx",
+      "file at &#47;Users&#47;someone",
+      "file at &#x2F;Users&#x2F;someone",
+      "file at &sol;home&sol;someone",
+      "link https://claude.ai/artifact/abc",
+      "link https://claude.ai/local_sessions/abc",
+    ];
+    for (const text of forms) {
+      const problems = lib.validateBody(good.replace("config file", text)).join();
+      expect(problems, text).toMatch(/home path|session link/);
+    }
+  });
+
+  it("removes default-ignorable characters and control characters before every check", () => {
+    for (const code of [0x17b4, 0x17b5, 0x2800, 0x0007, 0x034f, 0x00a0 + 0x0000]) {
+      const mark = String.fromCodePoint(code);
+      if (code !== 0x00a0) {
+        expect(lib.validateBody(good.replace("config file", `file at /Us${mark}ers/x`)).join(), code.toString(16)).toMatch(/home path/);
+        expect(lib.validateBody(good.replace("reads", `don${mark}\u2019t reads`)).join(), code.toString(16)).toMatch(/contraction/);
+      }
+      const words = `> [!NOTE]\n> ${Array.from({ length: 500 }, () => "word").join(mark)}\n\n${FOOTER}\n`;
+      expect(lib.validateBody(words).join(), code.toString(16)).toMatch(/words/);
+    }
+  });
+});
+
+describe("validateTitle", () => {
+  it("accepts a plain title", () => {
+    expect(lib.validateTitle("Add the release script")).toEqual([]);
+  });
+
+  it("refuses a title with a contraction, a home path, or a session link, also when it is hidden", () => {
+    for (const title of ["it's done", "fix /Users/someone/x", "see claude.ai/code/x", "fix /Us\u200bers/x", "fix %2FUsers%2Fx", "see claude\ufe0f.ai/code/x"]) {
+      expect(lib.validateTitle(title).length, title).toBeGreaterThan(0);
     }
   });
 });

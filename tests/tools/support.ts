@@ -89,7 +89,9 @@ if (command === "run") {
 if (command === "ci") process.exit(knob("FAKE_FAIL_RUN") === "ci" ? 1 : 0);
 if (command === "init") { writeFileSync("package.json", JSON.stringify({ name: "temp", version: "1.0.0" })); process.exit(0); }
 if (command === "view") {
-  const fields = rest.slice(1).filter((field) => !field.startsWith("--"));
+  const registryAt = rest.indexOf("--registry");
+  const clean = registryAt >= 0 ? rest.filter((_, index) => index !== registryAt && index !== registryAt + 1) : rest;
+  const fields = clean.slice(1).filter((field) => !field.startsWith("--"));
   if (fields[0] === "dist-tags") {
     const text = read("dist-tags.json");
     if (text === null) { console.error("npm error code E404"); process.exit(1); }
@@ -149,7 +151,11 @@ let stdin = null;
 if (args.includes("-")) { try { stdin = readFileSync(0, "utf8"); } catch { stdin = ""; } }
 appendFileSync(join(here, "..", "calls.log"), JSON.stringify({ tool: "gh", args, cwd: process.cwd(), stdin }) + "\\n");
 if (knobs.FAKE_GH_SLEEP_MS && args[0] === "pr") Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(knobs.FAKE_GH_SLEEP_MS));
-if (args[0] === "api" && args[1] === "user") { console.log("example-user"); process.exit(0); }
+if (args[0] === "api" && args[1] === "user") {
+  if (knobs.FAKE_GH_API_FAIL) { console.error("gh: HTTP 403 Resource not accessible by integration"); process.exit(1); }
+  console.log(knobs.FAKE_GH_API_OUTPUT ?? "example-user");
+  process.exit(0);
+}
 if (knobs.FAKE_GH_FAIL) { console.error("gh: could not create the pull request"); process.exit(1); }
 if (knobs.FAKE_GH_EMPTY) process.exit(0);
 console.log(knobs.FAKE_GH_OUTPUT ?? "https://github.com/example/repo/pull/1");

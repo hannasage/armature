@@ -44,9 +44,11 @@ export function main(argv, env = process.env) {
 
   const commands = [...(values.ci ? [{ name: "ci", command: ["npm", "ci"] }] : []), ...GATES.map((name) => ({ name, command: ["npm", "run", name] }))];
   // The gates get an allowlisted environment and a throwaway HOME, so a token in the caller environment can not reach them.
-  const scratch = makeScratch();
+  let scratch = null;
+  const warnings = [];
   const results = [];
   try {
+    scratch = makeScratch();
     const childEnv = toolEnv(env, scratch);
     // Each gate may run for 15 minutes. If it runs longer, the whole process group is killed. RELEASE_TIMEOUT_MS can shorten the limit.
     const timeout = effectiveTimeout(env, 15 * 60 * 1000);
@@ -63,11 +65,20 @@ export function main(argv, env = process.env) {
       }
       if (!passed && values.bail) break;
     }
+  } catch (error) {
+    // A failure to make the scratch folder, or any other surprise, is a failed result and not a crash.
+    results.push({ name: "setup", command: "setup", exit: null, signal: null, ok: false, firstFailingLine: redact(error instanceof Error ? error.message : String(error)) });
   } finally {
-    scratch.remove();
+    try {
+      scratch?.remove();
+    } catch (error) {
+      warnings.push(`could not remove the scratch folder: ${redact(error instanceof Error ? error.message : String(error))}`);
+    }
   }
+  for (const warning of warnings) if (!values.json) console.log(`WARNING ${warning}`);
   const ok = results.every((gate) => gate.ok) && results.length === commands.length;
-  if (values.json) console.log(jsonLine({ ok, status: ok ? "pass" : "fail", exit: ok ? 0 : 1, path: folder.path, gates: results }));
+  if (!ok && results.some((gate) => gate.name === "setup") && !values.json) console.log(`FAIL setup - ${results.at(-1).firstFailingLine}`);
+  if (values.json) console.log(jsonLine({ ok, status: ok ? "pass" : "fail", exit: ok ? 0 : 1, path: folder.path, gates: results, ...(warnings.length > 0 ? { warnings } : {}) }));
   else {
     const failed = results.filter((gate) => !gate.ok).map((gate) => gate.name);
     console.log(ok ? `Result: all ${results.length} gates passed` : `Result: failed - ${failed.join(", ")}`);

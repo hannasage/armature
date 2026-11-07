@@ -1,8 +1,10 @@
-import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import { describe, expect, it } from "vitest";
-import { repoRoot } from "./support";
+import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, repoRoot, tempDir } from "./support";
+
+afterEach(cleanup);
 
 interface Entry {
   name: string;
@@ -23,13 +25,21 @@ const manifest = JSON.parse(readFileSync(join(repoRoot, "tools/manifest.json"), 
 const release = (await import(pathToFileURL(join(repoRoot, "scripts/release.mjs")).href)) as { SAFETY: Record<string, string> };
 const CLASSES = ["read-only", "local-write", "remote-write", "human-only"];
 // ---- The shared exposure check, ported from the factory manifest test (its COPY-START to COPY-END block). ----
+// The set of invisible characters is shared with the pull request body check, so the two never drift apart.
+const { HIDDEN } = (await import(pathToFileURL(join(repoRoot, "tools/lib/invisible.mjs")).href)) as { HIDDEN: RegExp };
+
+/** True when two paths inside the root are the same file after links and dots are resolved. */
+function sameFile(root: string, one: string, other: string): boolean {
+  try {
+    return realpathSync(join(root, one)) === realpathSync(join(root, other));
+  } catch {
+    return false;
+  }
+}
+
 const EXPOSURE_VALUES = ["expose", "hidden"];
 const SAFETY_CLASS_NAMES = ["read-only", "local-write", "remote-write", "human-only"];
 const MAX_TOOLS = 1000;
-
-/** Problems with the exposure field. An empty list means the manifest is sound. It never throws on a malformed manifest. */
-// Format characters, selectors, tag characters, and fillers that can hide a difference between two names.
-const INVISIBLE = new RegExp("[\\p{Cf}\\u{fe00}-\\u{fe0f}\\u{180b}-\\u{180d}\\u{e0000}-\\u{e0fff}\\u{115f}\\u{1160}\\u{3164}\\u{ffa0}]", "gu");
 
 /** True when the script is a regular file inside the repository root. */
 function scriptIsFileInside(root: string, script: unknown): boolean {
@@ -45,6 +55,7 @@ function scriptIsFileInside(root: string, script: unknown): boolean {
 
 const TOP_KEYS = ["schema", "version", "project", "description", "safety_classes", "exit_codes", "exposure_default", "mcp_exposure", "tools", "held_back"];
 
+/** Problems with the exposure field. An empty list means the manifest is sound. It never throws on a malformed manifest. */
 function exposureProblems(manifest: any, root: string = repoRoot): string[] {
   const isObject = (value: unknown): value is Record<string, any> => value !== null && typeof value === "object" && !Array.isArray(value);
   if (!isObject(manifest) || !Array.isArray(manifest.tools) || manifest.tools.length === 0) return ["the manifest needs a non-empty tools list"];
@@ -58,7 +69,7 @@ function exposureProblems(manifest: any, root: string = repoRoot): string[] {
     if (typeof name !== "string" || name.trim() === "") problems.push(`tool #${index}: needs a name`);
     else names.push(name);
   });
-  const folded = names.map((n) => n.normalize("NFKC").replace(INVISIBLE, "").trim().toLowerCase());
+  const folded = names.map((n) => n.normalize("NFKC").replace(HIDDEN, "").trim().toLowerCase());
   for (const name of [...new Set(folded.filter((n) => folded.filter((m) => m === n).length > 1))].sort()) problems.push(`${name}: the name appears more than once`);
   const held = "held_back" in manifest ? manifest.held_back : [];
   const heldNames: string[] = [];
@@ -87,7 +98,7 @@ function exposureProblems(manifest: any, root: string = repoRoot): string[] {
       if (!Array.isArray(tool.writesPaths) || tool.writesPaths.length !== 0) problems.push(`${name}: an exposed tool must have writesPaths: []`);
       if (!scriptIsFileInside(root, tool.script)) problems.push(`${name}: an exposed tool needs a script that is a file inside the repository`);
     }
-    if (tool.script === "scripts/release.mjs" && release.SAFETY[tool.subcommand] !== safety) problems.push(`${name}: safety_class ${safety} differs from the class the release script declares`);
+    if (typeof tool.script === "string" && sameFile(root, tool.script, "scripts/release.mjs") && release.SAFETY[tool.subcommand] !== safety) problems.push(`${name}: safety_class ${safety} differs from the class the release script declares`);
     if (heldNames.includes(name) && exposed) problems.push(`${name}: a held-back tool must be hidden`);
   }
   return problems;
@@ -257,6 +268,25 @@ describe("MCP exposure", () => {
 
   it("finds duplicate names that differ only by invisible characters or width", () => {
     for (const twin of ["ga\u200btes", "GATES", "\uff47ates", "gates\ufe0f"]) {
+      const broken = make(["gates", "read-only", "expose"], [twin, "read-only", "hidden"]);
+      expect(exposureProblems(broken).join(), JSON.stringify(twin)).toContain("appears more than once");
+    }
+  });
+
+  it("compares release entries by the real file, so a dotted path or a link can not skip the class check", () => {
+    const root = tempDir();
+    mkdirSync(join(root, "scripts"));
+    writeFileSync(join(root, "scripts", "release.mjs"), "// stub\n");
+    symlinkSync(join(root, "scripts", "release.mjs"), join(root, "alias.mjs"));
+    for (const script of ["scripts/release.mjs", "./scripts/release.mjs", "scripts/../scripts/release.mjs", "alias.mjs"]) {
+      const broken = make(["release publish", "read-only", "hidden"]);
+      Object.assign(broken.tools[0], { script, subcommand: "publish" });
+      expect(exposureProblems(broken, root).join(), script).toContain("differs from the class the release script declares");
+    }
+  });
+
+  it("finds duplicate names that differ by a combining joiner, a braille blank, or a Khmer inherent vowel", () => {
+    for (const twin of ["ga\u034ftes", "gates\u2800", "ga\u17b4tes"]) {
       const broken = make(["gates", "read-only", "expose"], [twin, "read-only", "hidden"]);
       expect(exposureProblems(broken).join(), JSON.stringify(twin)).toContain("appears more than once");
     }

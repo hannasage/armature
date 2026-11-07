@@ -1,27 +1,48 @@
 // Small text helpers shared by the tools and by scripts/release.mjs.
 
+// Key names whose value is a secret. Used inside text ("token: x") and, in redactDeep, as the name of a field.
+const KEY_NAMES = "_authToken|_auth|_password|access_token|authToken|client_secret|secret|token|password|api_?key";
+// A value after a key: a double-quoted string (with escapes), a single-quoted string, or a run of non-space characters.
+// Every repeat is bounded, so no input can make the matcher slow.
+const VALUE = String.raw`(?:"(?:[^"\\]|\\.){0,2000}"|'(?:[^'\\]|\\.){0,2000}'|\S{1,2000})`;
+
 const SECRET_PATTERNS = [
-  [/(\/\/[^\s/:@]+:)[^\s/@]+@/g, "$1[redacted]@"],
-  [/sk-ant-[A-Za-z0-9_-]{10,}/g, "[redacted]"],
-  [/\bAKIA[0-9A-Z]{16}\b/g, "[redacted]"],
-  [/("(?:_auth|_authToken|_password|token|password|apiKey|api_key)"\s*:\s*")[^"]*(")/gi, "$1[redacted]$2"],
-  [/github_pat_[A-Za-z0-9_]{20,}/g, "[redacted]"],
-  [/gh[pousr]_[A-Za-z0-9]{20,}/g, "[redacted]"],
-  [/npm_[A-Za-z0-9]{20,}/g, "[redacted]"],
-  [/\b(Authorization:\s*(?:Basic|Bearer|Token)\s+)\S+/gi, "$1[redacted]"],
-  [/(_auth(?:Token)?=)\S+/gi, "$1[redacted]"],
-  [/(_password=)\S+/gi, "$1[redacted]"],
-  [/\b(Bearer\s+)[A-Za-z0-9._~+/=-]+/gi, "$1[redacted]"],
-  [/\b((?:NODE_AUTH_TOKEN|NPM_TOKEN|GH_TOKEN|GITHUB_TOKEN)=)\S+/g, "$1[redacted]"],
-  [/(--otp[= ])\S+/g, "$1[redacted]"],
+  // A key and a value in JSON, with escaped quotes, in double or single quotes.
+  [new RegExp(String.raw`("(?:${KEY_NAMES})"\s*:\s*")(?:[^"\\]|\\.){0,2000}(")`, "gi"), "$1[redacted]$2"],
+  [new RegExp(String.raw`('(?:${KEY_NAMES})'\s*:\s*')(?:[^'\\]|\\.){0,2000}(')`, "gi"), "$1[redacted]$2"],
+  // A password or a token inside a URL, also when the password holds a slash or a second @, and a bare token as the user name.
+  [/(\/\/[^\s/:@]{1,128}:)\S{0,512}@/g, "$1[redacted]@"],
+  [/(\/\/)[A-Za-z0-9_.~-]{20,256}@/g, "$1[redacted]@"],
+  // A header.
+  [/(\bAuthorization:\s*)(?:(?:Basic|Bearer|Token|Digest)\s+)?\S{1,2000}/gi, "$1[redacted]"],
+  [/\b(Bearer\s+)[A-Za-z0-9._~+/=-]{1,2000}/gi, "$1[redacted]"],
+  // An environment variable or a key in a config file (KEY=value, KEY: value, key = value), with or without quotes.
+  [new RegExp(String.raw`(\b[A-Z][A-Z0-9_]{0,60}(?:TOKEN|SECRET|PASSWORD|API_?KEY)\s{0,8}[=:]\s{0,8})${VALUE}`, "g"), "$1[redacted]"],
+  [new RegExp(String.raw`(\b(?:${KEY_NAMES})\s{0,8}[=:]\s{0,8})${VALUE}`, "gi"), "$1[redacted]"],
+  // One-time-code flags.
+  [/(\s--?(?:otp|one-time-password)(?:=|\s+))\S{1,200}/g, "$1[redacted]"],
+  [/^(--?(?:otp|one-time-password)(?:=|\s+))\S{1,200}/g, "$1[redacted]"],
+  // Tokens by their prefix.
+  [/github_pat_[A-Za-z0-9_]{20,255}/g, "[redacted]"],
+  [/gh[pousr]_[A-Za-z0-9]{20,255}/g, "[redacted]"],
+  [/npm_[A-Za-z0-9]{20,255}/g, "[redacted]"],
+  [/sk-ant-[A-Za-z0-9_-]{10,255}/g, "[redacted]"],
+  [/sk-proj-[A-Za-z0-9_-]{10,255}/g, "[redacted]"],
+  [/glpat-[A-Za-z0-9_-]{20,255}/g, "[redacted]"],
+  [/xox[abposr]-[A-Za-z0-9-]{10,255}/g, "[redacted]"],
+  [/\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g, "[redacted]"],
+  [/\bAIza[0-9A-Za-z_-]{35}\b/g, "[redacted]"],
+  [/\beyJ[A-Za-z0-9_-]{5,500}\.[A-Za-z0-9_-]{5,500}\.[A-Za-z0-9_-]{0,500}/g, "[redacted]"],
 ];
 
-/** Removes anything shaped like a token, a bearer header, or a one-time-code flag from text that is about to be shown. */
+/** Removes anything shaped like a token, a bearer header, a password in a URL, or a one-time-code flag from text that is about to be shown. */
 export function redact(text) {
   let out = String(text);
   for (const [pattern, replacement] of SECRET_PATTERNS) out = out.replace(pattern, replacement);
   return out;
 }
+
+const SECRET_KEY = new RegExp(String.raw`^(?:${KEY_NAMES}|authorization)$`, "i");
 
 /**
  * Redacts every string inside a value, one string at a time, and keeps the shape. Use it before JSON.stringify.
@@ -31,7 +52,8 @@ export function redact(text) {
 export function redactDeep(value) {
   if (typeof value === "string") return redact(value);
   if (Array.isArray(value)) return value.map(redactDeep);
-  if (value !== null && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, redactDeep(inner)]));
+  // A field with a secret name is redacted whatever its value looks like.
+  if (value !== null && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, typeof inner === "string" && SECRET_KEY.test(key) ? "[redacted]" : redactDeep(inner)]));
   return value;
 }
 

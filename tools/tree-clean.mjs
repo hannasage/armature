@@ -15,6 +15,7 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { parseArgs } from "node:util";
+import { GIT_SAFE_CONFIG, gitEnv } from "./lib/env.mjs";
 import { isMainModule } from "./lib/main.mjs";
 import { resolveWorkTree } from "./lib/paths.mjs";
 import { jsonLine, redact } from "./lib/text.mjs";
@@ -27,8 +28,9 @@ const USAGE = [
   "Exit codes: 0 all pass, 1 a check failed, 2 wrong use.",
 ].join("\n");
 
-// GIT_OPTIONAL_LOCKS=0 keeps git status from rewriting the index, so this read-only tool changes nothing.
-const git = (tree, ...args) => spawnSync("git", ["-C", tree, ...args], { encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0" } });
+// The tree can be any path, so its config is not trusted: git runs with no fsmonitor, no hooks, and no external ssh, and with
+// the short allowlisted environment (no token). GIT_OPTIONAL_LOCKS=0 keeps git status from rewriting the index.
+const git = (tree, ...args) => spawnSync("git", [...GIT_SAFE_CONFIG, "-C", tree, ...args], { encoding: "utf8", env: gitEnv(process.env) });
 const plural = (count, word) => `${count} ${count === 1 ? word : word === "process" ? "processes" : `${word}s`}`;
 
 const ALLOWED_IGNORED = new Set(["node_modules/", "dist/", ".next/"]);

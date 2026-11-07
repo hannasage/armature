@@ -84,6 +84,9 @@ To replace these guesses with facts, sum the token usage of a few real runs befo
   If a Node does not have the model, `verify` stops with exit 1. The person can pass `--allow-unsandboxed` to run the import anyway. The published package then runs as ordinary code with the access of the user, in a project that holds no secret, and a warning says so.
 - Child commands get a short list of variables (PATH, LANG, TERM, CI, and a throwaway HOME) and not the whole environment. Tokens, SSH_AUTH_SOCK, and cloud keys never reach npm or the gates. git keeps the real HOME and never prompts.
 - Every command has a time limit: 2 minutes for git and `npm view`, and 15 minutes for the gates. A command that may start other processes runs in its own process group, and a timeout kills the whole group.
+- A grandchild that starts its own session (for example with `setsid`) can outlive the supervisor, because only the process group is killed.
+- When a step times out, the step itself reports exit code 124, and the process that runs the script exits 1.
+- A registry "not found" counts as "not published yet" only when no verify record exists, the package name in `package.json` matches the config, and the registry is the public one (every `npm view` names it with `--registry`), and then `status` prints a warning.
 - `status` reads the registry with a throwaway HOME and cache, so it writes nothing in the repository or the home folder. When the registry says the package is not found, which is the normal state before the first publish, status exits 0. When a read fails or times out, status exits 1 and marks that phase unknown.
 - `status` and `claims` are `read-only`. A test runs every release subcommand in a temporary repository and checks that each one changes only the paths that `tools/manifest.json` lists for it.
 - A refused precondition exits 1. Exit 2 means wrong use or a human-only step.

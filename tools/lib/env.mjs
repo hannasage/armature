@@ -37,10 +37,13 @@ export function makeScratch() {
   const home = join(dir, "home");
   const cache = join(dir, "cache");
   const npmrc = join(dir, "npmrc");
+  // npm refuses to load one file as both the user config and the global config, so each gets its own empty file.
+  const globalrc = join(dir, "globalrc");
   mkdirSync(home);
   mkdirSync(cache);
   writeFileSync(npmrc, "");
-  return { dir, home, cache, npmrc, remove: () => rmSync(dir, { recursive: true, force: true }) };
+  writeFileSync(globalrc, "");
+  return { dir, home, cache, npmrc, globalrc, remove: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
 /**
@@ -59,7 +62,7 @@ export function toolEnv(env, scratch) {
     ...baseEnv(env),
     HOME: scratch.home,
     NPM_CONFIG_USERCONFIG: scratch.npmrc,
-    NPM_CONFIG_GLOBALCONFIG: scratch.npmrc,
+    NPM_CONFIG_GLOBALCONFIG: scratch.globalrc,
     npm_config_cache: cache,
     npm_config_update_notifier: "false",
     NO_UPDATE_NOTIFIER: "1",
@@ -72,9 +75,10 @@ export function viewEnv(env, scratch) {
     ...baseEnv(env),
     HOME: scratch.home,
     NPM_CONFIG_USERCONFIG: scratch.npmrc,
-    NPM_CONFIG_GLOBALCONFIG: scratch.npmrc,
+    NPM_CONFIG_GLOBALCONFIG: scratch.globalrc,
     npm_config_cache: scratch.cache,
     npm_config_loglevel: "error",
+    npm_config_fetch_retries: "1",
     npm_config_update_notifier: "false",
     NO_UPDATE_NOTIFIER: "1",
   };
@@ -90,3 +94,6 @@ export function gitEnv(env) {
     GIT_SSH_COMMAND: env.GIT_SSH_COMMAND || "ssh -o BatchMode=yes",
   };
 }
+
+/** Config switches that stop a repository from running a program of its own when git reads it: no fsmonitor, no hooks, no external ssh. */
+export const GIT_SAFE_CONFIG = ["-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", "-c", "core.sshCommand=false", "-c", "protocol.ext.allow=never"];

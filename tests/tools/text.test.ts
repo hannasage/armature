@@ -70,3 +70,61 @@ describe("redactDeep", () => {
     expect(JSON.parse(JSON.stringify(out))).toEqual({ line: "see //r/:_authToken=[redacted]", cmd: "npm publish --otp [redacted]" });
   });
 });
+
+describe("redact: more shapes", () => {
+  const cases: [string, RegExp][] = [
+    ['{"_authToken":"to\\"ken\\"tail123"}', /tail123|to\\"ken/],
+    ["{'access_token': 'sq-secret-value'}", /sq-secret-value/],
+    ["access_token=abc123xyz", /abc123xyz/],
+    ["client_secret: topsecretvalue", /topsecretvalue/],
+    ["authToken = spacedvalue1", /spacedvalue1/],
+    ["password=hunter99", /hunter99/],
+    ["https://user:pa/ss@host.example/x", /pa\/ss/],
+    ["https://user:p@ss@host.example/x", /ss@host|p@ss/],
+    ["https://ghp_notarealtokenbutlongenough000@github.com/a/b", /notarealtoken/],
+    ["https://abcdefghijklmnopqrstuvwx@host.example/x", /abcdefghijklmnopqrstuvwx/],
+    ['NPM_TOKEN="a b c"', /a b c/],
+    ["NODE_AUTH_TOKEN: yamlvalue77", /yamlvalue77/],
+    ["_authToken = x1y2z3", /x1y2z3/],
+    ["Authorization: rawcredential99", /rawcredential99/],
+    ["xoxb-1234567890-abcdefghij", /xoxb-1234/],
+    ["glpat-abcdefghijklmnopqrst12", /glpat-abc/],
+    ["ASIAABCDEFGHIJKLMNOP", /ASIAABCDEFGHIJKLMNOP/],
+    ["AIzaSyA-abcdefghijklmnopqrstuvwxyz01234", /AIzaSyA/],
+    ["sk-proj-abcdefghijklmnopqrstuvwxyz", /sk-proj-abc/],
+    ["eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signaturepart", /eyJhbGci|signaturepart/],
+    ["run -otp 987654", /987654/],
+    ["run --one-time-password=246810", /246810/],
+    ["run --one-time-password 135790", /135790/],
+  ];
+  for (const [input, leak] of cases) {
+    it(`redacts ${input.slice(0, 40)}`, () => {
+      const out = lib.redact(`x ${input} y`);
+      expect(out).toContain("[redacted]");
+      expect(out).not.toMatch(leak);
+    });
+  }
+
+  it("redacts by key name inside redactDeep, even when the value looks plain", () => {
+    const out = lib.redactDeep({ token: "plainvalue", nested: { password: "p", access_token: "a", client_secret: "s", ok: "fine" } }) as { token: string; nested: Record<string, string> };
+    expect(out.token).toBe("[redacted]");
+    expect(out.nested).toEqual({ password: "[redacted]", access_token: "[redacted]", client_secret: "[redacted]", ok: "fine" });
+  });
+
+  it("does not take long input quadratic time", () => {
+    const inputs = [
+      "a".repeat(100000),
+      "key=".repeat(25000),
+      "//a:".repeat(25000),
+      "github_pat_".repeat(9000),
+      "eyJ".repeat(33000),
+      "token ".repeat(16000),
+      `token${" ".repeat(100000)}x`,
+      "Authorization:".repeat(7000),
+      "NPM_TOKEN=\"".repeat(9000),
+    ];
+    const start = Date.now();
+    for (const input of inputs) lib.redact(input);
+    expect(Date.now() - start).toBeLessThan(3000);
+  });
+});
