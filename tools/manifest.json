@@ -1,0 +1,294 @@
+{
+  "schema": 1,
+  "description": "Every script in this repository that an agent or a person may run. The safety class is one of read-only, local-write, remote-write, or human-only. An agent never runs a human-only entry.",
+  "tools": [
+    {
+      "name": "gates",
+      "script": "tools/gates.mjs",
+      "subcommand": null,
+      "description": "Run typecheck, lint, test, build, and check:pack in order. Record the real exit code of each. Print one line per gate.",
+      "arguments": [
+        {
+          "name": "--ci",
+          "type": "flag",
+          "required": false,
+          "description": "Run npm ci first."
+        },
+        {
+          "name": "--bail",
+          "type": "flag",
+          "required": false,
+          "description": "Stop at the first failing gate."
+        },
+        {
+          "name": "--cwd",
+          "type": "path",
+          "required": false,
+          "description": "A folder inside a git work tree. Default: the current folder."
+        },
+        {
+          "name": "--json",
+          "type": "flag",
+          "required": false,
+          "description": "Print one JSON object instead of text."
+        }
+      ],
+      "output": "{ ok, status, exit, path, gates: [{ name, command, exit, signal, ok, firstFailingLine? }] }. Exit 0 all passed, 1 a gate failed, 2 wrong use.",
+      "safety": "local-write",
+      "writes": "node_modules (with --ci) and dist, in the folder."
+    },
+    {
+      "name": "pr-open",
+      "script": "tools/pr-open.mjs",
+      "subcommand": null,
+      "description": "Check the pull request body, then open a DRAFT pull request with gh. It never opens a ready pull request.",
+      "arguments": [
+        {
+          "name": "--title",
+          "type": "string",
+          "required": true,
+          "description": "One line, at most 256 characters."
+        },
+        {
+          "name": "--body-file",
+          "type": "path",
+          "required": true,
+          "description": "A regular file of at most 64 KB."
+        },
+        {
+          "name": "--base",
+          "type": "string",
+          "required": true,
+          "description": "The branch to merge into."
+        },
+        {
+          "name": "--dir",
+          "type": "path",
+          "required": false,
+          "description": "A folder inside a git work tree. Default: the current folder."
+        },
+        {
+          "name": "--dry-run",
+          "type": "flag",
+          "required": false,
+          "description": "Check the body and print the command. Do not call gh."
+        },
+        {
+          "name": "--json",
+          "type": "flag",
+          "required": false,
+          "description": "Print one JSON object instead of text."
+        }
+      ],
+      "output": "{ ok, status (\"pass\" | \"dry-run\" | \"invalid-body\" | \"gh-failed\" | \"usage\"), exit, draft, command, url } or { problems: [...] } for an invalid body. Exit 0 opened, 1 body or gh failed, 2 wrong use.",
+      "safety": "remote-write",
+      "writes": "Opens a draft pull request on GitHub."
+    },
+    {
+      "name": "tree-clean",
+      "script": "tools/tree-clean.mjs",
+      "subcommand": null,
+      "description": "Report whether a clone tree is clean, pushed, and idle. It removes nothing. Removal belongs to the factory-tree finish step.",
+      "arguments": [
+        {
+          "name": "<tree>",
+          "type": "path",
+          "required": true,
+          "description": "The top folder of a git work tree."
+        },
+        {
+          "name": "--json",
+          "type": "flag",
+          "required": false,
+          "description": "Print one JSON object instead of text."
+        }
+      ],
+      "output": "{ ok, status, exit, path, removes: \"nothing\", checks: [{ name: \"clean\" | \"pushed\" | \"idle\", ok, detail }] }. Exit 0 all pass, 1 a check failed, 2 wrong use.",
+      "safety": "read-only",
+      "writes": "Nothing."
+    },
+    {
+      "name": "release status",
+      "script": "scripts/release.mjs",
+      "subcommand": "status",
+      "description": "Read the version, the git tags, and the registry. List what is left to do.",
+      "arguments": [
+        {
+          "name": "--json",
+          "type": "flag",
+          "required": false,
+          "description": "Print one JSON object instead of text."
+        }
+      ],
+      "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { package, version, phases: [{ name, state }], left: [...] }.",
+      "safety": "read-only",
+      "writes": "Nothing."
+    },
+    {
+      "name": "release preflight",
+      "script": "scripts/release.mjs",
+      "subcommand": "preflight",
+      "description": "Phase 1. Check the checkout is the release branch, up to date with the remote, and clean. Record the commit hash.",
+      "arguments": [
+        {
+          "name": "--json",
+          "type": "flag",
+          "required": false,
+          "description": "Print one JSON object instead of text."
+        },
+        {
+          "name": "--force",
+          "type": "flag",
+          "required": false,
+          "description": "Run the step again even if it is already done."
+        }
+      ],
+      "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commit }.",
+      "safety": "read-only",
+      "writes": "A small note, release-state.json, inside .git. It runs git fetch, which updates remote-tracking refs."
+    },
+    {
+      "name": "release gates",
+      "script": "scripts/release.mjs",
+      "subcommand": "gates",
+      "description": "Phase 2. Run npm ci, typecheck, lint, test, build, and check:pack. Stop at the first failure.",
+      "arguments": [
+        {
+          "name": "--json",
+          "type": "flag",
+          "required": false,
+          "description": "Print one JSON object instead of text."
+        },
+        {
+          "name": "--force",
+          "type": "flag",
+          "required": false,
+          "description": "Run the step again even if it is already done."
+        }
+      ],
+      "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commit, failingLine? }.",
+      "safety": "local-write",
+      "writes": "node_modules and dist."
+    },
+    {
+      "name": "release dry-run",
+      "script": "scripts/release.mjs",
+      "subcommand": "dry-run",
+      "description": "Phase 3. Run npm publish --dry-run. Check the package name and version, the file count, the size, and the tag.",
+      "arguments": [
+        {
+          "name": "--json",
+          "type": "flag",
+          "required": false,
+          "description": "Print one JSON object instead of text."
+        },
+        {
+          "name": "--force",
+          "type": "flag",
+          "required": false,
+          "description": "Run the step again even if it is already done."
+        }
+      ],
+      "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commit, failingLine? }.",
+      "safety": "local-write",
+      "writes": "dist (the dry run repeats the gates). Nothing is uploaded."
+    },
+    {
+      "name": "release publish",
+      "script": "scripts/release.mjs",
+      "subcommand": "publish",
+      "description": "Phase 4. Print the commands for a person to publish. Never runs them. Refuses without a terminal.",
+      "arguments": [
+        {
+          "name": "--json",
+          "type": "flag",
+          "required": false,
+          "description": "Print one JSON object instead of text."
+        }
+      ],
+      "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commands: [...] }.",
+      "safety": "human-only",
+      "writes": "Nothing. It never runs npm publish or npm login."
+    },
+    {
+      "name": "release verify",
+      "script": "scripts/release.mjs",
+      "subcommand": "verify",
+      "description": "Phase 5. Read the dist-tags and install the package into a clean temporary project. Count the exported names against the public API list.",
+      "arguments": [
+        {
+          "name": "--json",
+          "type": "flag",
+          "required": false,
+          "description": "Print one JSON object instead of text."
+        },
+        {
+          "name": "--force",
+          "type": "flag",
+          "required": false,
+          "description": "Run the step again even if it is already done."
+        }
+      ],
+      "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commit, exports }.",
+      "safety": "read-only",
+      "writes": "A temporary folder, removed afterward, and a note in .git."
+    },
+    {
+      "name": "release tag",
+      "script": "scripts/release.mjs",
+      "subcommand": "tag",
+      "description": "Phase 6. Tag the commit that preflight saw and push the tag. Refuses unless verify passed and the tree is clean.",
+      "arguments": [
+        {
+          "name": "--json",
+          "type": "flag",
+          "required": false,
+          "description": "Print one JSON object instead of text."
+        },
+        {
+          "name": "--dry-run",
+          "type": "flag",
+          "required": false,
+          "description": "Print the git commands and run none of them."
+        }
+      ],
+      "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { tag, commit, commands? }.",
+      "safety": "remote-write",
+      "writes": "A git tag, pushed to the remote."
+    },
+    {
+      "name": "release retire",
+      "script": "scripts/release.mjs",
+      "subcommand": "retire",
+      "description": "Phase 7. Print the commands that retire the old version. Never runs them. Refuses without a terminal.",
+      "arguments": [
+        {
+          "name": "--json",
+          "type": "flag",
+          "required": false,
+          "description": "Print one JSON object instead of text."
+        }
+      ],
+      "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commands: [...] }.",
+      "safety": "human-only",
+      "writes": "Nothing. It never runs npm deprecate or npm dist-tag."
+    },
+    {
+      "name": "release claims",
+      "script": "scripts/release.mjs",
+      "subcommand": "claims",
+      "description": "Phase 8. Search README.md and the docs for text that says the package is not published.",
+      "arguments": [
+        {
+          "name": "--json",
+          "type": "flag",
+          "required": false,
+          "description": "Print one JSON object instead of text."
+        }
+      ],
+      "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { failingLine? }.",
+      "safety": "read-only",
+      "writes": "Nothing."
+    }
+  ]
+}
