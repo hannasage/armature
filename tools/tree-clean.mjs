@@ -26,7 +26,8 @@ const USAGE = [
   "Exit codes: 0 all pass, 1 a check failed, 2 wrong use.",
 ].join("\n");
 
-const git = (tree, ...args) => spawnSync("git", ["-C", tree, ...args], { encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
+// GIT_OPTIONAL_LOCKS=0 keeps git status from rewriting the index, so this read-only tool changes nothing.
+const git = (tree, ...args) => spawnSync("git", ["-C", tree, ...args], { encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0" } });
 const plural = (count, word) => `${count} ${count === 1 ? word : word === "process" ? "processes" : `${word}s`}`;
 
 const ALLOWED_IGNORED = new Set(["node_modules/", "dist/", ".next/"]);

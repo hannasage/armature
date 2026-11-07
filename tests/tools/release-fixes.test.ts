@@ -405,3 +405,46 @@ describe("redaction", () => {
     expect(result.stdout).not.toMatch(/npm_a{4}/);
   });
 });
+
+describe("status tag phase", () => {
+  it("is todo with a reason when the tags exist but point at another commit", () => {
+    const repo = verified();
+    const head = git(repo.work, "rev-parse", "HEAD");
+    const other = git(repo.work, "commit-tree", `${head}^{tree}`, "-p", head, "-m", "other");
+    git(repo.work, "tag", NAME, other);
+    git(repo.work, "push", "-q", "origin", `refs/tags/${NAME}`);
+    const body = parse(repo.run(["status", "--json"]).stdout);
+    const tag = body.phases?.find((phase) => phase.name === "tag") as unknown as { state: string; note: string };
+    expect(tag.state).toBe("todo");
+    expect(tag.note).toContain("points at");
+  });
+
+  it("is done when both tags point at the preflight commit", () => {
+    const repo = verified();
+    expect(repo.run(["tag"]).status).toBe(0);
+    const body = parse(repo.run(["status", "--json"]).stdout);
+    expect(body.phases?.find((phase) => phase.name === "tag")?.state).toBe("done");
+  });
+
+  it("is todo when there is no preflight record", () => {
+    const repo = makeReleaseRepo();
+    git(repo.work, "tag", "-a", NAME, "-m", "x");
+    git(repo.work, "push", "-q", "origin", `refs/tags/${NAME}`);
+    const body = parse(repo.run(["status", "--json"]).stdout);
+    expect(body.phases?.find((phase) => phase.name === "tag")?.state).toBe("todo");
+  });
+});
+
+describe("verify output", () => {
+  it("holds no home path, in text or in JSON", () => {
+    const repo = makeReleaseRepo();
+    setDistTags(repo);
+    const text = repo.run(["verify"]);
+    const json = makeReleaseRepo();
+    setDistTags(json);
+    const asJson = json.run(["verify", "--json"]);
+    for (const out of [text.stdout, text.stderr, asJson.stdout, asJson.stderr]) expect(out).not.toMatch(/\/(Users|home)\//);
+    expect(text.status).toBe(0);
+    expect(parse(asJson.stdout).steps).toEqual(expect.arrayContaining([expect.objectContaining({ command: expect.stringMatching(/^node --input-type=module/) })]));
+  });
+});

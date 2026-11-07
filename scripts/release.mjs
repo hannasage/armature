@@ -620,7 +620,7 @@ const STEPS = {
       if (installed !== config.version) return fail(ctx, `the installed version is ${installed}, expected ${config.version}`);
       // The package name is an argument, not part of the code.
       const code = "const name = process.argv[1]; const e = await import(name); console.log(Object.keys(e).length)";
-      const counted = run.exec([process.execPath, "--input-type=module", "-e", code, config.package], { cwd: temp, env: scrubbed });
+      const counted = run.exec(["node", "--input-type=module", "-e", code, config.package], { cwd: temp, env: scrubbed });
       if (!counted.ok) return fail(ctx, `the import failed: ${failingLine(counted.stdout, counted.stderr)}`);
       const expected = await expectedApiCount(root, config);
       const actual = Number(counted.stdout.trim());
@@ -701,7 +701,15 @@ const STEPS = {
     const ref = `refs/tags/${gitTagName(config)}`;
     const hasLocal = run.exec(["git", "rev-parse", "-q", "--verify", ref]).ok;
     const remote = remoteTag(run, config, ref);
-    add("tag", hasLocal && remote.ok && Boolean(remote.hash));
+    const wanted = state.preflight?.commit;
+    const localHash = hasLocal ? run.exec(["git", "rev-list", "-n", "1", ref]).stdout.trim() : null;
+    let tagNote = "";
+    if (!wanted) tagNote = "preflight has not recorded a commit";
+    else if (!remote.ok) tagNote = `could not read the remote tags: ${remote.error}`;
+    else if (localHash === null && !remote.hash) tagNote = "";
+    else if (localHash !== wanted) tagNote = `local tag ${localHash === null ? "is missing" : `points at ${localHash}`}, expected ${wanted}`;
+    else if (remote.hash !== wanted) tagNote = `remote tag ${remote.hash ? `points at ${remote.hash}` : "is missing"}, expected ${wanted}`;
+    add("tag", wanted !== undefined && remote.ok && localHash === wanted && remote.hash === wanted, tagNote);
     add("retire", view.ok ? isRetired(run, config, view) : null);
     add("claims", runClaims(run, root, config).ok);
     const left = phases.filter((phase) => phase.state !== "done").map((phase) => phase.name);

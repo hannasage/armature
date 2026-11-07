@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -194,5 +194,14 @@ describe("tree-clean", () => {
   it("can be imported without running", async () => {
     const lib = await import(pathToFileURL(script).href);
     expect(typeof lib.main).toBe("function");
+  });
+
+  it("does not rewrite the git index while it looks", () => {
+    const tree = pushedTree();
+    const later = new Date(Date.now() + 5000);
+    utimesSync(join(tree, "file.txt"), later, later);
+    const before = readFileSync(join(tree, ".git", "index"));
+    runNode(script, [tree]);
+    expect(readFileSync(join(tree, ".git", "index")).equals(before)).toBe(true);
   });
 });
