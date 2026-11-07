@@ -23,7 +23,7 @@ const USAGE = [
 ].join("\n");
 
 const git = (tree, ...args) => spawnSync("git", ["-C", tree, ...args], { encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
-const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
+const plural = (count, word) => `${count} ${count === 1 ? word : word === "process" ? "processes" : `${word}s`}`;
 
 function checkClean(tree) {
   const status = git(tree, "status", "--porcelain");
@@ -70,10 +70,10 @@ export function processesInside(tree, listing, ownPids) {
 }
 
 function checkIdle(tree) {
-  const result = spawnSync("lsof", ["-a", "-d", "cwd", "-Fpcn"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  const result = spawnSync("lsof", ["-a", "-d", "cwd", "-Fpcn"], { cwd: "/", encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   if (result.error !== undefined) return { ok: false, detail: `lsof could not run: ${result.error.message}` };
   if (result.stdout === "" && result.status !== 0) return { ok: false, detail: `lsof printed nothing and exited ${result.status}, so idle is not proven` };
-  const inside = processesInside(tree, result.stdout, new Set([process.pid, process.ppid === undefined ? -1 : -2]));
+  const inside = processesInside(tree, result.stdout, new Set([process.pid, result.pid]));
   if (inside.length === 0) return { ok: true, detail: "no process has its working folder inside the tree" };
   const names = inside.map((entry) => `${entry.command} (pid ${entry.pid})`);
   return { ok: false, detail: `${plural(inside.length, "process")} inside: ${names.join(", ")}` };
