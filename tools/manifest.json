@@ -35,7 +35,11 @@
       ],
       "output": "{ ok, status, exit, path, gates: [{ name, command, exit, signal, ok, firstFailingLine? }] }. Exit 0 all passed, 1 a gate failed, 2 wrong use.",
       "safety": "local-write",
-      "writes": "node_modules (with --ci) and dist, in the folder."
+      "writes": "node_modules (with --ci) and dist, in the folder.",
+      "writesPaths": [
+        "node_modules/",
+        "dist/"
+      ]
     },
     {
       "name": "pr-open",
@@ -82,7 +86,8 @@
       ],
       "output": "{ ok, status (\"pass\" | \"dry-run\" | \"invalid-body\" | \"gh-failed\" | \"usage\"), exit, draft, command, url } or { problems: [...] } for an invalid body. Exit 0 opened, 1 body or gh failed, 2 wrong use.",
       "safety": "remote-write",
-      "writes": "Opens a draft pull request on GitHub."
+      "writes": "Opens a draft pull request on GitHub. It writes no local file.",
+      "writesPaths": []
     },
     {
       "name": "tree-clean",
@@ -105,7 +110,8 @@
       ],
       "output": "{ ok, status, exit, path, removes: \"nothing\", checks: [{ name: \"clean\" | \"pushed\" | \"idle\", ok, detail }] }. Exit 0 all pass, 1 a check failed, 2 wrong use.",
       "safety": "read-only",
-      "writes": "Nothing."
+      "writes": "Nothing.",
+      "writesPaths": []
     },
     {
       "name": "release status",
@@ -122,7 +128,8 @@
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { package, version, phases: [{ name, state }], left: [...] }.",
       "safety": "read-only",
-      "writes": "Nothing."
+      "writes": "Nothing.",
+      "writesPaths": []
     },
     {
       "name": "release preflight",
@@ -144,8 +151,16 @@
         }
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commit }.",
-      "safety": "read-only",
-      "writes": "A small note, release-state.json, inside .git. It runs git fetch, which updates remote-tracking refs."
+      "safety": "local-write",
+      "writes": "Runs git fetch, which updates FETCH_HEAD and the remote-tracking refs inside .git. Writes release-state.json inside .git.",
+      "writesPaths": [
+        ".git/release-state.json",
+        ".git/FETCH_HEAD",
+        ".git/refs/remotes/",
+        ".git/logs/",
+        ".git/objects/",
+        ".git/packed-refs"
+      ]
     },
     {
       "name": "release gates",
@@ -168,7 +183,12 @@
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commit, failingLine? }.",
       "safety": "local-write",
-      "writes": "node_modules and dist."
+      "writes": "node_modules (npm ci) and dist (build) in the working tree, and release-state.json inside .git.",
+      "writesPaths": [
+        ".git/release-state.json",
+        "node_modules/",
+        "dist/"
+      ]
     },
     {
       "name": "release dry-run",
@@ -191,7 +211,11 @@
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commit, failingLine? }.",
       "safety": "local-write",
-      "writes": "dist (the dry run repeats the gates). Nothing is uploaded."
+      "writes": "dist in the working tree (the dry run repeats the gates) and release-state.json inside .git. Nothing is uploaded.",
+      "writesPaths": [
+        ".git/release-state.json",
+        "dist/"
+      ]
     },
     {
       "name": "release publish",
@@ -208,7 +232,8 @@
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commands: [...] }.",
       "safety": "human-only",
-      "writes": "Nothing. It never runs npm publish or npm login."
+      "writes": "Nothing. It never runs npm publish or npm login.",
+      "writesPaths": []
     },
     {
       "name": "release verify",
@@ -230,8 +255,11 @@
         }
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commit, exports }.",
-      "safety": "read-only",
-      "writes": "A temporary folder, removed afterward, and a note in .git."
+      "safety": "local-write",
+      "writes": "A temporary project folder outside the repository (removed afterward), the npm cache, and release-state.json inside .git.",
+      "writesPaths": [
+        ".git/release-state.json"
+      ]
     },
     {
       "name": "release tag",
@@ -254,7 +282,13 @@
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { tag, commit, commands? }.",
       "safety": "remote-write",
-      "writes": "A git tag, pushed to the remote."
+      "writes": "A git tag in .git and the same tag pushed to the remote.",
+      "writesPaths": [
+        ".git/refs/tags/",
+        ".git/objects/",
+        ".git/packed-refs",
+        ".git/logs/"
+      ]
     },
     {
       "name": "release retire",
@@ -271,7 +305,8 @@
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { commands: [...] }.",
       "safety": "human-only",
-      "writes": "Nothing. It never runs npm deprecate or npm dist-tag."
+      "writes": "Nothing. It never runs npm deprecate or npm dist-tag.",
+      "writesPaths": []
     },
     {
       "name": "release claims",
@@ -288,7 +323,8 @@
       ],
       "output": "{ ok, command, status (\"pass\" | \"fail\" | \"already-done\" | \"refused\" | \"usage\"), exit, message, steps: [{ command, exit }] } plus { failingLine? }.",
       "safety": "read-only",
-      "writes": "Nothing."
+      "writes": "Nothing.",
+      "writesPaths": []
     }
   ]
 }

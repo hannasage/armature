@@ -28,6 +28,15 @@ describe("docs/workflow-audit.md", () => {
     for (const row of body) expect(row[7], row[0]).toMatch(/^(script|keep as agent task)\b/);
   });
 
+  it("gives each decision one verdict and one sentence", () => {
+    for (const row of body) {
+      const rest = row[7].replace(/^(script|keep as agent task)\b[.,]?\s*/, "");
+      const sentences = rest.split(/\.(?:\s|$)/).filter((part) => part.trim() !== "");
+      expect(sentences, row[0]).toHaveLength(1);
+      expect(row[7].endsWith("."), row[0]).toBe(true);
+    }
+  });
+
   it("names the required candidates with the required decisions", () => {
     const decision = (start: string) => body.find((row) => row[0].startsWith(start))?.[7] ?? "";
     expect(decision("Full gate run")).toMatch(/^script/);

@@ -13,9 +13,11 @@ interface Entry {
   output: string;
   safety: string;
   writes: string;
+  writesPaths: string[];
 }
 
 const manifest = JSON.parse(readFileSync(join(repoRoot, "tools/manifest.json"), "utf8")) as { schema: number; tools: Entry[] };
+// The behavior of each class is tested in safety.test.ts: it runs every subcommand and compares what changed with writesPaths.
 const release = (await import(pathToFileURL(join(repoRoot, "scripts/release.mjs")).href)) as { SAFETY: Record<string, string> };
 const CLASSES = ["read-only", "local-write", "remote-write", "human-only"];
 const entry = (name: string) => manifest.tools.find((tool) => tool.name === name);
@@ -40,6 +42,8 @@ describe("tools/manifest.json", () => {
       expect(tool.output.length, tool.name).toBeGreaterThan(10);
       expect(CLASSES, tool.name).toContain(tool.safety);
       expect(tool.writes.length, tool.name).toBeGreaterThan(0);
+      expect(Array.isArray(tool.writesPaths), tool.name).toBe(true);
+      if (tool.safety === "read-only" || tool.safety === "human-only") expect(tool.writesPaths, tool.name).toEqual([]);
     }
   });
 
@@ -57,13 +61,12 @@ describe("tools/manifest.json", () => {
     for (const file of readdirSync(join(repoRoot, "tools")).filter((name) => name.endsWith(".mjs"))) expect(listed.has(`tools/${file}`), file).toBe(true);
   });
 
-  it("lists every subcommand of the release script, with the class the script declares", () => {
-    for (const [subcommand, safety] of Object.entries(release.SAFETY)) {
+  it("lists every subcommand of the release script, once", () => {
+    for (const subcommand of Object.keys(release.SAFETY)) {
       const tool = entry(`release ${subcommand}`);
       expect(tool, subcommand).toBeDefined();
       expect(tool?.script).toBe("scripts/release.mjs");
       expect(tool?.subcommand).toBe(subcommand);
-      expect(tool?.safety, subcommand).toBe(safety);
     }
     expect(manifest.tools.filter((tool) => tool.script === "scripts/release.mjs")).toHaveLength(Object.keys(release.SAFETY).length);
   });
@@ -72,6 +75,8 @@ describe("tools/manifest.json", () => {
     expect(entry("gates")?.safety).toBe("local-write");
     expect(entry("release gates")?.safety).toBe("local-write");
     expect(entry("release dry-run")?.safety).toBe("local-write");
+    expect(entry("release preflight")?.safety).toBe("local-write");
+    expect(entry("release verify")?.safety).toBe("local-write");
     expect(entry("pr-open")?.safety).toBe("remote-write");
     expect(entry("release tag")?.safety).toBe("remote-write");
     expect(entry("release publish")?.safety).toBe("human-only");
