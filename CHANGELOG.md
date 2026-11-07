@@ -3,6 +3,14 @@
 This file lists the changes in each version of `@hannasage/armature`.
 The versions follow semantic versioning, with one note for prereleases: the API can still change between prereleases.
 
+## 1.0.0-beta.0
+
+This is the first beta. It is meant for the npm `beta` tag. Install it with `npm install @hannasage/armature@beta`, and pin the exact version.
+
+It replaces `1.0.0-next.0`, which is deprecated. The code is the same. Only the version, the npm tag, and the README text changed. Every product that is not proven yet uses the `beta` tag, so the `next` tag is retired.
+
+The API can still change between betas.
+
 ## 1.0.0-next.0
 
 This is the first prerelease. It is meant for the npm `next` tag. Install it with `npm install @hannasage/armature@next`, and pin the exact version.

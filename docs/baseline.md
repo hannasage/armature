@@ -161,3 +161,9 @@ The measured size is the constant `MEASURED_SIZE` in `scripts/pack-rules.mjs`. C
 The same check lists the tarball files, installs the tarball into a clean project with React as the peer, imports every subpath by package name, type-checks a consumer file under `nodenext` and `bundler`, and resolves the stylesheet.
 
 The sourcemaps carry the full source text. They are a little over half of the unpacked size. A maintainer may drop them from `dist` by turning off `build.sourcemap` in `vite.config.ts`. That would shrink the tarball and would stop the package from shipping its source text.
+
+## First beta: 1.0.0-beta.0
+
+Date: 2026-11-06 (UTC).
+`1.0.0-beta.0` has the same package contents as `1.0.0-next.0`. `npm run check:pack` passes on it with the same 122 files and the same limit of 205,939 bytes.
+The tarball measured 137,494 bytes and 477,306 bytes unpacked, with `npm pack --json --dry-run`. That is 201 bytes more than the first prerelease. The extra bytes come from the new version string and the changed README text.

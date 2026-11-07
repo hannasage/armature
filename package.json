@@ -1,6 +1,6 @@
 {
   "name": "@hannasage/armature",
-  "version": "1.0.0-next.0",
+  "version": "1.0.0-beta.0",
   "description": "A physics motion engine for the web. One engine, many flavors.",
   "license": "MIT",
   "author": "Hanna Sage",
@@ -25,7 +25,7 @@
   ],
   "publishConfig": {
     "access": "public",
-    "tag": "next"
+    "tag": "beta"
   },
   "exports": {
     ".": {

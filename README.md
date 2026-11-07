@@ -5,9 +5,18 @@ It has one engine and many flavors.
 The engine holds the spring solver and the browser plumbing.
 A flavor is a named movement language. It sets the spring constants, the names of the attributes the engine reads, and the CSS variables the engine writes.
 
-Status: pre-release. Nothing is published. The package is private and the API can still change.
+Status: pre-release. It is published on the npm `beta` tag as 1.0.0-beta.0. The API can still change.
 
 The first flavor is liquid glass. It is in this package. The second flavor will live in Projection UI.
+
+## Install
+
+```bash
+npm install @hannasage/armature@beta
+```
+
+React is an optional peer. The engine and the DOM controllers need no React.
+Install React 18 or later only if you use the React entries.
 
 ## The five subpaths
 
