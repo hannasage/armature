@@ -3,51 +3,79 @@
 //   node tools/tree-clean.mjs <tree> [--json]
 //
 // It checks three things and prints one line for each:
-//   clean   `git status --porcelain` prints nothing. No changed and no untracked file.
-//   pushed  the branch has no commit that its remote branch lacks. It compares with the last fetch and does not fetch.
+//   clean   no changed or untracked file, no stash entry, and no ignored file except node_modules, dist, and .next.
+//   pushed  every local branch is on a remote: none is ahead of its upstream, none tracks a local branch, and a branch with no
+//           upstream has no commit that a remote lacks. It compares with the last fetch and does not fetch.
 //   idle    no process has its working folder inside the tree. It reads `lsof -a -d cwd`.
 // It exits 0 only when all three pass.
 // This tool REMOVES NOTHING. It never deletes a file, a branch, or a worktree. Removal belongs to the factory-tree finish step
 // of the workbench scripts. Run this tool first, and let that step do the removal.
-// Exit codes: 0 all three pass, 1 a check failed, 2 wrong use.
+// Note: git reads the configuration of the tree, so only point this at a tree you trust.
+// Exit codes: 0 all three pass, 1 a check failed or git could not run, 2 wrong use.
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { parseArgs } from "node:util";
+import { isMainModule } from "./lib/main.mjs";
 import { resolveWorkTree } from "./lib/paths.mjs";
 
 const USAGE = [
   "Usage: node tools/tree-clean.mjs <tree> [--json]",
   "Checks that a clone tree is clean, pushed, and idle. Exit 0 only when all three pass.",
   "This tool removes nothing. Removal belongs to the factory-tree finish step of the workbench scripts.",
+  "Note: git reads the configuration of the tree, so only point this at a tree you trust.",
   "Exit codes: 0 all pass, 1 a check failed, 2 wrong use.",
 ].join("\n");
 
 const git = (tree, ...args) => spawnSync("git", ["-C", tree, ...args], { encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
 const plural = (count, word) => `${count} ${count === 1 ? word : word === "process" ? "processes" : `${word}s`}`;
 
+const ALLOWED_IGNORED = new Set(["node_modules/", "dist/", ".next/"]);
+
 function checkClean(tree) {
-  const status = git(tree, "status", "--porcelain");
+  const status = git(tree, "status", "--porcelain", "--ignored");
   if (status.status !== 0) return { ok: false, detail: `git status failed: ${status.stderr.trim().split("\n")[0]}` };
   const lines = status.stdout.split("\n").filter((line) => line !== "");
-  return lines.length === 0 ? { ok: true, detail: "no changed and no untracked file" } : { ok: false, detail: `${plural(lines.length, "changed or untracked path")}, first: ${lines[0]}` };
+  // "!! path" is an ignored path. Only the build folders may be there. Anything else could be work that git does not track.
+  const ignored = lines.filter((line) => line.startsWith("!! ")).map((line) => line.slice(3));
+  const stray = ignored.filter((path) => !ALLOWED_IGNORED.has(path));
+  const changed = lines.filter((line) => !line.startsWith("!! "));
+  if (changed.length > 0) return { ok: false, detail: `${plural(changed.length, "changed or untracked path")}, first: ${changed[0]}` };
+  if (stray.length > 0) return { ok: false, detail: `${plural(stray.length, "ignored path")} that is not node_modules, dist, or .next, first: ${stray[0]}` };
+  const stash = git(tree, "stash", "list");
+  if (stash.status !== 0) return { ok: false, detail: `git stash list failed: ${stash.stderr.trim().split("\n")[0]}` };
+  const entries = stash.stdout.split("\n").filter((line) => line !== "");
+  if (entries.length > 0) return { ok: false, detail: `${plural(entries.length, "stash entry")}, first: ${entries[0]}` };
+  return { ok: true, detail: "no changed, untracked, or stray ignored file, and no stash entry" };
 }
 
+/** Looks at every local branch, not only the one that is checked out, because removing the tree loses nothing else but a branch can hold unpushed work. */
 function checkPushed(tree) {
-  const branch = git(tree, "symbolic-ref", "--short", "-q", "HEAD");
-  if (branch.status !== 0) return { ok: false, detail: "detached head: no branch to compare with a remote" };
-  const name = branch.stdout.trim();
-  let remote = git(tree, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}");
-  let ref = remote.status === 0 ? remote.stdout.trim() : null;
-  if (ref === null) {
-    const fallback = `origin/${name}`;
-    remote = git(tree, "rev-parse", "--verify", "-q", `refs/remotes/${fallback}`);
-    ref = remote.status === 0 ? fallback : null;
+  const head = git(tree, "symbolic-ref", "--short", "-q", "HEAD");
+  if (head.status !== 0) return { ok: false, detail: "detached head: no branch to compare with a remote" };
+  const format = "%(refname:short)%09%(upstream:short)%09%(upstream:track)%09%(upstream:remotename)";
+  const listing = git(tree, "for-each-ref", `--format=${format}`, "refs/heads");
+  if (listing.status !== 0) return { ok: false, detail: `git for-each-ref failed: ${listing.stderr.trim().split("\n")[0]}` };
+  const problems = [];
+  let count = 0;
+  for (const line of listing.stdout.split("\n").filter((entry) => entry !== "")) {
+    const [name, upstream, track, remote] = line.split("\t");
+    count += 1;
+    if (upstream !== "") {
+      if (remote === ".") problems.push(`${name} tracks a local branch (${upstream}), which is not a remote`);
+      else if (/gone/.test(track)) problems.push(`${name}: its upstream ${upstream} is gone`);
+      else {
+        const ahead = /ahead (\d+)/.exec(track);
+        if (ahead) problems.push(`${name}: ${plural(Number(ahead[1]), "commit")} not on ${upstream}`);
+      }
+    } else {
+      const lonely = git(tree, "rev-list", "--count", name, "--not", "--remotes");
+      if (lonely.status !== 0) problems.push(`${name}: git rev-list failed`);
+      else if (Number(lonely.stdout.trim()) > 0) problems.push(`${name}: ${plural(Number(lonely.stdout.trim()), "commit")} that no remote has`);
+    }
   }
-  if (ref === null) return { ok: false, detail: `the branch ${name} has no remote branch` };
-  const ahead = git(tree, "rev-list", "--count", `${ref}..HEAD`);
-  if (ahead.status !== 0) return { ok: false, detail: `git rev-list failed: ${ahead.stderr.trim().split("\n")[0]}` };
-  const count = Number(ahead.stdout.trim());
-  return count === 0 ? { ok: true, detail: `${name} matches ${ref} as of the last fetch` } : { ok: false, detail: `${plural(count, "commit")} not on ${ref}` };
+  if (count === 0) return { ok: false, detail: "no local branch found" };
+  if (problems.length > 0) return { ok: false, detail: problems.join("; ") };
+  return { ok: true, detail: `${plural(count, "local branch")} ${count === 1 ? "is" : "are"} on a remote, as of the last fetch (${head.stdout.trim()} is checked out)` };
 }
 
 /** The processes whose working folder is the tree or a folder below it. */
@@ -72,17 +100,19 @@ export function processesInside(tree, listing, ownPids) {
 function checkIdle(tree) {
   const result = spawnSync("lsof", ["-a", "-d", "cwd", "-Fpcn"], { cwd: "/", encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   if (result.error !== undefined) return { ok: false, detail: `lsof could not run: ${result.error.message}` };
-  if (result.stdout === "" && result.status !== 0) return { ok: false, detail: `lsof printed nothing and exited ${result.status}, so idle is not proven` };
+  // lsof exits 0 when it lists everything and 1 when it lists most but warns about some. Any other end is a failure.
+  if (result.status !== 0 && result.status !== 1) return { ok: false, detail: `lsof ended with ${result.status === null ? `signal ${result.signal}` : `exit ${result.status}`}, so idle is not proven` };
+  if (result.stdout === "") return { ok: false, detail: "lsof printed nothing, so idle is not proven" };
   const inside = processesInside(tree, result.stdout, new Set([process.pid, result.pid]));
   if (inside.length === 0) return { ok: true, detail: "no process has its working folder inside the tree" };
   const names = inside.map((entry) => `${entry.command} (pid ${entry.pid})`);
   return { ok: false, detail: `${plural(inside.length, "process")} inside: ${names.join(", ")}` };
 }
 
-function usageError(json, message) {
-  if (json) console.log(JSON.stringify({ ok: false, status: "usage", exit: 2, message }));
-  else console.error(`${message}\n${USAGE}`);
-  return 2;
+function usageError(json, message, exit = 2) {
+  if (json) console.log(JSON.stringify({ ok: false, status: exit === 2 ? "usage" : "fail", exit, message }));
+  else console.error(exit === 2 ? `${message}\n${USAGE}` : message);
+  return exit;
 }
 
 export function main(argv) {
@@ -99,7 +129,7 @@ export function main(argv) {
   }
   if (parsed.positionals.length !== 1) return usageError(json, "Give exactly one tree path.");
   const tree = resolveWorkTree(parsed.positionals[0]);
-  if (!tree.ok) return usageError(json, tree.error);
+  if (!tree.ok) return usageError(json, tree.error, tree.gitFailed ? 1 : 2);
   if (tree.path !== tree.top) return usageError(json, `${tree.path} is not the top of a work tree (the top is ${tree.top})`);
 
   const checks = [
@@ -116,4 +146,4 @@ export function main(argv) {
   return ok ? 0 : 1;
 }
 
-process.exit(main(process.argv.slice(2)));
+if (isMainModule(import.meta.url)) process.exit(main(process.argv.slice(2)));

@@ -109,4 +109,26 @@ describe("validateBody", () => {
     const problems = lib.validateBody("Not an alert, it's long\n");
     expect(problems.length).toBeGreaterThanOrEqual(3);
   });
+
+  it("counts words that are separated only by zero-width characters", () => {
+    for (const mark of ["\u200b", "\u200c", "\u200d", "\u2060", "\ufeff"]) {
+      const text = `> [!NOTE]\n> ${Array.from({ length: 500 }, () => "word").join(mark)}\n\n${FOOTER}\n`;
+      expect(lib.validateBody(text).join(), JSON.stringify(mark)).toMatch(/words/);
+    }
+  });
+
+  it("counts words that are separated by other Unicode spaces", () => {
+    const text = `> [!NOTE]\n> ${Array.from({ length: 500 }, () => "word").join("\u00a0")}\n\n${FOOTER}\n`;
+    expect(lib.validateBody(text).join()).toMatch(/words/);
+  });
+
+  it("refuses contractions written with other apostrophes, with capitals, or with wide characters", () => {
+    for (const word of ["DON\u2019T", "isn\u2018t", "we\u2019re", "they\uff07ll", "it\u2032s", "Y\u02b9all\u02b9d"]) {
+      expect(lib.validateBody(good.replace("reads", `${word} reads`)).join(), word).toMatch(/contraction/);
+    }
+  });
+
+  it("refuses contractions after non-English letters", () => {
+    expect(lib.validateBody(good.replace("reads", "caf\u00e9\u2019s reads")).join()).toMatch(/contraction/);
+  });
 });

@@ -6,7 +6,7 @@ import { cleanup, makeRepo, repoRoot, tempDir } from "./support";
 
 afterEach(cleanup);
 
-type Result = { ok: true; path: string; top: string } | { ok: false; error: string };
+type Result = { ok: true; path: string; top: string } | { ok: false; error: string; gitFailed?: boolean };
 type FileResult = { ok: true; path: string } | { ok: false; error: string };
 const lib = (await import(pathToFileURL(join(repoRoot, "tools/lib/paths.mjs")).href)) as {
   resolveWorkTree(input: unknown): Result;
@@ -79,5 +79,16 @@ describe("resolveFile", () => {
     expect(lib.resolveFile(dir).ok).toBe(false);
     expect(lib.resolveFile("").ok).toBe(false);
     expect(lib.resolveFile(join(dir, "big.md"), 50).ok).toBe(false);
+  });
+
+  it("reports that git could not run, and does not call that a bad path", () => {
+    const repo = makeRepo();
+    const saved = process.env.PATH;
+    process.env.PATH = tempDir();
+    try {
+      expect(lib.resolveWorkTree(repo)).toMatchObject({ ok: false, gitFailed: true, error: expect.stringContaining("git could not run") });
+    } finally {
+      process.env.PATH = saved;
+    }
   });
 });

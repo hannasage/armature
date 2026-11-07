@@ -10,16 +10,21 @@
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { parseArgs } from "node:util";
+import { isMainModule } from "./lib/main.mjs";
 import { resolveWorkTree } from "./lib/paths.mjs";
 import { failingLine } from "./lib/text.mjs";
 
-const USAGE = "Usage: node tools/gates.mjs [--ci] [--bail] [--cwd <folder>] [--json]\nExit codes: 0 every gate passed, 1 a gate failed, 2 wrong use.";
+const USAGE = [
+  "Usage: node tools/gates.mjs [--ci] [--bail] [--cwd <folder>] [--json]",
+  "Exit codes: 0 every gate passed, 1 a gate failed or git could not run, 2 wrong use.",
+  "Note: --cwd must name a folder in a git work tree. Git and npm read the configuration of that repository, so only use a repository you trust.",
+].join("\n");
 const GATES = ["typecheck", "lint", "test", "build", "check:pack"];
 
-function usageError(json, message) {
-  if (json) console.log(JSON.stringify({ ok: false, status: "usage", exit: 2, message }));
-  else console.error(`${message}\n${USAGE}`);
-  return 2;
+function usageError(json, message, exit = 2) {
+  if (json) console.log(JSON.stringify({ ok: false, status: exit === 2 ? "usage" : "fail", exit, message }));
+  else console.error(exit === 2 ? `${message}\n${USAGE}` : message);
+  return exit;
 }
 
 export function main(argv, env = process.env) {
@@ -34,7 +39,7 @@ export function main(argv, env = process.env) {
     return 0;
   }
   const folder = resolveWorkTree(values.cwd ?? process.cwd());
-  if (!folder.ok) return usageError(values.json === true, folder.error);
+  if (!folder.ok) return usageError(values.json === true, folder.error, folder.gitFailed ? 1 : 2);
 
   const commands = [...(values.ci ? [{ name: "ci", command: ["npm", "ci"] }] : []), ...GATES.map((name) => ({ name, command: ["npm", "run", name] }))];
   const results = [];
@@ -60,4 +65,4 @@ export function main(argv, env = process.env) {
   return ok ? 0 : 1;
 }
 
-process.exit(main(process.argv.slice(2)));
+if (isMainModule(import.meta.url)) process.exit(main(process.argv.slice(2)));

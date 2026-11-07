@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, git, makeRepo, repoRoot, runNode, tempDir } from "./support";
 
@@ -124,5 +125,74 @@ describe("tree-clean", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/removes nothing/i);
     expect(result.stdout).toContain("factory-tree");
+  });
+
+  it("fails clean when there is a stash entry", () => {
+    const tree = pushedTree();
+    writeFileSync(join(tree, "file.txt"), "changed\n");
+    git(tree, "stash", "-q");
+    const result = runNode(script, [tree]);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toMatch(/FAIL clean.*stash/);
+  });
+
+  it("fails clean when an ignored file is present, but allows node_modules and dist", () => {
+    const tree = pushedTree();
+    writeFileSync(join(tree, ".gitignore"), "node_modules/\ndist/\n.next/\n*.secret\n");
+    git(tree, "add", "-A");
+    git(tree, "commit", "-q", "-m", "ignore");
+    git(tree, "push", "-q");
+    mkdirSync(join(tree, "node_modules"));
+    writeFileSync(join(tree, "node_modules", "a.js"), "x");
+    mkdirSync(join(tree, "dist"));
+    writeFileSync(join(tree, "dist", "a.js"), "x");
+    expect(runNode(script, [tree]).stdout).toContain("PASS clean");
+    writeFileSync(join(tree, "keys.secret"), "x");
+    const result = runNode(script, [tree]);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toMatch(/FAIL clean.*keys\.secret/);
+  });
+
+  it("fails pushed when another local branch has a commit that no remote has", () => {
+    const tree = pushedTree();
+    git(tree, "checkout", "-q", "-b", "side");
+    writeFileSync(join(tree, "side.txt"), "x");
+    git(tree, "add", "-A");
+    git(tree, "commit", "-q", "-m", "side");
+    git(tree, "checkout", "-q", "task/x");
+    const result = runNode(script, [tree]);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toMatch(/FAIL pushed.*side/);
+  });
+
+  it("passes pushed for another local branch that every remote already has", () => {
+    const tree = pushedTree();
+    git(tree, "branch", "copy");
+    expect(runNode(script, [tree]).stdout).toContain("PASS pushed");
+  });
+
+  it("fails pushed when another branch is ahead of its upstream", () => {
+    const tree = pushedTree();
+    git(tree, "checkout", "-q", "-b", "side", "origin/task/x");
+    writeFileSync(join(tree, "side.txt"), "x");
+    git(tree, "add", "-A");
+    git(tree, "commit", "-q", "-m", "side");
+    git(tree, "checkout", "-q", "task/x");
+    expect(runNode(script, [tree]).stdout).toMatch(/FAIL pushed.*side/);
+  });
+
+  it("fails pushed when a branch tracks a local branch", () => {
+    const tree = pushedTree();
+    git(tree, "checkout", "-q", "-b", "child", "task/x");
+    git(tree, "branch", "-q", "--set-upstream-to=task/x", "child");
+    git(tree, "checkout", "-q", "task/x");
+    const result = runNode(script, [tree]);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toMatch(/FAIL pushed.*child.*local branch/);
+  });
+
+  it("can be imported without running", async () => {
+    const lib = await import(pathToFileURL(script).href);
+    expect(typeof lib.main).toBe("function");
   });
 });

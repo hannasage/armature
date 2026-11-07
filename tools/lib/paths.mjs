@@ -14,6 +14,8 @@ function checkText(input) {
 /**
  * Resolves a folder that must be inside a git work tree. On success it returns `{ ok: true, path, top }`.
  * `path` is the real path of the folder. `top` is the top folder of its work tree.
+ * If git itself can not run, the result has `gitFailed: true` so that the caller reports a failure and not a wrong path.
+ * Note: git reads the configuration of the target repository. Only point this at a repository you trust.
  * It refuses an empty value, a path that does not exist, a file, and a folder that is not in a git work tree.
  */
 export function resolveWorkTree(input) {
@@ -28,8 +30,10 @@ export function resolveWorkTree(input) {
   }
   const env = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
   const inside = spawnSync("git", ["-C", path, "rev-parse", "--is-inside-work-tree"], { encoding: "utf8", env });
+  if (inside.error !== undefined) return { ok: false, gitFailed: true, error: `git could not run: ${inside.error.message}` };
   if (inside.status !== 0 || inside.stdout.trim() !== "true") return { ok: false, error: `${path} is not inside a git work tree` };
   const top = spawnSync("git", ["-C", path, "rev-parse", "--show-toplevel"], { encoding: "utf8", env });
+  if (top.error !== undefined) return { ok: false, gitFailed: true, error: `git could not run: ${top.error.message}` };
   if (top.status !== 0) return { ok: false, error: `${path} is not inside a git work tree` };
   return { ok: true, path, top: realpathSync(top.stdout.trim()) };
 }

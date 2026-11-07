@@ -7,13 +7,20 @@ export const MAX_WORDS = 300;
 
 // A letter, an apostrophe (straight, curly, or modifier), then one of the contraction endings, and no letter after.
 // A possessive such as "Hanna's" has the same shape as "it's", so it counts too. Write "the name of Hanna" instead.
-const CONTRACTION = /[A-Za-z]['’ʼ](?:t|s|re|ve|ll|d|m)(?![A-Za-z])/;
+// Every apostrophe shape in use: straight, curly, high-reversed, prime, and the modifier letters. The text is normalized first,
+// so a full-width apostrophe becomes a straight one. The test ignores case and covers a letter from any alphabet.
+const CONTRACTION = /\p{L}['\u2018\u2019\u201b\u2032\u02b9\u02bb\u02bc\u02c8](?:t|s|re|ve|ll|d|m)(?!\p{L})/iu;
+// Zero-width and other format characters are not white space to a regular expression, but a reader sees a gap.
+// Each one counts as a space, so a body can not hide words by joining them with these characters.
+// Built from a string because some of these characters combine with their neighbors when written inside a character class.
+// eslint-disable-next-line no-misleading-character-class
+const INVISIBLE = new RegExp("[\\u00ad\\u034f\\u061c\\u180e\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2064\\u2066-\\u206f\\ufeff]", "g");
 const HOME_PATHS = [/\/Users\/[^\s/]+/, /\/home\/[^\s/]+/, /[A-Za-z]:\\Users\\[^\s\\]+/];
 const SESSION_LINKS = [/claude\.ai\/(?:code|chat|share)\b/i, /\bsession_[A-Za-z0-9]{8,}/];
 
 export function countWords(text) {
   let count = 0;
-  for (const word of text.split(/\s+/)) if (word !== "") count += 1;
+  for (const word of text.replace(INVISIBLE, " ").split(/\s+/)) if (word !== "") count += 1;
   return count;
 }
 
@@ -27,7 +34,7 @@ export function validateBody(text) {
   if (!ALERTS.includes(first)) problems.push("the first line must be a GitHub alert, such as > [!NOTE], > [!TIP], > [!IMPORTANT], > [!CAUTION], or > [!WARNING]");
   const words = countWords(text);
   if (words > MAX_WORDS) problems.push(`the body has ${words} words, and the limit is ${MAX_WORDS}`);
-  if (CONTRACTION.test(text)) problems.push("the body has a contraction (such as don't, it's, or we're). Write the words out");
+  if (CONTRACTION.test(text.normalize("NFKC"))) problems.push("the body has a contraction (such as don't, it's, or we're). Write the words out");
   // One final line feed is allowed. Nothing else may follow the footer line: not a blank line, not a space.
   const body = text.endsWith("\n") ? text.slice(0, -1) : text;
   if (body !== FOOTER && !body.endsWith(`\n${FOOTER}`)) problems.push(`the body must end with the line: ${FOOTER}`);

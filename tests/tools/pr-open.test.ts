@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, makeFakeBin, makeRepo, repoRoot, runNode, tempDir } from "./support";
 
@@ -119,5 +120,52 @@ describe("pr-open", () => {
     const { run, base, bodyFile } = setup();
     run(base);
     expect(readFileSync(bodyFile, "utf8")).toBe(GOOD);
+  });
+
+  it("fails with exit 1 when gh succeeds but prints no pull request URL", () => {
+    const { run, base } = setup();
+    const empty = run(base, { FAKE_GH_EMPTY: "1" });
+    expect(empty.status).toBe(1);
+    expect(empty.stdout).not.toContain("https://");
+    const odd = run(base, { FAKE_GH_OUTPUT: "all done" });
+    expect(odd.status).toBe(1);
+    const json = JSON.parse(run([...base, "--json"], { FAKE_GH_EMPTY: "1" }).stdout);
+    expect(json).toMatchObject({ ok: false, exit: 1 });
+  });
+
+  it("passes the checked text to gh on standard input and does not read the path again", () => {
+    const { fake, run, base } = setup();
+    expect(run(base).status).toBe(0);
+    const call = fake.calls()[0];
+    expect(call.args.slice(-2)).toEqual(["--body-file", "-"]);
+    expect(call.stdin).toBe(GOOD);
+  });
+
+  it("refuses a body file outside the repository and the temporary folder", () => {
+    const { fake, run } = setup();
+    const outside = join(repoRoot, "README.md");
+    const result = run(["--title", "x", "--body-file", outside, "--base", "main"]);
+    expect(result.status).toBe(2);
+    expect(fake.lines("gh")).toEqual([]);
+  });
+
+  it("accepts a body file inside the repository", () => {
+    const { run, repo } = setup();
+    const inside = join(repo, "body.md");
+    writeFileSync(inside, GOOD);
+    expect(run(["--title", "x", "--body-file", inside, "--base", "main"]).status).toBe(0);
+  });
+
+  it("exits 1 and says git could not run when git is missing", () => {
+    const { fake, repo } = setup();
+    const empty = tempDir();
+    const result = runNode(script, ["--title", "x", "--body-file", join(repo, "none.md"), "--base", "main"], { cwd: repo, env: fake.env({ PATH: empty }) });
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain("git could not run");
+  });
+
+  it("can be imported without running", async () => {
+    const lib = await import(pathToFileURL(script).href);
+    expect(typeof lib.main).toBe("function");
   });
 });

@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 import { symlinkSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, makeFakeBin, makeRepo, repoRoot, runNode, tempDir } from "./support";
 
@@ -88,5 +89,17 @@ describe("gates", () => {
     expect(fake.calls()[0]?.cwd).toBe(repo);
     expect(run(["--cwd", tempDir()]).status).toBe(2);
     expect(run(["--cwd", "/nonexistent"]).status).toBe(2);
+  });
+
+  it("exits 1 and says git could not run when git is missing", () => {
+    const { fake, repo } = setup();
+    const result = runNode(script, ["--cwd", repo], { cwd: repo, env: fake.env({ PATH: tempDir() }) });
+    expect(result.status).toBe(1);
+    expect(result.stdout + result.stderr).toContain("git could not run");
+  });
+
+  it("can be imported without running", async () => {
+    const lib = await import(pathToFileURL(script).href);
+    expect(typeof lib.main).toBe("function");
   });
 });
