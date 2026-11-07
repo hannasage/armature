@@ -53,7 +53,7 @@ export function makeRepo(branch = "main"): string {
 }
 
 const FAKE_NPM = `#!/usr/bin/env node
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -64,7 +64,7 @@ const read = (name) => { try { return readFileSync(join(dir, name), "utf8"); } c
 const knobs = JSON.parse(read("knobs.json") ?? "{}");
 const knob = (name) => knobs[name] ?? process.env[name];
 const args = process.argv.slice(2);
-appendFileSync(join(here, "..", "calls.log"), JSON.stringify({ tool: "npm", args, cwd: process.cwd(), env: Object.keys(process.env).sort(), values: { HOME: process.env.HOME, cache: process.env.npm_config_cache } }) + "\\n");
+appendFileSync(join(here, "..", "calls.log"), JSON.stringify({ tool: "npm", args, cwd: process.cwd(), env: Object.keys(process.env).sort(), values: { HOME: process.env.HOME, cache: process.env.npm_config_cache, prefix: process.env.npm_config_prefix, hasPackageJson: existsSync(join(process.cwd(), "package.json")) } }) + "\\n");
 const [command, ...rest] = args;
 if (knob("FAKE_GRANDCHILD")) {
   const { spawn } = await import("node:child_process");
@@ -101,6 +101,7 @@ if (command === "view") {
   if (fields[0] === "deprecated" && knob("FAKE_FAIL_DEPRECATED")) { console.error("npm error network down"); process.exit(1); }
   if (fields[0] === "deprecated") { const text = read("deprecated.txt"); console.log(text ?? ""); process.exit(0); }
   if (fields.includes("dist.integrity")) {
+    if (knob("FAKE_BARE_INTEGRITY")) { console.log(JSON.stringify((read("integrity.txt") ?? "sha512-FAKEINTEGRITY").trim())); process.exit(0); }
     const body = { "dist.integrity": (read("integrity.txt") ?? "sha512-FAKEINTEGRITY").trim() };
     const head = read("gitHead.txt");
     if (head !== null) body.gitHead = head.trim();
@@ -169,7 +170,7 @@ export interface FakeBin {
   fixtures: string;
   log: string;
   env(extra?: Record<string, string>): NodeJS.ProcessEnv;
-  calls(): { tool: string; args: string[]; cwd: string; stdin?: string | null; env?: string[]; values?: { HOME?: string; cache?: string } }[];
+  calls(): { tool: string; args: string[]; cwd: string; stdin?: string | null; env?: string[]; values?: { HOME?: string; cache?: string; prefix?: string; hasPackageJson?: boolean } }[];
   /** The calls to one tool, as space-joined text. */
   lines(tool: string): string[];
 }
@@ -194,7 +195,7 @@ export function makeFakeBin(): FakeBin {
     readFileSync(log, "utf8")
       .split("\n")
       .filter((line) => line !== "")
-      .map((line) => JSON.parse(line) as { tool: string; args: string[]; cwd: string; stdin?: string | null; env?: string[]; values?: { HOME?: string; cache?: string } });
+      .map((line) => JSON.parse(line) as { tool: string; args: string[]; cwd: string; stdin?: string | null; env?: string[]; values?: { HOME?: string; cache?: string; prefix?: string; hasPackageJson?: boolean } });
   return {
     bin,
     fixtures,

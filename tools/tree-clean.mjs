@@ -13,6 +13,8 @@
 // The tool lists the keys of the tree's own git config first, and refuses the tree when a key can make git run a program.
 // Exit codes: 0 all three pass, 1 a check failed or git could not run, 2 wrong use.
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import process from "node:process";
 import { parseArgs } from "node:util";
 import { GIT_SAFE_CONFIG, gitEnv } from "./lib/env.mjs";
@@ -31,21 +33,33 @@ const USAGE = [
 // The tree can be any path, so its config is not trusted: git runs with no fsmonitor, no hooks, and no external ssh, and with
 // the short allowlisted environment (no token). GIT_OPTIONAL_LOCKS=0 keeps git status from rewriting the index.
 const git = (tree, ...args) => spawnSync("git", [...GIT_SAFE_CONFIG, "-C", tree, ...args], { encoding: "utf8", env: gitEnv(process.env), maxBuffer: 256 * 1024 * 1024 });
-const plural = (count, word) => `${count} ${count === 1 ? word : word === "process" ? "processes" : `${word}s`}`;
+const plural = (count, word) => `${count} ${count === 1 ? word : /(?:s|ch|sh|x)$/.test(word) ? `${word}es` : `${word}s`}`;
 
 // A repository config that can make git run a program (a filter, a pager, a credential helper, a diff driver, an alias) or that
 // pulls in more config. The tool does not chase flags to switch each one off. If the tree has any of these, it refuses the tree.
 const RISKY_KEYS = [
-  /^filter\./i,
-  /^core\.(fsmonitor|hookspath|sshcommand|pager|editor|askpass|gitproxy)$/i,
-  /^diff\..*\.(command|textconv)$/i,
-  /^merge\..*\.driver$/i,
-  /^include(if)?\./i,
-  /^alias\./i,
-  /^credential\./i,
-  /^url\..*\.(insteadof|pushinsteadof)$/i,
-  /^(uploadpack|receivepack)\./i,
+  [/^filter\./i, "can run a program on every file that git status reads"],
+  [/^core\.fsmonitor$/i, "can run a program every time git looks at the tree"],
+  [/^core\.(sshcommand|askpass|gitproxy)$/i, "can run a program when git talks to a remote or asks for a password"],
+  [/^diff\..*\.(command|textconv)$/i, "can run a program to compare files"],
+  [/^diff\.external$/i, "can run a program to compare files"],
+  [/^core\.attributesfile$/i, "can point git at an attributes file that turns on filters"],
+  [/^gpg\..*program$/i, "can run a program to check signatures"],
+  [/^merge\..*\.driver$/i, "can run a program to merge files"],
+  [/^include(if)?\./i, "pulls in more config that this check does not read"],
+  [/^credential\./i, "can run a credential helper program"],
+  [/^(uploadpack|receivepack)\./i, "can run a program when git serves a fetch or a push"],
 ];
+// Not on the list on purpose: core.hooksPath, core.editor, core.pager, alias.*, and url.*.insteadOf. Status never runs them,
+// and the -c switches above turn the hook path off anyway. Refusing them would turn away trees that are safe to look at.
+/** A message when the tree has submodules, else null. A submodule has its own config, which this tool does not read, so it refuses the tree. */
+function submodules(tree) {
+  if (existsSync(join(tree, ".gitmodules"))) return "refused: this tree has a .gitmodules file, and the config of a submodule is not checked, so the tree can not be judged";
+  const dir = git(tree, "rev-parse", "--absolute-git-dir");
+  if (dir.status !== 0) return `refused: git could not find the git folder: ${dir.stderr.trim().split("\n")[0]}`;
+  if (existsSync(join(dir.stdout.trim(), "modules"))) return "refused: this tree has a .git/modules folder (a submodule), and the config of a submodule is not checked, so the tree can not be judged";
+  return null;
+}
 
 /** The first key in the tree's own config that matches a risky pattern, null when none does, or an error text. */
 function riskyConfig(tree) {
@@ -55,8 +69,11 @@ function riskyConfig(tree) {
     if (result.status === 0) keys.push(...result.stdout.split("\n").filter((line) => line !== ""));
     else if (scope === "--local") return { error: `git config could not be read: ${result.stderr.trim().split("\n")[0]}` };
   }
-  const key = keys.find((name) => RISKY_KEYS.some((pattern) => pattern.test(name)));
-  return key === undefined ? null : { key };
+  for (const name of keys) {
+    const hit = RISKY_KEYS.find(([pattern]) => pattern.test(name));
+    if (hit !== undefined) return { key: name, reason: hit[1] };
+  }
+  return null;
 }
 
 // Build folders that git ignores and that may stay. The listing shows an ignored folder as one line.
@@ -169,9 +186,19 @@ export function main(argv) {
   if (!tree.ok) return usageError(json, tree.error, tree.gitFailed ? 1 : 2);
   if (tree.path !== tree.top) return usageError(json, `${tree.path} is not the top of a work tree (the top is ${tree.top})`);
 
+  const modules = submodules(tree.top);
+  if (modules !== null) {
+    const refused = [{ name: "config", ok: false, detail: modules }];
+    if (json) console.log(jsonLine({ ok: false, status: "fail", exit: 1, path: tree.top, removes: "nothing", refused: true, checks: refused }));
+    else {
+      console.log(`FAIL config - ${modules}`);
+      console.log("Result: the tree is not safe to remove. This tool removed nothing.");
+    }
+    return 1;
+  }
   const risky = riskyConfig(tree.top);
   if (risky !== null) {
-    const detail = risky.error ?? `refused: the config key ${risky.key} can make git run a program, so no git command was run on this tree except reading its config`;
+    const detail = risky.error ?? `refused: the config key ${risky.key} ${risky.reason}, so no git command was run on this tree except reading its config`;
     const refused = [{ name: "config", ok: false, detail }];
     if (json) console.log(jsonLine({ ok: false, status: "fail", exit: 1, path: tree.top, removes: "nothing", refused: true, checks: refused }));
     else {

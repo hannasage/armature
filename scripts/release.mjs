@@ -454,8 +454,9 @@ function registryInfo(run, config) {
   if (!result.ok) return { ok: false, error: failingLine(result.stdout, result.stderr) };
   try {
     const body = JSON.parse(result.stdout);
-    const integrity = body["dist.integrity"];
-    const gitHead = body.gitHead ?? null;
+    // For a package without a gitHead, npm prints the one value that is left, as a bare string and not as an object.
+    const integrity = typeof body === "string" ? body : body?.["dist.integrity"];
+    const gitHead = typeof body === "string" ? null : (body?.gitHead ?? null);
     if (!isShort(integrity)) return { ok: false, error: "the registry returned no integrity string" };
     if (gitHead !== null && !isShort(gitHead)) return { ok: false, error: "the registry returned a bad gitHead" };
     return { ok: true, integrity, gitHead };
@@ -672,7 +673,8 @@ const STEPS = {
     const scratch = run.scratch();
     const temp = join(scratch.dir, "project");
     mkdirSync(temp);
-    const isolated = viewEnv(ctx.env, scratch);
+    // The install goes into the throwaway project, so the npm prefix is that project and not the scratch folder.
+    const isolated = { ...viewEnv(ctx.env, scratch), npm_config_prefix: temp };
     for (const command of [
       ["npm", "init", "-y"],
       ["npm", "install", "--ignore-scripts", "--registry", run.registry, `${config.package}@${config.npmTag}`, "react"],

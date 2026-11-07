@@ -28,7 +28,13 @@ const USAGE = [
   "Opens a DRAFT pull request. The body is checked first. Exit codes: 0 opened, 1 the body, gh, or git failed, 2 wrong use.",
   "Note: --dir must name a folder in a git work tree. Git and gh read the configuration of that repository, so only use one you trust.",
   "Note: gh gets the full environment on purpose, because it needs its own login (its config folder and any token it uses). The tool prints the gh identity before it creates anything (a warning if gh can not read it, as with a GitHub App token), and stops gh after 2 minutes. If gh pr create times out, a PR may exist, so check before retrying.",
+  "Note: --expect-identity can not pass with a GitHub App token, because the /user call gives 403 for such a token, and then the tool stops. Git and gh may also run the hooks of a hostile --dir, so only use a folder you trust.",
 ].join("\n");
+
+/** A branch name that is safe to pass on: plain characters, no "..", no "//", no trailing slash or dot, no ".lock", no "@{". */
+function safeRef(name) {
+  return /^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(name) && !name.includes("..") && !name.includes("//") && !/[/.]$/.test(name) && !name.endsWith(".lock") && !name.includes("@{");
+}
 
 function usageError(json, message, exit = 2) {
   if (json) console.log(jsonLine({ ok: false, status: exit === 2 ? "usage" : "fail", exit, message }));
@@ -56,7 +62,7 @@ export function main(argv, env = process.env) {
   const title = values.title?.trim() ?? "";
   if (title === "" || /[\r\n\0]/.test(title) || title.length > 256) return usageError(json, "--title is required, must be one line, and at most 256 characters");
   const base = values.base ?? "";
-  if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(base)) return usageError(json, "--base is required and must be a branch name");
+  if (!safeRef(base)) return usageError(json, "--base is required and must be a safe branch name");
   if (values["body-file"] === undefined) return usageError(json, "--body-file is required");
   const folder = resolveWorkTree(values.dir ?? process.cwd());
   if (!folder.ok) return usageError(json, `--dir: ${folder.error}`, folder.gitFailed ? 1 : 2);
@@ -94,7 +100,7 @@ export function main(argv, env = process.env) {
   const timeout = effectiveTimeout(env, 2 * 60 * 1000);
   const warnings = [];
   const failure = (status, line, extra = {}, step = "gh pr create") => {
-    if (json) console.log(jsonLine({ ok: false, status, exit: 1, draft: true, command: show(command), failingLine: line, ...(warnings.length > 0 ? { warnings } : {}), ...extra }));
+    if (json) console.log(jsonLine({ ok: false, status, exit: 1, draft: true, ...(step === "gh identity" ? {} : { command: show(command) }), failingLine: line, ...(warnings.length > 0 ? { warnings } : {}), ...extra }));
     else {
       for (const warning of warnings) console.log(`WARNING ${redact(warning)}`);
       console.log(`FAILED ${step}: ${redact(line)}`);
@@ -113,7 +119,7 @@ export function main(argv, env = process.env) {
   const who = runCommand({ command: whoCommand, cwd: folder.path, env, timeout });
   let identity = null;
   if (who.timedOut || who.error !== null || who.status !== 0) {
-    const forbidden = !who.timedOut && who.error === null && /\b403\b|Resource not accessible by integration/i.test(`${who.stderr}\n${who.stdout}`);
+    const forbidden = !who.timedOut && who.error === null && /\bHTTP 403\b|Resource not accessible by integration/i.test(`${who.stderr}\n${who.stdout}`);
     if (expected !== undefined || !forbidden) return failure("gh-identity-failed", `could not read the gh identity: ${describe(who)}`, {}, "gh identity");
     warnings.push(`could not read the gh identity: ${describe(who)}`);
   } else {
@@ -127,10 +133,11 @@ export function main(argv, env = process.env) {
   }
 
   // --draft is always in the command. No option turns it off.
-  if (!json) console.log(`$ ${show(command)}`);
+  if (!json) console.log(`$ ${redact(show(command))}`);
   const result = runCommand({ command, cwd: folder.path, env, timeout, input: text });
   if (result.timedOut) return failure("gh-timeout", `${describe(result)}. ${mayExist}`, { identity });
-  if (result.error !== null || result.status !== 0) return failure("gh-failed", `${describe(result)}. ${mayExist}`, { identity });
+  if (result.error !== null) return failure("gh-not-started", describe(result), { identity });
+  if (result.status !== 0) return failure("gh-failed", `${describe(result)}. ${mayExist}`, { identity });
   const url = redact(result.stdout.trim().split("\n").at(-1) ?? "");
   if (!/^https:\/\/\S+\/pull\/\d+$/.test(url)) return failure("no-url", `gh printed no pull request URL on its last line (it printed: ${url === "" ? "nothing" : url.slice(0, 100)}). ${mayExist}`, { identity });
   if (json) console.log(jsonLine({ ok: true, status: "pass", exit: 0, draft: true, command: show(command), url, identity, ...(warnings.length > 0 ? { warnings } : {}) }));

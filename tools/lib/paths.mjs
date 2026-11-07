@@ -32,10 +32,15 @@ export function resolveWorkTree(input) {
   const env = gitEnv(process.env);
   const inside = spawnSync("git", [...GIT_SAFE_CONFIG, "-C", path, "rev-parse", "--is-inside-work-tree"], { encoding: "utf8", env });
   if (inside.error !== undefined) return { ok: false, gitFailed: true, error: `git could not run: ${inside.error.message}` };
-  if (inside.status !== 0 || inside.stdout.trim() !== "true") return { ok: false, error: `${path} is not inside a git work tree` };
+  if (inside.status !== 0) {
+    // "not a git repository" means the folder is not in a work tree. Any other failure (a broken config, for example) means git failed.
+    if (/not a git repository/i.test(inside.stderr)) return { ok: false, error: `${path} is not inside a git work tree` };
+    return { ok: false, gitFailed: true, error: `git failed on ${path}: ${inside.stderr.trim().split("\n")[0]}` };
+  }
+  if (inside.stdout.trim() !== "true") return { ok: false, error: `${path} is not inside a git work tree` };
   const top = spawnSync("git", [...GIT_SAFE_CONFIG, "-C", path, "rev-parse", "--show-toplevel"], { encoding: "utf8", env });
   if (top.error !== undefined) return { ok: false, gitFailed: true, error: `git could not run: ${top.error.message}` };
-  if (top.status !== 0) return { ok: false, error: `${path} is not inside a git work tree` };
+  if (top.status !== 0) return { ok: false, gitFailed: true, error: `git failed on ${path}: ${top.stderr.trim().split("\n")[0]}` };
   return { ok: true, path, top: realpathSync(top.stdout.trim()) };
 }
 

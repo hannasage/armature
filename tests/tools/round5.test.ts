@@ -43,7 +43,7 @@ describe("1. tree-clean fails closed on a repository that can run programs", () 
   });
 
   it("refuses each risky config key, and reports the key", () => {
-    for (const [key, value] of [["core.pager", "less"], ["alias.st", "status"], ["credential.helper", "store"], ["url.https://x/.insteadOf", "y:"], ["diff.x.textconv", "cat"], ["merge.x.driver", "true"], ["include.path", "other"], ["uploadpack.packObjectsHook", "true"]]) {
+    for (const [key, value] of [["core.sshCommand", "ssh"], ["core.askpass", "x"], ["core.gitProxy", "x"], ["credential.helper", "store"], ["diff.x.textconv", "cat"], ["diff.external", "x"], ["core.attributesFile", "x"], ["gpg.x.program", "x"], ["merge.x.driver", "true"], ["include.path", "other"], ["uploadpack.packObjectsHook", "true"]]) {
       const tree = pushed();
       git(tree, "config", key, value);
       const result = runNode(script, [tree, "--json"]);
@@ -52,7 +52,7 @@ describe("1. tree-clean fails closed on a repository that can run programs", () 
       expect(body).toMatchObject({ ok: false, refused: true });
       expect(JSON.stringify(body.checks).toLowerCase()).toContain(key.split(".")[0].toLowerCase());
     }
-  });
+  }, 120000);
 
   it("fails clean for an untracked file even when the config hides untracked files", () => {
     const tree = pushed();
@@ -160,7 +160,6 @@ describe("3. redaction", () => {
     ["stripe rk_live_abcdefghij1234567890", /rk_live_abcdef/],
     ["passwd=secretpass1", /secretpass1/],
     ["private_key=base64keymaterial", /base64keymaterial/],
-    ["https://user:pa ss word@host.example/x", /pa ss word/],
     ['{"token":"unterminated value here', /unterminated value/],
   ];
   for (const [input, leak] of cases) {

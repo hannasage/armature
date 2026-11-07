@@ -45,10 +45,17 @@ export function makeScratch(hooks = {}) {
     mkdirSync(cache);
     writeFileSync(npmrc, "");
     writeFileSync(globalrc, "");
+    // npm looks for a project by walking up from the folder it runs in. A package.json here stops the walk at the scratch folder,
+    // so an .npmrc in a folder above the temporary folder is never read.
+    writeFileSync(join(dir, "package.json"), '{"name":"release-scratch","version":"0.0.0","private":true}\n');
     return { dir, home, cache, npmrc, globalrc, remove: () => rmSync(dir, { recursive: true, force: true }) };
   } catch (error) {
-    // Nothing is left behind when a step after mkdtemp fails.
-    rmSync(dir, { recursive: true, force: true });
+    // Nothing is left behind when a step after mkdtemp fails. If the cleanup fails too, the first error is the one that is thrown.
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // The original error matters more.
+    }
     throw error;
   }
 }
@@ -80,6 +87,7 @@ export function toolEnv(env, scratch) {
 export function viewEnv(env, scratch) {
   return {
     ...baseEnv(env),
+    npm_config_prefix: scratch.dir,
     HOME: scratch.home,
     NPM_CONFIG_USERCONFIG: scratch.npmrc,
     NPM_CONFIG_GLOBALCONFIG: scratch.globalrc,
