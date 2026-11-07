@@ -2,7 +2,7 @@ import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, makeRepo, repoRoot, tempDir } from "./support";
+import { cleanup, makeRepo, repoRoot, tempDir, withEnv } from "./support";
 
 afterEach(cleanup);
 
@@ -83,12 +83,8 @@ describe("resolveFile", () => {
 
   it("reports that git could not run, and does not call that a bad path", () => {
     const repo = makeRepo();
-    const saved = process.env.PATH;
-    process.env.PATH = tempDir();
-    try {
+    withEnv("PATH", tempDir(), () => {
       expect(lib.resolveWorkTree(repo)).toMatchObject({ ok: false, gitFailed: true, error: expect.stringContaining("git could not run") });
-    } finally {
-      process.env.PATH = saved;
-    }
+    });
   });
 });

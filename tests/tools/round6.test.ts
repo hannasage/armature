@@ -3,7 +3,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, symlinkSync, utimesSync
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanEnv, cleanup, git, makeFakeBin, makeReleaseRepo, makeRepo, repoRoot, runNode, tempDir } from "./support";
+import { cleanEnv, cleanup, git, makeFakeBin, makeReleaseRepo, makeRepo, repoRoot, runNode, tempDir, withEnv } from "./support";
 
 afterEach(cleanup);
 
@@ -207,21 +207,20 @@ describe("6. makeScratch rethrows the original error", () => {
     const { makeScratch } = await lib("env.mjs");
     const folder = join(tempDir(), "tmp");
     mkdirSync(folder);
-    const saved = process.env.TMPDIR;
-    process.env.TMPDIR = folder;
     try {
-      expect(() =>
-        makeScratch({
-          onCreated: (dir: string) => {
-            // Make the folder impossible to remove: replace the scratch folder's parent permissions after creation.
-            chmodSync(folder, 0o500);
-            throw new Error(`original ${dir.length > 0}`);
-          },
-        }),
-      ).toThrow("original true");
+      withEnv("TMPDIR", folder, () =>
+        expect(() =>
+          makeScratch({
+            onCreated: (dir: string) => {
+              // Make the folder impossible to remove: replace the scratch folder's parent permissions after creation.
+              chmodSync(folder, 0o500);
+              throw new Error(`original ${dir.length > 0}`);
+            },
+          }),
+        ).toThrow("original true"),
+      );
     } finally {
       chmodSync(folder, 0o700);
-      process.env.TMPDIR = saved;
     }
   });
 });
@@ -273,16 +272,13 @@ describe("8. npm view stops at the scratch folder", () => {
     writeFileSync(join(project, "package.json"), "{}");
     const odd = join(project, "tmp");
     mkdirSync(odd);
-    const saved = process.env.TMPDIR;
-    process.env.TMPDIR = odd;
-    const scratch = makeScratch();
+    const scratch = withEnv("TMPDIR", odd, () => makeScratch());
     try {
       const result = spawnSync("npm", ["config", "get", "registry"], { cwd: scratch.dir, env: viewEnv(cleanEnv(), scratch), encoding: "utf8" });
       expect(result.status, result.stderr).toBe(0);
       expect(result.stdout.trim()).toBe("https://registry.npmjs.org/");
     } finally {
       scratch.remove();
-      process.env.TMPDIR = saved;
     }
   });
 });

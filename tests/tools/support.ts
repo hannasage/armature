@@ -12,6 +12,32 @@ export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../.."
 
 const temps: string[] = [];
 
+/**
+ * Runs a function with one environment variable set to a value (or removed, when the value is undefined), and then puts the
+ * variable back as it was. A variable that was not set is deleted again. Assigning undefined to process.env would store the
+ * text "undefined", which broke os.tmpdir() on a CI runner where TMPDIR is not set.
+ */
+export function withEnv<T>(name: string, value: string | undefined, fn: () => T): T {
+  const had = Object.hasOwn(process.env, name);
+  const saved = process.env[name];
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
+  const restore = () => {
+    if (had) process.env[name] = saved;
+    else delete process.env[name];
+  };
+  let result: T;
+  try {
+    result = fn();
+  } catch (error) {
+    restore();
+    throw error;
+  }
+  if (result instanceof Promise) return result.finally(restore) as T;
+  restore();
+  return result;
+}
+
 /** The environment of this process without tokens, npm settings, or fake-tool settings, so no test passes a secret through. */
 export function cleanEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};

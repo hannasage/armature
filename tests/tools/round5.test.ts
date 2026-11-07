@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, ut
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, git, makeFakeBin, makeReleaseRepo, makeRepo, repoRoot, runNode, tempDir } from "./support";
+import { cleanup, git, makeFakeBin, makeReleaseRepo, makeRepo, repoRoot, runNode, tempDir, withEnv } from "./support";
 
 afterEach(cleanup);
 
@@ -307,13 +307,9 @@ describe("6. makeScratch cleans up after a failure", () => {
     const { makeScratch } = await lib("env.mjs");
     const folder = join(tempDir(), "tmp");
     mkdirSync(folder);
-    const saved = process.env.TMPDIR;
-    process.env.TMPDIR = folder;
-    try {
+    withEnv("TMPDIR", folder, () => {
       expect(() => makeScratch({ onCreated: () => { throw new Error("boom"); } })).toThrow("boom");
       expect(readdirSync(folder).filter((name: string) => name.startsWith("release-scratch-"))).toEqual([]);
-    } finally {
-      process.env.TMPDIR = saved;
-    }
+    });
   });
 });
