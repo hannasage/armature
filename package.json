@@ -56,6 +56,10 @@
     "test": "vitest run",
     "build": "vite build && tsc -p tsconfig.build.json && node scripts/postbuild.mjs && node scripts/check-exports.mjs",
     "check:pack": "node scripts/check-pack.mjs",
+    "release": "node scripts/release.mjs",
+    "gates": "node tools/gates.mjs",
+    "pr-open": "node tools/pr-open.mjs",
+    "tree-clean": "node tools/tree-clean.mjs",
     "prepublishOnly": "npm run typecheck && npm run lint && npm test && npm run build && npm run check:pack"
   },
   "peerDependencies": {

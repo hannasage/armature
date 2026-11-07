@@ -4,6 +4,10 @@ This page lists the steps to publish the prerelease `1.0.0-beta.0` to the npm `b
 It replaces `1.0.0-next.0`, which is already on npm. The last section retires that version.
 Only a maintainer does these steps. An agent must not publish, log in to npm, or handle a token.
 
+The steps below can also be run, checked, and listed with `npm run release -- <subcommand>`: `status`, `preflight`, `gates`, `dry-run`, `publish`, `verify`, `tag`, `retire`, and `claims`.
+The script reads `release.config.json`. `publish` and `retire` only print the commands, and you run them yourself.
+A refused precondition exits 1. Exit 2 means wrong use or a human-only step.
+
 A prerelease is a version with a dash in it, such as `1.0.0-beta.0`.
 A distribution tag, or dist-tag, is a movable label on npm that points at one version.
 Publishing with `--tag beta` puts the version under `beta`. It does not make it the default install.
