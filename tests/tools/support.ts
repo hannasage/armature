@@ -1,0 +1,222 @@
+// Helpers for the tests of the release script and the workflow tools.
+// A test builds a temporary git repository and a temporary folder with a fake `npm` and a fake `gh`. The fakes go first on PATH.
+// They log each call and never reach a real registry or a real remote. The only remote is a bare repository in the temporary folder.
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { delimiter, dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+
+const temps: string[] = [];
+
+/** Makes a temporary folder. `cleanup` removes every folder made so far. */
+export function tempDir(prefix = "armature-tools-"): string {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+  temps.push(dir);
+  return dir;
+}
+
+export function cleanup(): void {
+  for (const dir of temps.splice(0)) rmSync(dir, { recursive: true, force: true });
+}
+
+/** Runs git and returns trimmed standard output. A failure throws, so a broken setup stops the test early. */
+export function git(cwd: string, ...args: string[]): string {
+  const result = spawnSync("git", args, { cwd, encoding: "utf8", env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
+  if (result.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${result.stderr}`);
+  return result.stdout.trim();
+}
+
+/** A plain repository with one commit, a branch name, and no remote. */
+export function makeRepo(branch = "main"): string {
+  const dir = tempDir();
+  git(dir, "init", "-q", "-b", branch);
+  git(dir, "config", "user.email", "test@example.com");
+  git(dir, "config", "user.name", "Test");
+  writeFileSync(join(dir, "file.txt"), "one\n");
+  git(dir, "add", "-A");
+  git(dir, "commit", "-q", "-m", "first");
+  return dir;
+}
+
+const FAKE_NPM = `#!/usr/bin/env node
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const args = process.argv.slice(2);
+if (process.env.FAKE_LOG) appendFileSync(process.env.FAKE_LOG, JSON.stringify({ tool: "npm", args, cwd: process.cwd() }) + "\\n");
+const dir = process.env.FAKE_DIR ?? "";
+const read = (name) => { try { return readFileSync(join(dir, name), "utf8"); } catch { return null; } };
+const [command, ...rest] = args;
+
+if (["login", "adduser", "whoami", "deprecate", "dist-tag", "unpublish", "token"].includes(command) || (command === "publish" && !rest.includes("--dry-run"))) {
+  console.error("FAKE NPM: " + command + " is never allowed in a test");
+  process.exit(99);
+}
+if (command === "run") {
+  if (process.env.FAKE_FAIL_RUN === rest[0]) {
+    console.error(process.env.FAKE_FAIL_MESSAGE ?? rest[0] + ": 1 error found");
+    process.exit(Number(process.env.FAKE_FAIL_CODE ?? 1));
+  }
+  console.log(rest[0] + " ok");
+  process.exit(0);
+}
+if (command === "ci") process.exit(process.env.FAKE_FAIL_RUN === "ci" ? 1 : 0);
+if (command === "init") { writeFileSync("package.json", JSON.stringify({ name: "temp", version: "1.0.0" })); process.exit(0); }
+if (command === "view") {
+  const field = rest[1];
+  if (field === "dist-tags") {
+    const text = read("dist-tags.json");
+    if (text === null) { console.error("npm error code E404"); process.exit(1); }
+    console.log(text);
+    process.exit(0);
+  }
+  if (field === "deprecated") { const text = read("deprecated.txt"); console.log(text ?? ""); process.exit(0); }
+  process.exit(0);
+}
+if (command === "install") {
+  const spec = rest[0];
+  const at = spec.lastIndexOf("@");
+  const name = at > 0 ? spec.slice(0, at) : spec;
+  const tag = at > 0 ? spec.slice(at + 1) : "latest";
+  const tags = JSON.parse(read("dist-tags.json") ?? "{}");
+  const folder = join(process.cwd(), "node_modules", name);
+  mkdirSync(folder, { recursive: true });
+  writeFileSync(join(folder, "package.json"), JSON.stringify({ name, version: tags[tag] ?? "0.0.0", type: "module", main: "index.js" }));
+  const count = Number(process.env.FAKE_EXPORTS ?? 29);
+  writeFileSync(join(folder, "index.js"), Array.from({ length: count }, (_, index) => "export const name" + index + " = " + index + ";").join("\\n") + "\\n");
+  process.exit(0);
+}
+if (command === "publish") {
+  const manifest = JSON.parse(readFileSync("package.json", "utf8"));
+  const tagIndex = rest.indexOf("--tag");
+  const tag = tagIndex >= 0 ? rest[tagIndex + 1] : "latest";
+  const notices = [
+    "package: " + manifest.name + "@" + manifest.version,
+    "package size: " + (process.env.FAKE_SIZE ?? "137 kB"),
+    "total files: " + (process.env.FAKE_FILES ?? 122),
+    "Publishing to https://registry.npmjs.org/ with tag " + tag + " and public access (dry-run)",
+  ];
+  for (const line of notices) console.error("npm notice " + line);
+  console.log("+ " + manifest.name + "@" + manifest.version);
+  process.exit(0);
+}
+process.exit(0);
+`;
+
+const FAKE_GH = `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+const args = process.argv.slice(2);
+if (process.env.FAKE_LOG) appendFileSync(process.env.FAKE_LOG, JSON.stringify({ tool: "gh", args, cwd: process.cwd() }) + "\\n");
+if (process.env.FAKE_GH_FAIL) { console.error("gh: could not create the pull request"); process.exit(1); }
+console.log("https://github.com/example/repo/pull/1");
+`;
+
+export interface FakeBin {
+  bin: string;
+  fixtures: string;
+  log: string;
+  env(extra?: Record<string, string>): NodeJS.ProcessEnv;
+  calls(): { tool: string; args: string[]; cwd: string }[];
+  /** The calls to one tool, as space-joined text. */
+  lines(tool: string): string[];
+}
+
+/** A folder with a fake `npm` and a fake `gh`, a folder of fixtures, and a call log. */
+export function makeFakeBin(): FakeBin {
+  const root = tempDir("armature-fakebin-");
+  const bin = join(root, "bin");
+  const fixtures = join(root, "fixtures");
+  mkdirSync(bin);
+  mkdirSync(fixtures);
+  const log = join(root, "calls.log");
+  writeFileSync(log, "");
+  for (const [name, source] of [["npm", FAKE_NPM], ["gh", FAKE_GH]] as const) {
+    const file = join(bin, name);
+    // The file is a module, so it needs the .mjs behavior. A package.json next to it says "type": "module".
+    writeFileSync(file, source);
+    chmodSync(file, 0o755);
+  }
+  writeFileSync(join(bin, "package.json"), JSON.stringify({ type: "module" }));
+  const calls = () =>
+    readFileSync(log, "utf8")
+      .split("\n")
+      .filter((line) => line !== "")
+      .map((line) => JSON.parse(line) as { tool: string; args: string[]; cwd: string });
+  return {
+    bin,
+    fixtures,
+    log,
+    env(extra = {}) {
+      return {
+        ...process.env,
+        PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
+        FAKE_LOG: log,
+        FAKE_DIR: fixtures,
+        GIT_TERMINAL_PROMPT: "0",
+        GIT_CONFIG_GLOBAL: "/dev/null",
+        ...extra,
+      };
+    },
+    calls,
+    lines: (tool) => calls().filter((call) => call.tool === tool).map((call) => call.args.join(" ")),
+  };
+}
+
+export interface ReleaseRepo {
+  work: string;
+  origin: string;
+  fake: FakeBin;
+  script: string;
+  run(args: string[], extraEnv?: Record<string, string>): SpawnSyncReturns<string>;
+  env(extra?: Record<string, string>): NodeJS.ProcessEnv;
+}
+
+/** A work repository on the release branch with a local bare `origin`, plus the release script copied in. */
+export function makeReleaseRepo(): ReleaseRepo {
+  const fake = makeFakeBin();
+  const base = tempDir("armature-release-");
+  const origin = join(base, "origin.git");
+  const work = join(base, "work");
+  mkdirSync(origin);
+  mkdirSync(work);
+  git(origin, "init", "-q", "--bare", "-b", "release/1.0.0");
+  git(work, "init", "-q", "-b", "release/1.0.0");
+  git(work, "config", "user.email", "test@example.com");
+  git(work, "config", "user.name", "Test");
+  mkdirSync(join(work, "scripts"));
+  mkdirSync(join(work, "docs"));
+  const config = JSON.parse(readFileSync(join(repoRoot, "release.config.json"), "utf8")) as { package: string; version: string; npmTag: string };
+  writeFileSync(
+    join(work, "package.json"),
+    JSON.stringify({ name: config.package, version: config.version, type: "module", publishConfig: { access: "public", tag: config.npmTag } }, null, 2),
+  );
+  copyFileSync(join(repoRoot, "release.config.json"), join(work, "release.config.json"));
+  for (const file of ["release.mjs", "public-api.mjs", "pack-rules.mjs"]) copyFileSync(join(repoRoot, "scripts", file), join(work, "scripts", file));
+  writeFileSync(join(work, "README.md"), "# Package\n\nThe version is on the beta tag.\n");
+  // The releasing page quotes the stale phrases on purpose, so the claim check must skip it.
+  writeFileSync(join(work, "docs", "releasing.md"), "Search for `Not published yet` and `Nothing is published`.\n");
+  git(work, "add", "-A");
+  git(work, "commit", "-q", "-m", "first");
+  git(work, "remote", "add", "origin", origin);
+  git(work, "push", "-q", "-u", "origin", "release/1.0.0");
+  const script = join(work, "scripts", "release.mjs");
+  fake.env();
+  writeFileSync(join(fake.fixtures, "dist-tags.json"), JSON.stringify({ next: "1.0.0-next.0", latest: "1.0.0-next.0" }));
+  const env = (extra: Record<string, string> = {}) => fake.env(extra);
+  return {
+    work,
+    origin,
+    fake,
+    script,
+    env,
+    run: (args, extraEnv = {}) => spawnSync(process.execPath, [script, ...args], { cwd: work, env: env(extraEnv), encoding: "utf8" }),
+  };
+}
+
+/** Runs a node script with the given arguments. */
+export function runNode(script: string, args: string[], options: { cwd?: string; env?: NodeJS.ProcessEnv } = {}): SpawnSyncReturns<string> {
+  return spawnSync(process.execPath, [script, ...args], { cwd: options.cwd ?? repoRoot, env: options.env ?? process.env, encoding: "utf8" });
+}

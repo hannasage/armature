@@ -1,0 +1,37 @@
+{
+  "package": "@hannasage/armature",
+  "version": "1.0.0-beta.0",
+  "npmTag": "beta",
+  "access": "public",
+  "expectedFileCount": 122,
+  "releaseBranch": "release/1.0.0",
+  "remote": "origin",
+  "publicApi": {
+    "file": "scripts/public-api.mjs",
+    "subpath": "."
+  },
+  "gitTag": {
+    "name": "v{version}",
+    "message": "{version}"
+  },
+  "retire": {
+    "oldVersion": "1.0.0-next.0",
+    "deprecateMessage": "Renamed to the beta tag. Use 1.0.0-beta.0.",
+    "removeTag": "next",
+    "promoteTag": "latest",
+    "commands": [
+      ["npm", "deprecate", "{package}@{oldVersion}", "{deprecateMessage}"],
+      ["npm", "dist-tag", "rm", "{package}", "{removeTag}"],
+      ["npm", "dist-tag", "add", "{package}@{version}", "{promoteTag}"]
+    ],
+    "checks": [
+      ["npm", "view", "{package}", "dist-tags", "--json"],
+      ["npm", "view", "{package}@{oldVersion}", "deprecated"]
+    ]
+  },
+  "claims": {
+    "patterns": ["Nothing is published", "Not published yet", "armature@next"],
+    "paths": ["README.md", "docs", "docs-site"],
+    "skipFileNames": ["releasing.md"]
+  }
+}
