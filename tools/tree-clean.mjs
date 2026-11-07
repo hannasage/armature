@@ -13,7 +13,7 @@
 // The tool lists the keys of the tree's own git config first, and refuses the tree when a key can make git run a program.
 // Exit codes: 0 all three pass, 1 a check failed or git could not run, 2 wrong use.
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
 import { parseArgs } from "node:util";
@@ -26,7 +26,7 @@ const USAGE = [
   "Usage: node tools/tree-clean.mjs <tree> [--json]",
   "Checks that a clone tree is clean, pushed, and idle. Exit 0 only when all three pass.",
   "This tool removes nothing. Removal belongs to the factory-tree finish step of the workbench scripts.",
-  "Note: the tool refuses a tree whose own git config has a key that can make git run a program (a filter, a pager, a hook path, an alias, a credential helper).",
+  "Note: the tool refuses a tree that has a gitlink, a .gitmodules file, or a modules folder (a submodule has its own config), and a tree whose own git config has a key that can make git run a program (a filter, an fsmonitor, a credential helper, a diff or merge program, an include) or can hide a submodule change.",
   "Exit codes: 0 all pass, 1 a check failed, 2 wrong use.",
 ].join("\n");
 
@@ -46,18 +46,40 @@ const RISKY_KEYS = [
   [/^core\.attributesfile$/i, "can point git at an attributes file that turns on filters"],
   [/^gpg\..*program$/i, "can run a program to check signatures"],
   [/^merge\..*\.driver$/i, "can run a program to merge files"],
+  [/^diff\.ignoresubmodules$/i, "can hide a changed gitlink from git status"],
+  [/^submodule\..*\.ignore$/i, "can hide a changed submodule from git status"],
   [/^include(if)?\./i, "pulls in more config that this check does not read"],
   [/^credential\./i, "can run a credential helper program"],
   [/^(uploadpack|receivepack)\./i, "can run a program when git serves a fetch or a push"],
 ];
 // Not on the list on purpose: core.hooksPath, core.editor, core.pager, alias.*, and url.*.insteadOf. Status never runs them,
 // and the -c switches above turn the hook path off anyway. Refusing them would turn away trees that are safe to look at.
-/** A message when the tree has submodules, else null. A submodule has its own config, which this tool does not read, so it refuses the tree. */
+/**
+ * A message when the tree has submodules or gitlinks, else null. A nested repository has its own config, which this tool does not
+ * read, and git status goes into it. So the tool refuses the tree when the index holds a gitlink (mode 160000), when there is a
+ * .gitmodules file, or when the git folder, the common git folder, or a linked worktree folder has a modules folder.
+ */
 function submodules(tree) {
   if (existsSync(join(tree, ".gitmodules"))) return "refused: this tree has a .gitmodules file, and the config of a submodule is not checked, so the tree can not be judged";
-  const dir = git(tree, "rev-parse", "--absolute-git-dir");
-  if (dir.status !== 0) return `refused: git could not find the git folder: ${dir.stderr.trim().split("\n")[0]}`;
-  if (existsSync(join(dir.stdout.trim(), "modules"))) return "refused: this tree has a .git/modules folder (a submodule), and the config of a submodule is not checked, so the tree can not be judged";
+  const staged = git(tree, "ls-files", "-s");
+  if (staged.status !== 0) return `refused: git could not list the index: ${staged.stderr.trim().split("\n")[0]}`;
+  if (staged.stdout.split("\n").some((line) => line.startsWith("160000 "))) return "refused: the index holds a gitlink (a nested repository recorded as a submodule), and its config is not checked, so the tree can not be judged";
+  const dirs = [];
+  for (const flag of ["--absolute-git-dir", "--path-format=absolute"]) {
+    const result = flag === "--absolute-git-dir" ? git(tree, "rev-parse", flag) : git(tree, "rev-parse", flag, "--git-common-dir");
+    if (result.status !== 0) return `refused: git could not find the git folder: ${result.stderr.trim().split("\n")[0]}`;
+    dirs.push(result.stdout.trim());
+  }
+  for (const dir of new Set(dirs)) {
+    if (existsSync(join(dir, "modules"))) return "refused: the git folder has a modules folder (a submodule), and its config is not checked, so the tree can not be judged";
+    try {
+      for (const name of readdirSync(join(dir, "worktrees"))) {
+        if (existsSync(join(dir, "worktrees", name, "modules"))) return "refused: a linked worktree has a modules folder (a submodule), and its config is not checked, so the tree can not be judged";
+      }
+    } catch {
+      // There is no worktrees folder.
+    }
+  }
   return null;
 }
 

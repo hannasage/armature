@@ -88,7 +88,8 @@ describe("3. redaction", () => {
     ["ya29.a0AfH6SMBabcdefghijklmnopqrstuvwxyz", /ya29\.a0/],
     ["AGE-SECRET-KEY-1ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", /AGE-SECRET-KEY-1ABC/],
     ["https://hooks.slack.com/services/T01234567/B01234567/abcdefghijklmnop", /T01234567|abcdefghij/],
-    ["pass: sw0rdfish", /sw0rdfish/],
+    ["--pass sw0rdfish", /sw0rdfish/],
+    ["passphrase: correct horse", /correct/],
     ["Authorization: ApiKey abc123 extra-part", /abc123|extra-part/],
     ["Authorization: Custom scheme value here", /scheme value here/],
   ];
@@ -103,7 +104,7 @@ describe("3. redaction", () => {
 
   it("keeps JSON valid after the new patterns", async () => {
     const { redact } = await lib("text.mjs");
-    const json = JSON.stringify({ "api-key": "k1", pass: "p1", AccountKey: "a1", url: "https://bob:s3cr/et@host.com/r.git", hook: "https://hooks.slack.com/services/T01234567/B01234567/abcdefghijklmnop", fine: "ok" });
+    const json = JSON.stringify({ "api-key": "k1", passphrase: "p1", AccountKey: "a1", url: "https://bob:s3cr/et@host.com/r.git", hook: "https://hooks.slack.com/services/T01234567/B01234567/abcdefghijklmnop", fine: "ok" });
     const out = redact(json);
     expect(() => JSON.parse(out)).not.toThrow();
     expect(JSON.parse(out).fine).toBe("ok");
@@ -163,7 +164,8 @@ describe("4. pr-open", () => {
 
   it("says a PR may exist only after gh started and failed, timed out, or printed no URL", () => {
     const { fake, run, base } = setup();
-    expect(run(base, { FAKE_GH_FAIL: "1" }).stdout).toContain("a PR may exist");
+    expect(run(base, { FAKE_GH_FAIL: "1" }).stdout).not.toContain("a PR may exist");
+    expect(run(base, { FAKE_GH_FAIL_URL: "1" }).stdout).toContain("a PR may exist");
     expect(run(base, { FAKE_GH_EMPTY: "1" }).stdout).toContain("a PR may exist");
     expect(run(base, { FAKE_GH_SLEEP_MS: "4000", RELEASE_TIMEOUT_MS: "400" }).stdout).toContain("a PR may exist");
     expect(fake.lines("gh").length).toBeGreaterThan(3);

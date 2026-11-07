@@ -161,7 +161,9 @@ if (args[0] === "api" && args[1] === "user") {
   process.exit(0);
 }
 if (knobs.FAKE_GH_FAIL) { console.error("gh: could not create the pull request"); process.exit(1); }
+if (knobs.FAKE_GH_FAIL_URL) { console.log("https://github.com/example/repo/pull/7"); console.error("gh: something failed after creating"); process.exit(1); }
 if (knobs.FAKE_GH_EMPTY) process.exit(0);
+if (knobs.FAKE_GH_BIGOUTPUT) { console.log("x".repeat(200000)); console.log("https://github.com/example/repo/pull/8"); process.exit(0); }
 console.log(knobs.FAKE_GH_OUTPUT ?? "https://github.com/example/repo/pull/1");
 `;
 

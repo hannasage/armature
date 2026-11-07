@@ -40,7 +40,7 @@ export function runCommand(spec) {
       env: spec.env,
       encoding: "utf8",
       input: spec.input,
-      maxBuffer: 256 * 1024 * 1024,
+      maxBuffer: spec.maxBuffer ?? 256 * 1024 * 1024,
       timeout: limit,
     });
     return {
@@ -50,12 +50,13 @@ export function runCommand(spec) {
       stderr: result.stderr ?? "",
       timedOut: result.error?.code === "ETIMEDOUT",
       error: result.error !== undefined && result.error.code !== "ETIMEDOUT" ? String(result.error.message) : null,
+      errorCode: result.error !== undefined && result.error.code !== "ETIMEDOUT" ? (result.error.code ?? null) : null,
     };
   }
   const outer = spawnSync(process.execPath, [HERE, "--runner"], {
     input: JSON.stringify(spec),
     encoding: "utf8",
-    maxBuffer: 512 * 1024 * 1024,
+    maxBuffer: spec.maxBuffer ?? 512 * 1024 * 1024,
     // The runner enforces the real limit. This one only stops a runner that is stuck.
     timeout: limit + 20000,
     env: {},
@@ -63,13 +64,13 @@ export function runCommand(spec) {
   try {
     return JSON.parse(outer.stdout);
   } catch {
-    return { status: null, signal: outer.signal, stdout: "", stderr: "", timedOut: outer.error?.code === "ETIMEDOUT", error: "the command runner failed" };
+    return { status: null, signal: outer.signal, stdout: "", stderr: "", timedOut: outer.error?.code === "ETIMEDOUT", error: "the command runner failed", errorCode: outer.error?.code ?? null };
   }
 }
 
 function runner() {
   const spec = JSON.parse(readFileSync(0, "utf8"));
-  const out = { status: null, signal: null, stdout: "", stderr: "", timedOut: false, error: null };
+  const out = { status: null, signal: null, stdout: "", stderr: "", timedOut: false, error: null, errorCode: null };
   let finished = false;
   const finish = () => {
     if (finished) return;
@@ -91,6 +92,7 @@ function runner() {
   };
   child.on("error", (error) => {
     out.error = String(error.message);
+    out.errorCode = error.code ?? null;
     finish();
   });
   child.stdout.setEncoding("utf8").on("data", (chunk) => (out.stdout += chunk));

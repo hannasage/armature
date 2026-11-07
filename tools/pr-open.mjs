@@ -27,7 +27,7 @@ const USAGE = [
   "Usage: node tools/pr-open.mjs --title <text> --body-file <file> --base <branch> [--dir <folder>] [--expect-identity <login>] [--dry-run] [--json]",
   "Opens a DRAFT pull request. The body is checked first. Exit codes: 0 opened, 1 the body, gh, or git failed, 2 wrong use.",
   "Note: --dir must name a folder in a git work tree. Git and gh read the configuration of that repository, so only use one you trust.",
-  "Note: gh gets the full environment on purpose, because it needs its own login (its config folder and any token it uses). The tool prints the gh identity before it creates anything (a warning if gh can not read it, as with a GitHub App token), and stops gh after 2 minutes. If gh pr create times out, a PR may exist, so check before retrying.",
+  "Note: gh gets the full environment on purpose, because it needs its own login (its config folder and any token it uses). The tool prints the gh identity before it creates anything (a warning only if gh answers 'Resource not accessible by integration', as it does for a GitHub App token), and stops gh after 2 minutes. If gh pr create times out, a PR may exist, so check before retrying.",
   "Note: --expect-identity can not pass with a GitHub App token, because the /user call gives 403 for such a token, and then the tool stops. Git and gh may also run the hooks of a hostile --dir, so only use a folder you trust.",
 ].join("\n");
 
@@ -107,7 +107,7 @@ export function main(argv, env = process.env) {
     }
     return 1;
   };
-  const describe = (result) => (result.timedOut ? `timed out after ${timeout} ms` : result.error !== null ? `could not start gh: ${result.error}` : failingLine(result.stdout, result.stderr));
+  const describe = (result) => (result.timedOut ? `timed out after ${timeout} ms` : result.error !== null ? (["ENOENT", "EACCES"].includes(result.errorCode) ? `could not start gh: ${result.error}` : `gh failed: ${result.error}`) : failingLine(result.stdout, result.stderr));
   const mayExist = "a PR may exist: check before retrying";
 
   // Say which account gh uses before anything is created. A GitHub App token can not read it (403), and that case is only a
@@ -119,7 +119,7 @@ export function main(argv, env = process.env) {
   const who = runCommand({ command: whoCommand, cwd: folder.path, env, timeout });
   let identity = null;
   if (who.timedOut || who.error !== null || who.status !== 0) {
-    const forbidden = !who.timedOut && who.error === null && /\bHTTP 403\b|Resource not accessible by integration/i.test(`${who.stderr}\n${who.stdout}`);
+    const forbidden = !who.timedOut && who.error === null && /Resource not accessible by integration/i.test(`${who.stderr}\n${who.stdout}`);
     if (expected !== undefined || !forbidden) return failure("gh-identity-failed", `could not read the gh identity: ${describe(who)}`, {}, "gh identity");
     warnings.push(`could not read the gh identity: ${describe(who)}`);
   } else {
@@ -134,10 +134,17 @@ export function main(argv, env = process.env) {
 
   // --draft is always in the command. No option turns it off.
   if (!json) console.log(`$ ${redact(show(command))}`);
-  const result = runCommand({ command, cwd: folder.path, env, timeout, input: text });
+  const maxBuffer = Number(env.RELEASE_MAX_BUFFER);
+  const result = runCommand({ command, cwd: folder.path, env, timeout, input: text, ...(Number.isInteger(maxBuffer) && maxBuffer > 0 ? { maxBuffer } : {}) });
   if (result.timedOut) return failure("gh-timeout", `${describe(result)}. ${mayExist}`, { identity });
-  if (result.error !== null) return failure("gh-not-started", describe(result), { identity });
-  if (result.status !== 0) return failure("gh-failed", `${describe(result)}. ${mayExist}`, { identity });
+  // gh never started: no PR can exist. Any other spawn error (for example output that is too large) happened after gh began.
+  if (result.error !== null && ["ENOENT", "EACCES"].includes(result.errorCode)) return failure("gh-not-started", describe(result), { identity });
+  if (result.error !== null) return failure("gh-failed", `${describe(result)}. ${mayExist}`, { identity });
+  if (result.status !== 0) {
+    // A clean failure before creation (not logged in, an auth error) leaves no PR. Only a failure whose output names a PR URL may have made one.
+    const named = /https:\/\/\S+\/pull\/\d+/.test(`${result.stdout}\n${result.stderr}`);
+    return failure("gh-failed", named ? `${describe(result)}. ${mayExist}` : describe(result), { identity });
+  }
   const url = redact(result.stdout.trim().split("\n").at(-1) ?? "");
   if (!/^https:\/\/\S+\/pull\/\d+$/.test(url)) return failure("no-url", `gh printed no pull request URL on its last line (it printed: ${url === "" ? "nothing" : url.slice(0, 100)}). ${mayExist}`, { identity });
   if (json) console.log(jsonLine({ ok: true, status: "pass", exit: 0, draft: true, command: show(command), url, identity, ...(warnings.length > 0 ? { warnings } : {}) }));

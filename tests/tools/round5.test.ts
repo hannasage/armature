@@ -176,9 +176,10 @@ describe("3. redaction", () => {
     for (const url of ["https://registry.example.com:8443/path", "http://127.0.0.1:9/", "see https://registry.example.com:8443/a/b@c for more"]) expect(redact(url)).toBe(url);
   });
 
-  it("leaves numeric and boolean values alone", async () => {
+  it("leaves boolean and null values alone, but redacts a number after a secret name", async () => {
     const { redact } = await lib("text.mjs");
-    for (const text of ["secret=true", "token: 5", "password=false", "api_key: 12", "token: null"]) expect(redact(text), text).toBe(text);
+    for (const text of ["secret=true", "password=false", "token: null"]) expect(redact(text), text).toBe(text);
+    for (const text of ["password=123456", "token: 5", "//reg/:_authToken=12345678", "api_key: 12"]) expect(redact(text), text).toContain("[redacted]");
   });
 
   it("keeps JSON valid when it redacts inside JSON text", async () => {
@@ -222,6 +223,12 @@ describe("4. pr-open identity", () => {
     expect(fake.lines("gh").some((line) => line.startsWith("pr create"))).toBe(false);
   });
 
+  it("downgrades only the integration error to a warning, not a bare HTTP 403 such as a rate limit", () => {
+    const { run, base } = setup();
+    expect(run(base, { FAKE_GH_API_FAIL: "HTTP 403: API rate limit exceeded" }).status).toBe(1);
+    expect(run(base, { FAKE_GH_API_FAIL: "HTTP 403: SAML enforcement" }).status).toBe(1);
+  });
+
   it("downgrades a 403 to a warning, but fails on another identity error", () => {
     const { fake, run, base } = setup();
     expect(run(base, { FAKE_GH_API_FAIL: "1" }).status).toBe(0);
@@ -237,9 +244,9 @@ describe("4. pr-open identity", () => {
     expect(run(base, { FAKE_GH_API_OUTPUT: "some_user" }).status).toBe(0);
   });
 
-  it("says a PR may exist when gh exits non-zero or prints no URL", () => {
+  it("says a PR may exist when gh prints no URL, or exits non-zero after it printed one", () => {
     const { run, base } = setup();
-    expect(run(base, { FAKE_GH_FAIL: "1" }).stdout).toContain("a PR may exist: check before retrying");
+    expect(run(base, { FAKE_GH_FAIL_URL: "1" }).stdout).toContain("a PR may exist: check before retrying");
     expect(run(base, { FAKE_GH_EMPTY: "1" }).stdout).toContain("a PR may exist: check before retrying");
   });
 
