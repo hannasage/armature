@@ -93,6 +93,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 - `npm test` runs the tests.
 - `npm run build` builds `dist`, checks the `"use client"` lines, and checks every subpath of the exports map.
 - `npm run check:pack` packs the package, installs the tarball into a clean project, and checks the files, the size, the imports, and the types. Run `npm run build` first.
+- `npm run release -- <status|preflight|gates|dry-run|publish|verify|tag|retire|claims>` runs one step of the release in `docs/releasing.md`. `publish` and `retire` only print commands for a person. Add `--json` for machine output.
+- `npm run gates`, `npm run pr-open -- --title ... --body-file ... --base ...`, and `npm run tree-clean -- <tree>` run the tools in `tools/`. `tools/manifest.json` lists them, and its `mcp_exposure` field says which ones a later MCP server may list (only the read-only ones that change nothing). `docs/workflow-audit.md` says why.
 
 ## Development
 

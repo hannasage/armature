@@ -18,7 +18,7 @@ export default defineConfig(
     },
   },
   {
-    files: ["scripts/**/*.mjs"],
+    files: ["scripts/**/*.mjs", "tools/**/*.mjs"],
     languageOptions: { globals: { console: "readonly" } },
   },
 );
