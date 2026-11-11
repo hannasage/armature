@@ -1,0 +1,43 @@
+{
+  "description": "Gzipped size cap in bytes for each package entry. Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. npm run check:size fails when an entry is over its cap or has no cap. A proposal is the figure in the amendment 1 spec, kept for comparison. The new entries below do not exist yet and are not checked.",
+  "measuredWith": "esbuild 0.28.2, bundle, minify, esm, React external, then gzip. See docs/baseline.md, section G0.",
+  "caps": {
+    "@hannasage/armature": {
+      "cap": 4000,
+      "measuredGzipped": 3632,
+      "proposal": "3.5 KB"
+    },
+    "@hannasage/armature/dom": {
+      "cap": 12170,
+      "measuredGzipped": 11058
+    },
+    "@hannasage/armature/react": {
+      "cap": 11780,
+      "measuredGzipped": 10706
+    },
+    "@hannasage/armature/glass": {
+      "cap": 8430,
+      "measuredGzipped": 7655
+    },
+    "@hannasage/armature/glass/react": {
+      "cap": 13710,
+      "measuredGzipped": 12461
+    },
+    "@hannasage/armature/styles.css": {
+      "cap": 830,
+      "measuredGzipped": 749
+    }
+  },
+  "proposedForNewEntries": {
+    "@hannasage/armature/frame": "1.0 KB",
+    "@hannasage/armature/values": "4.0 KB (path: about 1.5 KB, alone)",
+    "@hannasage/armature/curves": "1.5 KB",
+    "@hannasage/armature/linear": "1.0 KB",
+    "@hannasage/armature/gesture": "3.0 KB",
+    "@hannasage/armature/timeline": "4.0 KB",
+    "@hannasage/armature/layout": "4.0 KB",
+    "@hannasage/armature/css": "2.0 KB",
+    "@hannasage/armature/vue": "1.0 KB",
+    "@hannasage/armature/svelte": "1.0 KB"
+  }
+}

@@ -1,17 +1,32 @@
 {
   "name": "@hannasage/armature",
-  "version": "0.0.0",
+  "version": "1.0.0-beta.0",
   "description": "A physics motion engine for the web. One engine, many flavors.",
   "license": "MIT",
   "author": "Hanna Sage",
-  "private": true,
+  "keywords": [
+    "animation",
+    "motion",
+    "spring",
+    "physics",
+    "liquid-glass",
+    "react",
+    "esm",
+    "typescript"
+  ],
   "type": "module",
   "sideEffects": [
     "./dist/styles.css"
   ],
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "beta"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -39,7 +54,16 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
-    "build": "vite build && tsc -p tsconfig.build.json && node scripts/postbuild.mjs && node scripts/check-exports.mjs"
+    "build": "vite build && tsc -p tsconfig.build.json && node scripts/postbuild.mjs && node scripts/check-exports.mjs",
+    "check:pack": "node scripts/check-pack.mjs",
+    "release": "node scripts/release.mjs",
+    "gates": "node tools/gates.mjs",
+    "pr-open": "node tools/pr-open.mjs",
+    "tree-clean": "node tools/tree-clean.mjs",
+    "prepublishOnly": "npm run typecheck && npm run lint && npm test && npm run build && npm run check:pack",
+    "check:readme": "node scripts/check-readme.mjs",
+    "size": "node scripts/size.mjs",
+    "check:size": "node scripts/check-size.mjs"
   },
   "peerDependencies": {
     "react": ">=18"
@@ -55,6 +79,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.1",
+    "esbuild": "0.28.2",
     "eslint": "10.14.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",

@@ -5,9 +5,18 @@ It has one engine and many flavors.
 The engine holds the spring solver and the browser plumbing.
 A flavor is a named movement language. It sets the spring constants, the names of the attributes the engine reads, and the CSS variables the engine writes.
 
-Status: pre-release. Nothing is published. The package is private and the API can still change.
+Status: pre-release. It is published on the npm `beta` tag as 1.0.0-beta.0. The API can still change.
 
 The first flavor is liquid glass. It is in this package. The second flavor will live in Projection UI.
+
+## Install
+
+```bash
+npm install @hannasage/armature@beta
+```
+
+React is an optional peer. The engine and the DOM controllers need no React.
+Install React 18 or later only if you use the React entries.
 
 ## The five subpaths
 
@@ -74,6 +83,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 - `docs/glass-how-it-works.md` explains the numbers of the glass flavor: the spring, the displacement map, and the filter.
 - `docs/liquid-glass-readme.md` is the original guide to the glass package, from before the engine was split out. Its import paths are the old ones.
 - `docs/baseline.md` records the measurements taken at each milestone.
+- `docs/releasing.md` lists the steps to publish a prerelease.
+- `CHANGELOG.md` lists the changes in each version.
 
 ## Scripts
 
@@ -81,6 +92,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 - `npm run lint` runs ESLint.
 - `npm test` runs the tests.
 - `npm run build` builds `dist`, checks the `"use client"` lines, and checks every subpath of the exports map.
+- `npm run check:readme` fails when the README disagrees with `package.json` on the status, the version, the install command, or the subpaths.
+- `npm run size` prints the minified and gzipped size of every entry. `npm run check:size` fails when an entry is over its cap in `size-budget.json` or has no cap.
+- `npm run check:pack` packs the package, installs the tarball into a clean project, and checks the files, the size, the imports, and the types. Run `npm run build` first.
+- `npm run release -- <status|preflight|gates|dry-run|publish|verify|tag|retire|claims>` runs one step of the release in `docs/releasing.md`. `publish` and `retire` only print commands for a person. Add `--json` for machine output.
+- `npm run gates`, `npm run pr-open -- --title ... --body-file ... --base ...`, and `npm run tree-clean -- <tree>` run the tools in `tools/`. `tools/manifest.json` lists them, and its `mcp_exposure` field says which ones a later MCP server may list (only the read-only ones that change nothing). `docs/workflow-audit.md` says why.
+
+## Development
+
+Developing this package needs Node 22.12 or newer. That is the range Vitest 5.0.5 declares for its own use.
+It was read from the tool metadata and was not run on Node 22. The built package has no Node requirement, because it is browser code.
 
 ## License
 
