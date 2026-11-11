@@ -193,12 +193,12 @@ What the table shows:
 - The stylesheet is measured as CSS, minified by esbuild. Milestone 1 did not measure it.
 - The Milestone 1 figure for the engine, DOM, and glass entries together (15,976 gzipped) is not an entry. G0 does not repeat it.
 
-Caps are in `size-budget.json`. Each cap is the gzipped size above plus about 10 percent, rounded up to 10 bytes:
+Caps are in `size-budget.json`. Each cap is the gzipped size above plus 10 percent, rounded up to the next 10 bytes:
 
 - `@hannasage/armature`: 4,000.
 - `/dom`: 12,170.
 - `/react`: 11,780.
-- `/glass`: 8,420.
+- `/glass`: 8,430.
 - `/glass/react`: 13,710.
 - `/styles.css`: 830.
 

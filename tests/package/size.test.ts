@@ -1,4 +1,6 @@
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -10,14 +12,20 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 type Row = { key: string; source: string; minified: number; gzipped: number };
 const lib = (await import(pathToFileURL(join(root, "scripts/size-lib.mjs")).href)) as {
   entriesOf: (pkg: { name: string; exports: Record<string, unknown> }) => { key: string; source: string }[];
-  sourceFor: (value: unknown) => string;
+  sourceFor: (value: unknown, key?: string) => string;
+  measureEntry: (source: string, dir?: string) => Promise<{ minified: number; gzipped: number }>;
+  resolveOut: (arg: string | undefined, dir?: string) => string;
+  capFor: (gzipped: number) => number;
   measureAll: () => Promise<Row[]>;
   formatTable: (rows: Row[]) => string;
   checkBudget: (rows: Row[], budget: { caps?: Record<string, { cap: number }> }) => string[];
 };
 
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { name: string; exports: Record<string, unknown> };
-const budget = JSON.parse(readFileSync(join(root, "size-budget.json"), "utf8")) as { caps: Record<string, { cap: number }> };
+const budget = JSON.parse(readFileSync(join(root, "size-budget.json"), "utf8")) as {
+  caps: Record<string, { cap: number; measuredGzipped: number }>;
+  proposedForNewEntries: Record<string, string>;
+};
 
 const row = (key: string, gzipped: number): Row => ({ key, source: "src/x.ts", minified: gzipped * 3, gzipped });
 
@@ -48,6 +56,7 @@ describe("size measure", () => {
   it("keeps the spring-only entry free of glass code, so it is the smallest JavaScript entry", async () => {
     const js = (await lib.measureAll()).filter((r) => !r.key.endsWith(".css"));
     const engine = js.find((r) => r.key === pkg.name);
+    expect(js.length).toBeGreaterThan(1);
     expect(engine).toBeDefined();
     for (const r of js) expect(engine!.gzipped).toBeLessThanOrEqual(r.gzipped);
   });
@@ -87,5 +96,144 @@ describe("size budget", () => {
 
   it("holds one cap above the measured size for every real entry", async () => {
     expect(lib.checkBudget(await lib.measureAll(), budget)).toEqual([]);
+  });
+});
+
+describe("size entry safety", () => {
+  it("names the export key when a target is not a string or has no import", () => {
+    expect(() => lib.sourceFor(42, "./bad")).toThrow(/export "\.\/bad"/);
+    expect(() => lib.sourceFor({ types: "./dist/x.d.ts" }, "./bad")).toThrow(/export "\.\/bad".*import/);
+  });
+
+  it("fails a wildcard key with a clear message", () => {
+    expect(() => lib.entriesOf({ name: "p", exports: { "./*": { import: "./dist/*.js" } } })).toThrow(/wildcard/);
+  });
+
+  it("fails a target that leaves src", () => {
+    expect(() => lib.sourceFor({ import: "./dist/../../etc/passwd.js" }, "./x")).toThrow(/inside src/);
+    expect(() => lib.sourceFor({ import: "./other/index.js" }, "./x")).toThrow(/\.\/dist\//);
+  });
+
+  it("throws when the entry file is missing", async () => {
+    await expect(lib.measureEntry("src/does-not-exist.ts")).rejects.toThrow(/does not exist/);
+  });
+
+  it("throws when the entry builds to nothing", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "armature-size-"));
+    try {
+      cpSync(join(root, "tsconfig.json"), join(dir, "tsconfig.json"));
+      writeFileSync(join(dir, "empty.ts"), "");
+      await expect(lib.measureEntry("empty.ts", dir)).rejects.toThrow(/empty/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("throws when esbuild reports a warning", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "armature-size-"));
+    try {
+      writeFileSync(join(dir, "warn.ts"), "export const a = (x: unknown) => typeof x === 'null';\n");
+      await expect(lib.measureEntry("warn.ts", dir)).rejects.toThrow(/warning/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("size --out", () => {
+  it("fails with no value, or with a flag as the value", () => {
+    expect(() => lib.resolveOut(undefined)).toThrow(/--out needs a file path/);
+    expect(() => lib.resolveOut("--json")).toThrow(/--out needs a file path/);
+  });
+
+  it("fails for a path outside the repository", () => {
+    expect(() => lib.resolveOut("/etc/size.md")).toThrow(/inside the repository/);
+    expect(() => lib.resolveOut("../outside.md")).toThrow(/inside the repository/);
+  });
+
+  it("accepts a path inside the repository", () => {
+    expect(lib.resolveOut("size-table.md")).toBe(join(root, "size-table.md"));
+  });
+});
+
+describe("size budget file", () => {
+  it("follows the stated rule: measured plus 10 percent, rounded up to 10 bytes", () => {
+    expect(lib.capFor(7655)).toBe(8430);
+    for (const [name, entry] of Object.entries(budget.caps)) expect([name, entry.cap]).toEqual([name, lib.capFor(entry.measuredGzipped)]);
+  });
+
+  it("lists the caps in docs/baseline.md", () => {
+    const baseline = readFileSync(join(root, "docs/baseline.md"), "utf8");
+    for (const entry of Object.values(budget.caps)) expect(baseline).toContain(entry.cap.toLocaleString("en-US"));
+  });
+
+  it("keeps a proposal out of the real entries", () => {
+    const real = new Set(lib.entriesOf(pkg).map((entry) => entry.key));
+    for (const name of Object.keys(budget.proposedForNewEntries)) expect(real.has(name)).toBe(false);
+  });
+});
+
+describe("check scripts as programs", () => {
+  const copy = () => {
+    const dir = mkdtempSync(join(tmpdir(), "armature-check-"));
+    cpSync(join(root, "scripts"), join(dir, "scripts"), { recursive: true });
+    for (const file of ["package.json", "README.md", "size-budget.json"]) cpSync(join(root, file), join(dir, file));
+    symlinkSync(join(root, "node_modules"), join(dir, "node_modules"));
+    symlinkSync(join(root, "src"), join(dir, "src"));
+    return dir;
+  };
+  const run = (dir: string, script: string) => spawnSync(process.execPath, [join(dir, "scripts", script)], { encoding: "utf8" });
+
+  it("check-readme passes on a copy of the real files", () => {
+    const dir = copy();
+    try {
+      const result = run(dir, "check-readme.mjs");
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("README check passed");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("check-readme exits 1 and names the problem on a broken README", () => {
+    const dir = copy();
+    try {
+      writeFileSync(join(dir, "README.md"), readFileSync(join(dir, "README.md"), "utf8").replace("1.0.0-beta.0", "0.0.1"));
+      const result = run(dir, "check-readme.mjs");
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("README check failed");
+      expect(result.stderr).toContain("names the version 0.0.1");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("check-size passes on a copy of the real files", () => {
+    const dir = copy();
+    try {
+      const result = run(dir, "check-size.mjs");
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("Size check passed");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("check-size exits 1 and names the entry when a cap is too low or missing", () => {
+    const dir = copy();
+    try {
+      const file = join(dir, "size-budget.json");
+      const broken = JSON.parse(readFileSync(file, "utf8")) as { caps: Record<string, { cap: number }> };
+      broken.caps[pkg.name].cap = 1;
+      delete broken.caps[`${pkg.name}/dom`];
+      writeFileSync(file, JSON.stringify(broken));
+      const result = run(dir, "check-size.mjs");
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("Size check failed");
+      expect(result.stderr).toContain(`${pkg.name} is `);
+      expect(result.stderr).toContain(`${pkg.name}/dom has no cap`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

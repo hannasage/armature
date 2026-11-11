@@ -95,4 +95,63 @@ describe("README check", () => {
   it("fails when the status line is missing", () => {
     expect(rules.checkReadme(smallReadme.replace(/^Status:.*$/m, ""), small).join("\n")).toContain('exactly one line that starts with "Status:"');
   });
+
+  it("fails when a deleted bullet is still named in prose", () => {
+    const text = smallReadme.replace("- `@scope/thing/dom` is the DOM layer.\n", "").replace("# Thing", "# Thing\nUse `@scope/thing/dom` for the DOM.");
+    expect(rules.checkReadme(text, small).join("\n")).toContain("does not list the export ./dom");
+  });
+
+  it("does not count a name inside a fenced block or a URL as a listing", () => {
+    const text = smallReadme.replace("- `@scope/thing/dom` is the DOM layer.\n", "") + "\n```ts\nimport x from \"@scope/thing/dom\";\n```\nSee https://example.com/@scope/thing/dom";
+    expect(rules.checkReadme(text, small).join("\n")).toContain("does not list the export ./dom");
+  });
+
+  it("does not fail on a URL that holds the package path", () => {
+    const text = `${smallReadme}\nSee https://example.com/@scope/thing/extra for notes.`;
+    expect(rules.checkReadme(text, small)).toEqual([]);
+  });
+
+  it("fails when the subpaths heading is missing", () => {
+    const problems = rules.checkReadme(smallReadme.replace("## The two subpaths", "## Subpaths"), small);
+    expect(problems.join("\n")).toContain('needs a heading "## The <number> subpaths"');
+  });
+
+  it("fails when package.json has no exports, or an empty exports map", () => {
+    expect(rules.checkReadme(smallReadme, { ...small, exports: {} }).join("\n")).toContain("has no exports");
+    expect(rules.checkReadme(smallReadme, { ...small, exports: undefined as never }).join("\n")).toContain("has no exports");
+  });
+
+  it("matches the version on token boundaries", () => {
+    const problems = rules.checkReadme(smallReadme.replace("1.0.0-beta.0.", "1.0.0-beta.01."), small);
+    expect(problems.join("\n")).toContain("does not name the version 1.0.0-beta.0");
+  });
+
+  it("accepts the version at the end of a sentence", () => {
+    expect(rules.checkReadme(smallReadme, small)).toEqual([]);
+  });
+
+  it("escapes a tag that holds regular expression characters", () => {
+    const odd: Pkg = { ...small, publishConfig: { tag: "b.ta" } };
+    const text = smallReadme.replace("`beta`", "`bXta`").replace("thing@beta", "thing@b.ta");
+    expect(rules.checkReadme(text, odd).join("\n")).toContain("does not name the `b.ta` tag");
+  });
+
+  describe("for a stable version", () => {
+    const stable: Pkg = { name: "@scope/thing", version: "1.2.0", exports: small.exports };
+    const stableReadme = smallReadme.replace(/^Status:.*$/m, "Status: stable. It is published as 1.2.0.").replace("thing@beta", "thing");
+
+    it("passes on a matching pair", () => {
+      expect(rules.checkReadme(stableReadme, stable)).toEqual([]);
+      expect(rules.checkReadme(stableReadme.replace("thing\n", "thing@latest\n"), stable)).toEqual([]);
+    });
+
+    it("fails an install command with another dist-tag", () => {
+      expect(rules.checkReadme(stableReadme.replace("thing\n", "thing@beta\n"), stable).join("\n")).toContain("install command is @scope/thing@beta");
+    });
+
+    it("fails a status line that names the beta tag", () => {
+      const text = stableReadme.replace("published as", "published on the `beta` tag as");
+      expect(rules.checkReadme(text, stable).join("\n")).toContain("names the `beta` tag");
+    });
+  });
 });

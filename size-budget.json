@@ -1,5 +1,5 @@
 {
-  "description": "Gzipped size cap in bytes for each package entry. Each cap is the measured size plus about 10 percent. npm run check:size fails when an entry is over its cap or has no cap. A proposal is the figure in the amendment 1 spec, kept for comparison. The new entries below do not exist yet and are not checked.",
+  "description": "Gzipped size cap in bytes for each package entry. Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. npm run check:size fails when an entry is over its cap or has no cap. A proposal is the figure in the amendment 1 spec, kept for comparison. The new entries below do not exist yet and are not checked.",
   "measuredWith": "esbuild 0.28.2, bundle, minify, esm, React external, then gzip. See docs/baseline.md, section G0.",
   "caps": {
     "@hannasage/armature": {
@@ -16,7 +16,7 @@
       "measuredGzipped": 10706
     },
     "@hannasage/armature/glass": {
-      "cap": 8420,
+      "cap": 8430,
       "measuredGzipped": 7655
     },
     "@hannasage/armature/glass/react": {

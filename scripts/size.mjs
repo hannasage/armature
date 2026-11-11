@@ -1,17 +1,22 @@
 // Prints the size table of every package entry. Add `--json` for machine output.
-// Add `--out <file>` to write the table to a file as well.
+// Add `--out <file>` to write the same output to a file inside the repository.
 import { writeFileSync } from "node:fs";
 import process from "node:process";
-import { esbuildVersion, formatTable, measureAll } from "./size-lib.mjs";
+import { esbuildVersion, formatTable, measureAll, resolveOut } from "./size-lib.mjs";
 
 const args = process.argv.slice(2);
-const rows = await measureAll();
-const outIndex = args.indexOf("--out");
-const table = formatTable(rows);
-
-if (args.includes("--json")) {
-  console.log(JSON.stringify({ esbuild: esbuildVersion, entries: rows }, null, 2));
-} else {
-  console.log(`esbuild ${esbuildVersion}, bundle, minify, esm, React external, then gzip\n\n${table}`);
+let outFile = null;
+try {
+  const outIndex = args.indexOf("--out");
+  if (outIndex !== -1) outFile = resolveOut(args[outIndex + 1]);
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
 }
-if (outIndex !== -1 && args[outIndex + 1]) writeFileSync(args[outIndex + 1], `${table}\n`);
+
+const rows = await measureAll();
+const text = args.includes("--json")
+  ? JSON.stringify({ esbuild: esbuildVersion, entries: rows }, null, 2)
+  : `esbuild ${esbuildVersion}, bundle, minify, esm, React external, then gzip\n\n${formatTable(rows)}`;
+console.log(text);
+if (outFile) writeFileSync(outFile, `${text}\n`);
