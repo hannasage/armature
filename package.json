@@ -60,7 +60,10 @@
     "gates": "node tools/gates.mjs",
     "pr-open": "node tools/pr-open.mjs",
     "tree-clean": "node tools/tree-clean.mjs",
-    "prepublishOnly": "npm run typecheck && npm run lint && npm test && npm run build && npm run check:pack"
+    "prepublishOnly": "npm run typecheck && npm run lint && npm test && npm run build && npm run check:pack",
+    "check:readme": "node scripts/check-readme.mjs",
+    "size": "node scripts/size.mjs",
+    "check:size": "node scripts/check-size.mjs"
   },
   "peerDependencies": {
     "react": ">=18"
@@ -76,6 +79,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.1",
+    "esbuild": "0.28.2",
     "eslint": "10.14.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",

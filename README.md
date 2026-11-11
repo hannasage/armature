@@ -92,6 +92,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 - `npm run lint` runs ESLint.
 - `npm test` runs the tests.
 - `npm run build` builds `dist`, checks the `"use client"` lines, and checks every subpath of the exports map.
+- `npm run check:readme` fails when the README disagrees with `package.json` on the status, the version, the install command, or the subpaths.
+- `npm run size` prints the minified and gzipped size of every entry. `npm run check:size` fails when an entry is over its cap in `size-budget.json` or has no cap.
 - `npm run check:pack` packs the package, installs the tarball into a clean project, and checks the files, the size, the imports, and the types. Run `npm run build` first.
 - `npm run release -- <status|preflight|gates|dry-run|publish|verify|tag|retire|claims>` runs one step of the release in `docs/releasing.md`. `publish` and `retire` only print commands for a person. Add `--json` for machine output.
 - `npm run gates`, `npm run pr-open -- --title ... --body-file ... --base ...`, and `npm run tree-clean -- <tree>` run the tools in `tools/`. `tools/manifest.json` lists them, and its `mcp_exposure` field says which ones a later MCP server may list (only the read-only ones that change nothing). `docs/workflow-audit.md` says why.

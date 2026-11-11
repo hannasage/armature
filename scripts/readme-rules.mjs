@@ -1,0 +1,83 @@
+// The rules that `scripts/check-readme.mjs` applies. They are plain functions, so a test can run them on any text.
+// A rule fails when the README makes a claim that package.json does not back: the status, the version, the install
+// command, or the list of subpaths.
+
+const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+
+/** The prerelease tag a version carries, such as "beta" for 1.0.0-beta.0. Empty for a stable version. */
+function prereleaseId(version) {
+  const match = /^\d+\.\d+\.\d+-([0-9A-Za-z-]+)/.exec(version);
+  return match ? match[1] : "";
+}
+
+/** The npm tag that `npm install <name>@<tag>` needs. The publish tag wins, then the prerelease id. */
+export function expectedTag(pkg) {
+  return pkg.publishConfig?.tag ?? prereleaseId(pkg.version);
+}
+
+/** The package name plus a subpath key from the exports map, such as "./dom" -> "<name>/dom". */
+export function publicName(pkg, key) {
+  return key === "." ? pkg.name : `${pkg.name}/${key.slice(2)}`;
+}
+
+/** Every public name the README writes inside backticks: the package name, alone or with a subpath. */
+function mentionedNames(readme, pkg) {
+  const escaped = pkg.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const found = new Set();
+  for (const match of readme.matchAll(new RegExp(`${escaped}(?:/[A-Za-z0-9._/-]*[A-Za-z0-9])?`, "g"))) found.add(match[0]);
+  return found;
+}
+
+/** Return a list of problems. An empty list means the README agrees with package.json. */
+export function checkReadme(readme, pkg) {
+  const problems = [];
+  const statusLines = readme.split("\n").filter((line) => line.startsWith("Status:"));
+  const exportKeys = Object.keys(pkg.exports ?? {});
+
+  // Status and version.
+  if (statusLines.length !== 1) {
+    problems.push(`the README needs exactly one line that starts with "Status:" and it has ${statusLines.length}`);
+  } else {
+    const status = statusLines[0];
+    const tag = expectedTag(pkg);
+    if (pkg.private === true) {
+      if (!/\bprivate\b/i.test(status)) problems.push('package.json has "private": true, and the status line does not say the package is private');
+    } else {
+      if (/\bprivate\b/i.test(status) || /nothing is published/i.test(status)) {
+        problems.push('package.json is not private, and the status line says the package is private or unpublished');
+      }
+      if (!status.includes(pkg.version)) problems.push(`the status line does not name the version ${pkg.version}`);
+      if (tag && !new RegExp(`\`${tag}\``).test(status)) problems.push(`the status line does not name the \`${tag}\` tag`);
+    }
+    const stray = [...status.matchAll(/\b\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\b/g)].map((m) => m[0]).filter((v) => v !== pkg.version);
+    for (const version of stray) problems.push(`the status line names the version ${version}, and package.json has ${pkg.version}`);
+  }
+
+  // Install commands.
+  const installs = [...readme.matchAll(/^\s*npm (?:install|i|add) +(\S+)/gm)].map((m) => m[1]);
+  if (pkg.private !== true && installs.length === 0) problems.push("the README has no npm install command");
+  const tag = expectedTag(pkg);
+  for (const target of installs) {
+    const atVersion = target.startsWith("@") ? target.indexOf("@", 1) : target.indexOf("@");
+    const name = atVersion === -1 ? target : target.slice(0, atVersion);
+    const spec = atVersion === -1 ? "" : target.slice(atVersion + 1);
+    if (name !== pkg.name) problems.push(`the install command names ${name}, and package.json has ${pkg.name}`);
+    else if (tag && spec !== tag && spec !== pkg.version) problems.push(`the install command is ${target}, and it needs @${tag} because the version is ${pkg.version}`);
+  }
+
+  // Subpaths.
+  const jsKeys = exportKeys.filter((key) => !key.endsWith(".css"));
+  const mentioned = mentionedNames(readme, pkg);
+  for (const key of exportKeys) {
+    if (!mentioned.has(publicName(pkg, key))) problems.push(`the README does not list the export ${key}`);
+  }
+  const known = new Set(exportKeys.map((key) => publicName(pkg, key)));
+  for (const name of mentioned) {
+    if (!known.has(name)) problems.push(`the README names ${name}, and package.json does not export it`);
+  }
+  const heading = /^## The (\w+) subpaths$/m.exec(readme);
+  if (heading && NUMBER_WORDS.indexOf(heading[1].toLowerCase()) !== jsKeys.length) {
+    problems.push(`the README heading says "${heading[1]}" subpaths, and package.json has ${jsKeys.length} JavaScript entries`);
+  }
+  return problems;
+}

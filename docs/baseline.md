@@ -167,3 +167,39 @@ The sourcemaps carry the full source text. They are a little over half of the un
 Date: 2026-11-06 (UTC).
 `1.0.0-beta.0` has the same package contents as `1.0.0-next.0`. `npm run check:pack` passes on it with the same 122 files and the same limit of 205,939 bytes.
 The tarball measured 137,494 bytes and 477,306 bytes unpacked, with `npm pack --json --dry-run`. That is 201 bytes more than the first prerelease. The extra bytes come from the new version string and the changed README text.
+
+## G0
+
+Date: 2026-11-11 (UTC).
+Source: commit `679bf07`, which is the published 1.0.0 state. The G0 scripts change no file under `src`.
+Tool: esbuild 0.28.2, now an exact dev dependency. The same version measured Milestone 1.
+Method: `node scripts/size.mjs`. It runs esbuild with `bundle`, `minify`, and the `esm` format on the source file of each entry, then gzips the output. React is external. Each entry is measured alone, with every file it imports.
+The measure ran in Node 24.21.0.
+
+| Entry | Source | Minified (bytes) | Gzipped (bytes) |
+| --- | --- | ---: | ---: |
+| `@hannasage/armature` | `src/index.ts` | 10,001 | 3,632 |
+| `@hannasage/armature/dom` | `src/dom/index.ts` | 30,033 | 11,058 |
+| `@hannasage/armature/react` | `src/react/index.ts` | 28,860 | 10,706 |
+| `@hannasage/armature/glass` | `src/glass/index.ts` | 19,821 | 7,655 |
+| `@hannasage/armature/glass/react` | `src/glass/react/index.ts` | 33,750 | 12,461 |
+| `@hannasage/armature/styles.css` | `src/glass/styles.css` | 2,437 | 749 |
+
+What the table shows:
+
+- `/dom` and `/react` alone were never measured before. Their numbers are above. Each one includes the engine code it imports, so a user of `/dom` pays 11,058 bytes gzipped and a user of `/react` pays 10,706. The two are not additive.
+- The engine entry grew from 2,910 gzipped at Milestone 1 to 3,632. The source changed after Milestone 1 (the follower and the Projection flavor in Milestone 2). This amendment did not trace which file adds the 722 bytes.
+- The glass entry grew from 7,014 gzipped at Milestone 1 to 7,655.
+- The stylesheet is measured as CSS, minified by esbuild. Milestone 1 did not measure it.
+- The Milestone 1 figure for the engine, DOM, and glass entries together (15,976 gzipped) is not an entry. G0 does not repeat it.
+
+Caps are in `size-budget.json`. Each cap is the gzipped size above plus about 10 percent, rounded up to 10 bytes:
+
+- `@hannasage/armature`: 4,000.
+- `/dom`: 12,170.
+- `/react`: 11,780.
+- `/glass`: 8,420.
+- `/glass/react`: 13,710.
+- `/styles.css`: 830.
+
+`npm run check:size` fails when an entry is over its cap or has no cap. `npm run check:readme` fails when the README disagrees with `package.json` on the status, the version, the install command, or the list of subpaths. CI runs both.
