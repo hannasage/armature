@@ -4,6 +4,9 @@
 
 const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
 
+// Words that look like a dist-tag and are not one.
+const NOT_TAGS = new Set(["latest", "npm", "npx", "node"]);
+
 const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** The prerelease tag a version carries, such as "beta" for 1.0.0-beta.0. Empty for a stable version. */
@@ -17,9 +20,15 @@ export function isStable(pkg) {
   return prereleaseId(pkg.version) === "";
 }
 
-/** The npm tag that `npm install <name>@<tag>` needs. A stable version needs none. The publish tag wins, then the prerelease id. */
+/**
+ * The npm tag that `npm install <name>@<tag>` needs. A publish tag other than "latest" wins for any version.
+ * With no tag, or the tag "latest", a stable version needs none, and a prerelease needs the tag or its prerelease id.
+ */
 export function expectedTag(pkg) {
-  return isStable(pkg) ? "" : (pkg.publishConfig?.tag ?? prereleaseId(pkg.version));
+  const publishTag = pkg.publishConfig?.tag;
+  if (publishTag && publishTag !== "latest") return publishTag;
+  if (isStable(pkg)) return "";
+  return publishTag ?? prereleaseId(pkg.version);
 }
 
 /** The package name plus a subpath key from the exports map, such as "./dom" -> "<name>/dom". */
@@ -72,9 +81,9 @@ export function checkReadme(readme, pkg) {
         problems.push(`the status line does not name the version ${pkg.version}`);
       }
       if (tag && tag !== "latest" && !new RegExp(`\`${escapeRegExp(tag)}\``).test(status)) problems.push(`the status line does not name the \`${tag}\` tag`);
-      if (isStable(pkg)) {
+      if (isStable(pkg) && !tag) {
         for (const match of status.matchAll(/`([^`]+)`/g)) {
-          if (match[1] !== "latest" && match[1] !== pkg.version) problems.push(`the version ${pkg.version} is stable, and the status line names the \`${match[1]}\` tag`);
+          if (/^[a-z][a-z0-9-]*$/.test(match[1]) && !NOT_TAGS.has(match[1])) problems.push(`the version ${pkg.version} is stable, and the status line names the \`${match[1]}\` tag`);
         }
       }
     }

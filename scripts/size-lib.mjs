@@ -57,11 +57,17 @@ export function resolveOut(arg, dir = root) {
   const parent = dirname(target);
   if (!existsSync(parent)) throw new Error(`the directory of --out ${arg} does not exist`);
   let final = join(realpathSync(parent), basename(target));
-  if (existsSync(target) || lstatExists(target)) final = realpathSync(target);
+  if (existsSync(target)) final = realpathSync(target);
+  else if (lstatExists(target)) throw new Error("the --out path is a broken symlink");
   if (!final.startsWith(`${rootReal}${sep}`)) throw new Error(`--out must name a file inside the repository, and ${arg} is outside it`);
   const relativePath = final.slice(rootReal.length + 1);
-  const tracked = spawnSync("git", ["-c", `safe.directory=${rootReal}`, "ls-files", "--error-unmatch", "--", relativePath], { cwd: rootReal, stdio: "ignore" }).status === 0;
-  if (PROTECTED.has(relativePath) || tracked) throw new Error(`--out ${arg} would overwrite a tracked file`);
+  // Fail closed: exit 0 is tracked, exit 1 is untracked, and anything else (no git, not a repository) is an error.
+  const git = spawnSync("git", ["-c", `safe.directory=${rootReal}`, "ls-files", "--error-unmatch", "--", relativePath], { cwd: rootReal, stdio: "ignore" });
+  if (git.error || (git.status !== 0 && git.status !== 1)) {
+    const reason = git.error ? git.error.message : `exited with ${git.status}`;
+    throw new Error(`cannot tell whether ${arg} is tracked: git ${reason}`);
+  }
+  if (PROTECTED.has(relativePath) || git.status === 0) throw new Error(`--out ${arg} would overwrite a tracked file`);
   return final;
 }
 

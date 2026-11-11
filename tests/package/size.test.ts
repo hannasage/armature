@@ -167,6 +167,25 @@ describe("size --out", () => {
     expect(() => lib.resolveOut("no-such-dir/x.md")).toThrow(/does not exist/);
   });
 
+  it("fails closed when the directory is not a git repository", () => {
+    const dir = mkdtempSync(join(tmpdir(), "armature-out-plain-"));
+    try {
+      expect(() => lib.resolveOut("x.md", dir)).toThrow(/cannot tell whether x\.md is tracked/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a broken symlink as the output", () => {
+    const repo = mkdtempSync(join(tmpdir(), "armature-out-repo-"));
+    try {
+      symlinkSync(join(repo, "missing.md"), join(repo, "dead.md"));
+      expect(() => lib.resolveOut("dead.md", repo)).toThrow(/the --out path is a broken symlink/);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   it("refuses a path through a symlink that leaves the repository", () => {
     const repo = mkdtempSync(join(tmpdir(), "armature-out-repo-"));
     const outside = mkdtempSync(join(tmpdir(), "armature-out-outside-"));
@@ -219,6 +238,9 @@ describe("check scripts as programs", () => {
     for (const file of ["package.json", "README.md", "size-budget.json"]) cpSync(join(root, file), join(dir, file));
     symlinkSync(join(root, "node_modules"), join(dir, "node_modules"));
     symlinkSync(join(root, "src"), join(dir, "src"));
+    // The --out check asks git whether a file is tracked, so the copy is a real repository.
+    spawnSync("git", ["init", "-q"], { cwd: dir });
+    spawnSync("git", ["add", "package.json", "README.md", "size-budget.json", "scripts"], { cwd: dir });
     return dir;
   };
   const run = (dir: string, script: string) => spawnSync(process.execPath, [join(dir, "scripts", script)], { encoding: "utf8" });
@@ -311,6 +333,18 @@ describe("check scripts as programs", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
       rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("size.mjs fails closed when git is not on the PATH", () => {
+    const dir = copy();
+    try {
+      const result = spawnSync(process.execPath, [join(dir, "scripts", "size.mjs"), "--out", "table.json"], { encoding: "utf8", env: { PATH: "" } });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("cannot tell whether table.json is tracked");
+      expect(result.stdout).toBe("");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });

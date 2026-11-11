@@ -157,6 +157,11 @@ describe("README check", () => {
       expect(rules.checkReadme(stableReadme.replace("published as", "published on the `latest` tag as"), stable)).toEqual([]);
     });
 
+    it("does not flag npm or the package name in backticks", () => {
+      const text = stableReadme.replace("Status: stable.", "Status: stable. Install it with `npm` from `@scope/thing`.");
+      expect(rules.checkReadme(text, stable)).toEqual([]);
+    });
+
     it("fails a status line that names the beta tag", () => {
       const text = stableReadme.replace("published as", "published on the `beta` tag as");
       expect(rules.checkReadme(text, stable).join("\n")).toContain("names the `beta` tag");
@@ -192,6 +197,19 @@ describe("README check", () => {
     it("does not take a subpaths heading from inside a fence", () => {
       const text = smallReadme.replace("## The two subpaths", "```md\n## The two subpaths\n```\n## Other");
       expect(rules.checkReadme(text, small).join("\n")).toContain('needs a heading "## The <number> subpaths"');
+    });
+  });
+
+  describe("for a stable version with a publish tag", () => {
+    const next: Pkg = { name: "@scope/thing", version: "1.2.0", publishConfig: { tag: "next" }, exports: small.exports };
+    const nextReadme = smallReadme.replace(/^Status:.*$/m, "Status: stable. It is published on the `next` tag as 1.2.0.").replace("thing@beta", "thing@next");
+
+    it("passes when the install line and the status name the tag", () => {
+      expect(rules.checkReadme(nextReadme, next)).toEqual([]);
+    });
+
+    it("expects @next in the install line and fails without it", () => {
+      expect(rules.checkReadme(nextReadme.replace("thing@next", "thing"), next).join("\n")).toContain("needs @next");
     });
   });
 });
