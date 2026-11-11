@@ -154,6 +154,33 @@ describe("size --out", () => {
   it("accepts a path inside the repository", () => {
     expect(lib.resolveOut("size-table.md")).toBe(join(root, "size-table.md"));
   });
+
+  it("refuses a file type other than .md or .json", () => {
+    expect(() => lib.resolveOut("size.mjs")).toThrow(/\.md or \.json/);
+  });
+
+  it("refuses a tracked file, by name and by git", () => {
+    for (const name of ["package.json", "README.md", "size-budget.json", "docs/baseline.md"]) expect(() => lib.resolveOut(name)).toThrow(/overwrite/);
+  });
+
+  it("refuses a missing directory", () => {
+    expect(() => lib.resolveOut("no-such-dir/x.md")).toThrow(/does not exist/);
+  });
+
+  it("refuses a path through a symlink that leaves the repository", () => {
+    const repo = mkdtempSync(join(tmpdir(), "armature-out-repo-"));
+    const outside = mkdtempSync(join(tmpdir(), "armature-out-outside-"));
+    try {
+      symlinkSync(outside, join(repo, "link"));
+      expect(() => lib.resolveOut("link/x.md", repo)).toThrow(/inside the repository/);
+      writeFileSync(join(outside, "o.md"), "x");
+      symlinkSync(join(outside, "o.md"), join(repo, "f.md"));
+      expect(() => lib.resolveOut("f.md", repo)).toThrow(/inside the repository/);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("size budget file", () => {
@@ -162,9 +189,21 @@ describe("size budget file", () => {
     for (const [name, entry] of Object.entries(budget.caps)) expect([name, entry.cap]).toEqual([name, lib.capFor(entry.measuredGzipped)]);
   });
 
-  it("lists the caps in docs/baseline.md", () => {
-    const baseline = readFileSync(join(root, "docs/baseline.md"), "utf8");
-    for (const entry of Object.values(budget.caps)) expect(baseline).toContain(entry.cap.toLocaleString("en-US"));
+  const baselineLines = readFileSync(join(root, "docs/baseline.md"), "utf8").split("\n");
+  const label = (key: string) => (key === pkg.name ? `\`${key}\`` : `\`${key.slice(pkg.name.length)}\``);
+  const fmt = (n: number) => n.toLocaleString("en-US");
+
+  it("lists each cap as its own bullet in docs/baseline.md", () => {
+    for (const [key, entry] of Object.entries(budget.caps)) expect(baselineLines).toContain(`- ${label(key)}: ${fmt(entry.cap)}.`);
+  });
+
+  it("matches measuredGzipped to the gzipped column of the docs/baseline.md table row of each entry", () => {
+    for (const [key, entry] of Object.entries(budget.caps)) {
+      const row = baselineLines.find((line) => line.startsWith(`| \`${key}\` |`));
+      expect(row, key).toBeDefined();
+      const cells = row!.split("|").map((cell) => cell.trim());
+      expect([key, cells[cells.length - 2]]).toEqual([key, fmt(entry.measuredGzipped)]);
+    }
   });
 
   it("keeps a proposal out of the real entries", () => {
@@ -234,6 +273,44 @@ describe("check scripts as programs", () => {
       expect(result.stderr).toContain(`${pkg.name}/dom has no cap`);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("size.mjs --json --out writes valid JSON with every entry", () => {
+    const dir = copy();
+    try {
+      const result = spawnSync(process.execPath, [join(dir, "scripts", "size.mjs"), "--json", "--out", "table.json"], { encoding: "utf8" });
+      expect(result.status).toBe(0);
+      const written = JSON.parse(readFileSync(join(dir, "table.json"), "utf8")) as { esbuild: string; entries: { key: string }[] };
+      expect(written.entries.map((e) => e.key)).toEqual(lib.entriesOf(pkg).map((e) => e.key));
+      expect(written.esbuild).toMatch(/^\d+\.\d+\.\d+$/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("size.mjs exits 1 on a bare --out", () => {
+    const dir = copy();
+    try {
+      const result = spawnSync(process.execPath, [join(dir, "scripts", "size.mjs"), "--out"], { encoding: "utf8" });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("--out needs a file path");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("size.mjs exits 1 on an --out outside the repository, before it measures anything", () => {
+    const dir = copy();
+    const outside = mkdtempSync(join(tmpdir(), "armature-out-outside-"));
+    try {
+      const result = spawnSync(process.execPath, [join(dir, "scripts", "size.mjs"), "--out", join(outside, "x.md")], { encoding: "utf8" });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("inside the repository");
+      expect(result.stdout).toBe("");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
     }
   });
 });

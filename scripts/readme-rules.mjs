@@ -12,10 +12,14 @@ function prereleaseId(version) {
   return match ? match[1] : "";
 }
 
-/** The npm tag that `npm install <name>@<tag>` needs. The publish tag wins, then the prerelease id. A stable version needs none. */
+/** A stable version has no prerelease id. */
+export function isStable(pkg) {
+  return prereleaseId(pkg.version) === "";
+}
+
+/** The npm tag that `npm install <name>@<tag>` needs. A stable version needs none. The publish tag wins, then the prerelease id. */
 export function expectedTag(pkg) {
-  const tag = pkg.publishConfig?.tag ?? prereleaseId(pkg.version);
-  return tag === "latest" ? "" : tag;
+  return isStable(pkg) ? "" : (pkg.publishConfig?.tag ?? prereleaseId(pkg.version));
 }
 
 /** The package name plus a subpath key from the exports map, such as "./dom" -> "<name>/dom". */
@@ -25,7 +29,7 @@ export function publicName(pkg, key) {
 
 /** The text without fenced code blocks. */
 function withoutFences(text) {
-  return text.replace(/^(```|~~~)[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, "");
+  return text.replace(/^ {0,3}(```|~~~)[^\n]*\n[\s\S]*?^ {0,3}\1[^\n]*$/gm, "");
 }
 
 /** The inline-code spans of a text that are exactly a public name: the package name, alone or with a subpath. */
@@ -35,7 +39,8 @@ function nameSpans(text, pkg) {
 }
 
 /** The text between the "## The N subpaths" heading and the next "##" heading, or null when there is no heading. */
-function subpathSection(readme) {
+function subpathSection(source) {
+  const readme = withoutFences(source);
   const heading = /^## The (\w+) subpaths$/m.exec(readme);
   if (!heading) return null;
   const rest = readme.slice(heading.index + heading[0].length);
@@ -66,10 +71,11 @@ export function checkReadme(readme, pkg) {
       if (!new RegExp(`(?<![0-9A-Za-z.-])${escapeRegExp(pkg.version)}(?!\\.?[0-9A-Za-z-])`).test(status)) {
         problems.push(`the status line does not name the version ${pkg.version}`);
       }
-      if (tag && !new RegExp(`\`${escapeRegExp(tag)}\``).test(status)) problems.push(`the status line does not name the \`${tag}\` tag`);
-      if (!tag) {
-        const named = /`(beta|next|alpha|rc|canary)`/.exec(status);
-        if (named) problems.push(`the version ${pkg.version} is stable, and the status line names the \`${named[1]}\` tag`);
+      if (tag && tag !== "latest" && !new RegExp(`\`${escapeRegExp(tag)}\``).test(status)) problems.push(`the status line does not name the \`${tag}\` tag`);
+      if (isStable(pkg)) {
+        for (const match of status.matchAll(/`([^`]+)`/g)) {
+          if (match[1] !== "latest" && match[1] !== pkg.version) problems.push(`the version ${pkg.version} is stable, and the status line names the \`${match[1]}\` tag`);
+        }
       }
     }
     const stray = [...status.matchAll(/\b\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\b/g)].map((m) => m[0]).filter((v) => v !== pkg.version);
@@ -84,7 +90,8 @@ export function checkReadme(readme, pkg) {
     const name = atVersion === -1 ? target : target.slice(0, atVersion);
     const spec = atVersion === -1 ? "" : target.slice(atVersion + 1);
     if (name !== pkg.name) problems.push(`the install command names ${name}, and package.json has ${pkg.name}`);
-    else if (tag && spec !== tag && spec !== pkg.version) problems.push(`the install command is ${target}, and it needs @${tag} because the version is ${pkg.version}`);
+    else if (tag === "latest" && spec !== "" && spec !== "latest" && spec !== pkg.version) problems.push(`the install command is ${target}, and the publish tag is latest, so it needs no tag`);
+    else if (tag && tag !== "latest" && spec !== tag && spec !== pkg.version) problems.push(`the install command is ${target}, and it needs @${tag} because the version is ${pkg.version}`);
     else if (!tag && spec !== "" && spec !== "latest" && spec !== pkg.version) problems.push(`the install command is ${target}, and the version ${pkg.version} is stable, so it needs no tag`);
   }
 

@@ -149,9 +149,49 @@ describe("README check", () => {
       expect(rules.checkReadme(stableReadme.replace("thing\n", "thing@beta\n"), stable).join("\n")).toContain("install command is @scope/thing@beta");
     });
 
+    it("fails a status line that names any dist-tag other than latest", () => {
+      for (const tag of ["beta", "canary", "experimental"]) {
+        const text = stableReadme.replace("published as", `published on the \`${tag}\` tag as`);
+        expect(rules.checkReadme(text, stable).join("\n")).toContain(`names the \`${tag}\` tag`);
+      }
+      expect(rules.checkReadme(stableReadme.replace("published as", "published on the `latest` tag as"), stable)).toEqual([]);
+    });
+
     it("fails a status line that names the beta tag", () => {
       const text = stableReadme.replace("published as", "published on the `beta` tag as");
       expect(rules.checkReadme(text, stable).join("\n")).toContain("names the `beta` tag");
+    });
+  });
+
+  describe("for a prerelease version published on latest", () => {
+    const odd: Pkg = { ...small, publishConfig: { tag: "latest" } };
+    const oddReadme = smallReadme.replace("npm install @scope/thing@beta", "npm install @scope/thing").replace("on the npm `beta` tag", "on the npm `latest` tag");
+
+    it("passes when the status names the version and the install has no tag", () => {
+      expect(rules.checkReadme(oddReadme, odd)).toEqual([]);
+    });
+
+    it("does not tell the reader to install the @latest tag as if it were a prerelease tag", () => {
+      const problems = rules.checkReadme(oddReadme.replace("thing\n", "thing@beta\n"), odd).join("\n");
+      expect(problems).toContain("install command is @scope/thing@beta");
+      expect(problems).toContain("needs no tag");
+    });
+  });
+
+  describe("fenced code", () => {
+    it("strips a fence that is indented up to three spaces", () => {
+      const text = smallReadme.replace("- `@scope/thing/dom` is the DOM layer.\n", "  ```ts\n  - `@scope/thing/dom` is the DOM layer.\n  ```\n");
+      expect(rules.checkReadme(text, small).join("\n")).toContain("does not list the export ./dom");
+    });
+
+    it("does not end the subpaths section at a ## line inside a fence", () => {
+      const text = smallReadme.replace("- `@scope/thing` is the engine.\n", "- `@scope/thing` is the engine.\n```md\n## Example\n```\n");
+      expect(rules.checkReadme(text, small)).toEqual([]);
+    });
+
+    it("does not take a subpaths heading from inside a fence", () => {
+      const text = smallReadme.replace("## The two subpaths", "```md\n## The two subpaths\n```\n## Other");
+      expect(rules.checkReadme(text, small).join("\n")).toContain('needs a heading "## The <number> subpaths"');
     });
   });
 });

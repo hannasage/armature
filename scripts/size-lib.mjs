@@ -1,7 +1,8 @@
 // Measures every package entry the way docs/baseline.md did: esbuild with bundle, minify, and the esm format,
 // then gzip. React stays external. Each entry is measured alone, with the files it imports.
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve, sep } from "node:path";
+import { spawnSync } from "node:child_process";
+import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Buffer } from "node:buffer";
 import { gzipSync } from "node:zlib";
@@ -42,12 +43,35 @@ export function capFor(gzipped) {
   return Math.ceil(Math.ceil((gzipped * 11) / 10) / 10) * 10;
 }
 
-/** Check the --out argument of the size script. It must name a file inside the repository. */
+const PROTECTED = new Set(["package.json", "package-lock.json", "size-budget.json", "README.md", "CHANGELOG.md", "LICENSE"]);
+
+/**
+ * Check the --out argument of the size script. The output is a .md or .json file inside the repository.
+ * The check follows symlinks, so a link that leaves the repository is refused. A tracked file is never overwritten.
+ */
 export function resolveOut(arg, dir = root) {
   if (arg === undefined || arg === "" || arg.startsWith("--")) throw new Error("--out needs a file path");
+  if (!/\.(md|json)$/.test(arg)) throw new Error("--out must name a .md or .json file");
+  const rootReal = realpathSync(dir);
   const target = resolve(dir, arg);
-  if (!target.startsWith(`${resolve(dir)}${sep}`)) throw new Error(`--out must name a file inside the repository, and ${arg} is outside it`);
-  return target;
+  const parent = dirname(target);
+  if (!existsSync(parent)) throw new Error(`the directory of --out ${arg} does not exist`);
+  let final = join(realpathSync(parent), basename(target));
+  if (existsSync(target) || lstatExists(target)) final = realpathSync(target);
+  if (!final.startsWith(`${rootReal}${sep}`)) throw new Error(`--out must name a file inside the repository, and ${arg} is outside it`);
+  const relativePath = final.slice(rootReal.length + 1);
+  const tracked = spawnSync("git", ["-c", `safe.directory=${rootReal}`, "ls-files", "--error-unmatch", "--", relativePath], { cwd: rootReal, stdio: "ignore" }).status === 0;
+  if (PROTECTED.has(relativePath) || tracked) throw new Error(`--out ${arg} would overwrite a tracked file`);
+  return final;
+}
+
+function lstatExists(path) {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Measure one source file. Returns the minified and the gzipped size in bytes. */
