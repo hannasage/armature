@@ -144,8 +144,8 @@ describe("toEasing flags", () => {
   });
 
   it("checks maxError on the linear() path too", () => {
-    expect(() => toEasing(bouncy, { supports: yes, maxError: 0.0005 })).not.toThrow();
-    expect(() => toEasing(bouncy, { supports: yes, maxError: 0.0001 })).toThrow(RangeError);
+    expect(() => toEasing(bouncy, { supports: yes, tolerance: 0.0005, maxError: 0.0005 })).not.toThrow();
+    expect(() => toEasing(bouncy, { supports: yes, tolerance: 0.0005, maxError: 0.00001 })).toThrow(RangeError);
   });
 
   it("throws a RangeError for a maxError that is not a finite number of 0 or more", () => {

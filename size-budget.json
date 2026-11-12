@@ -1,5 +1,5 @@
 {
-  "description": "Gzipped size cap in bytes for each package entry. Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. npm run check:size fails when an entry is over its cap or has no cap. A proposal is the figure in the amendment 1 spec, kept for comparison. The measuredGzipped value of each row is the size its cap was derived from: the G0 baseline for the entries that existed at G0, the G1 measure after review round 1 for /frame and /values, and the G2 measure for /curves and /linear. The sizes are in docs/baseline.md, sections G1 build and G2 build. The entries under proposedForNewEntries do not exist yet and are not checked.",
+  "description": "Gzipped size cap in bytes for each package entry. Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. npm run check:size fails when an entry is over its cap or has no cap. A proposal is the figure in the amendment 1 spec, kept for comparison. The measuredGzipped value of each row is the size its cap was derived from: the G0 baseline for the entries that existed at G0, the G1 measure after review round 1 for /frame and /values, and the G2 measure for /curves and /linear. The sizes are in docs/baseline.md, sections G1 build and G2 build. The entries under proposedForNewEntries do not exist yet and are not checked. The caps of /curves, /linear and /react carry an approval note. The /react cap was re-derived from its G2 measure of 11,494 by the same rule, and no trim was made.",
   "measuredWith": "esbuild 0.28.2, bundle, minify, esm, React external, then gzip. See docs/baseline.md, sections G0 and G1 build.",
   "caps": {
     "@hannasage/armature": {
@@ -12,8 +12,9 @@
       "measuredGzipped": 11058
     },
     "@hannasage/armature/react": {
-      "cap": 11780,
-      "measuredGzipped": 10706
+      "cap": 12650,
+      "measuredGzipped": 11494,
+      "approval": "approved by the maintainer, 2026-11-12"
     },
     "@hannasage/armature/glass": {
       "cap": 8430,
@@ -40,12 +41,14 @@
     "@hannasage/armature/curves": {
       "cap": 2500,
       "measuredGzipped": 2270,
-      "proposal": "1.5 KB"
+      "proposal": "1.5 KB",
+      "approval": "approved by the maintainer, 2026-11-12"
     },
     "@hannasage/armature/linear": {
       "cap": 3300,
       "measuredGzipped": 2998,
-      "proposal": "1.0 KB"
+      "proposal": "1.0 KB",
+      "approval": "approved by the maintainer, 2026-11-12"
     }
   },
   "proposedForNewEntries": {

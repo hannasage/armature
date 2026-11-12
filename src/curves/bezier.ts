@@ -16,8 +16,8 @@ export interface Easing extends Curve {
   readonly points: BezierPoints;
 }
 
-/** How close, on the x axis, the solver gets before it stops. */
-const EPSILON = 1e-9;
+/** How close, on the x axis, the solver gets before it stops. A curve with x1 of 0 and a large y1 is steep near the start, so a loose bound would show as a large error in y. */
+const EPSILON = 1e-12;
 
 /** The y of the curve at the point where its x is `progress`. No checks: the caller passes a progress inside 0..1 and valid points. */
 export function evaluator(x1: number, y1: number, x2: number, y2: number): Curve {
@@ -62,6 +62,6 @@ const finite = (value: unknown): value is number => typeof value === "number" &&
 export function bezier(x1: number, y1: number, x2: number, y2: number): Easing {
   if (![x1, y1, x2, y2].every(finite)) throw new TypeError("A bezier needs four finite numbers.");
   if (x1 < 0 || x1 > 1 || x2 < 0 || x2 > 1) throw new TypeError("A bezier needs x1 and x2 between 0 and 1.");
-  const points: BezierPoints = Object.freeze([x1, y1, x2, y2]) as unknown as BezierPoints;
+  const points = Object.freeze<BezierPoints>([x1, y1, x2, y2]);
   return Object.assign(evaluator(x1, y1, x2, y2), { css: `cubic-bezier(${points.join(", ")})`, points });
 }

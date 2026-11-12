@@ -41,7 +41,7 @@ export interface TweenValue<T> {
   /** Jumps to a value with no travel, and stops the frame. */
   set(value: T): void;
   getState(): TweenValueState<T>;
-  /** Leaves the scheduler and ignores every later call. The last value stays. Safe to call twice. */
+  /** Leaves the scheduler and ignores every later call. The last value stays, and `moving` turns false. Safe to call twice. */
   destroy(): void;
 }
 
@@ -80,6 +80,7 @@ export function createTweenValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kin
     step(dt) {
       try {
         progress = stepTween(progress, dt);
+        if (!Number.isFinite(progress.value)) throw new TypeError("A tween curve returned a value that is not finite.");
         const done = isTweenDone(progress);
         // Landing is exact: the target itself, and not a blend that float error could leave a hair short.
         current = done ? target : kind.interpolate(from, target, progress.value);
@@ -87,7 +88,9 @@ export function createTweenValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kin
         if (done) remove = undefined;
         return !done;
       } catch (error) {
+        // The scheduler logs the error and drops the task, so the handle is stale. The value rests on its target, as it does when a frame fails.
         remove = undefined;
+        rest(target);
         throw error;
       }
     },
@@ -132,6 +135,8 @@ export function createTweenValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kin
       if (destroyed) return;
       destroyed = true;
       stop();
+      // The last value stays, and nothing moves any more.
+      rest(current);
     },
   };
 }

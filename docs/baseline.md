@@ -338,10 +338,11 @@ Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. 
 | `/curves` | 2,270 | 2,500 | 1.5 KB |
 | `/linear` | 2,998 | 3,300 | 1.0 KB |
 
-The caps of the new entries, as bullets:
+The caps of the new entries, as bullets (approved by the maintainer, 2026-11-12):
 
 - `/curves`: 2,500.
 - `/linear`: 3,300.
+- `/react`: 12,650.
 
 Both entries are over their proposals. The proposals were written before the code. Three parts cost the most:
 
@@ -353,11 +354,27 @@ A consumer that imports only `bezier` or only `toLinear` pays less. The build ke
 
 ### The `/react` entry
 
-`/react` is 11,494 gzipped bytes against a cap of 11,780. The room left is 286 bytes. G2 adds no React hook and `/react` did not change, so its cap is unchanged. The engine entry `.` is 3,686 against a cap of 4,000, and a test checks that it reaches no file of `/curves` or `/linear`.
+`/react` is 11,494 gzipped bytes. G2 adds no React hook and `/react` did not change in G2. Its old cap was 11,780, which left 286 bytes of room. The maintainer approved option A on 2026-11-12: re-derive the cap by the stated rule. The new cap is 12,650, which is the measured size plus 10 percent, rounded up to the next 10 bytes. No trim was made. The cap of no other entry changed.
 
-Two options for the `/react` cap, for the maintainer:
+| Entry | Source | Minified (bytes) | Gzipped (bytes) |
+| --- | --- | ---: | ---: |
+| `@hannasage/armature/react` | `src/react/index.ts` | 31,618 | 11,494 |
 
-- A: re-derive the cap by the stated rule, the measured size plus 10 percent rounded up to 10 bytes. At 11,494 the rule gives 12,650. That adds 870 bytes of room and changes the cap.
-- B: trim `/react` by a named saving and keep the cap. The `useArmatureFollower` hook pulls the whole follower controller into the entry. The G1 build measured `/react` at 10,706 before that hook, so moving the follower code behind a lazy import or a shared chunk can save up to 788 bytes. The saving is an estimate from the G1 figures and is not measured.
+The engine entry `.` is 3,686 against a cap of 4,000, and a test checks that it reaches no file of `/curves` or `/linear`.
 
-The next React hook (G3 and later) needs one of the two.
+### After review round 1
+
+The review fixes added checks and flags. The sizes after round 1 are `/curves` 2,355 and `/linear` 3,283 gzipped bytes. Both are under the approved caps, with 145 and 17 bytes of room. The caps were derived from the first measures in the table above, and they did not change. The `/react` entry did not change.
+
+### Approval
+
+The maintainer approved the `/curves` cap of 2,500, the `/linear` cap of 3,300, and the `/react` cap of 12,650. The approval is "approved by the maintainer, 2026-11-12". `size-budget.json` records it on each of the three entries.
+
+### Public names beyond the spec
+
+`fitLinear` and `LinearFit` are public beyond the spec. Amendment 1 names only `toLinear`. The builder chose to export the fit because it carries the error, the duration, the stop count, and the `truncated` flag, which a string cannot carry.
+
+### Truncation and fallback flags
+
+- A spring that does not come to rest within 10 seconds or 20,000 steps is cut short. `fitLinear` and `toEasing` return `truncated: true`. `toLinear` throws a RangeError that names the cap.
+- The `toEasing` fallback returns `degraded: true` when the fitted bezier is further from the solver than the tolerance. The option `maxError` turns that into a RangeError.
