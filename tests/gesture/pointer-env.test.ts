@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createBrowserPointerEnvironment, type PointerHandlers, type PointerSample } from "../../src/gesture";
+import { createBrowserPointerEnvironment, createDrag, type PointerHandlers, type PointerSample } from "../../src/gesture";
+import { swipey } from "../helpers/gesture-flavor";
 
 type Listener = (event: Record<string, unknown>) => void;
 
@@ -17,6 +18,7 @@ function fakeBrowser() {
     style: {
       setProperty: (name: string, value: string) => { style.set(name, value); },
       removeProperty: (name: string) => { style.delete(name); },
+      getPropertyValue: (name: string) => style.get(name) ?? "",
     },
   };
   const win = {
@@ -83,20 +85,61 @@ describe("the browser pointer environment", () => {
     expect(calls).toEqual([]);
   });
 
-  it("survives a pointer that cannot be captured", () => {
+  it("survives a pointer that cannot be captured, and reports the failure to the handlers", () => {
     const { win, element, fire } = fakeBrowser();
-    element.setPointerCapture = () => { throw new Error("no such pointer"); };
+    const failure = new Error("no such pointer");
+    element.setPointerCapture = () => { throw failure; };
     const { calls, handlers } = recorder();
-    createBrowserPointerEnvironment(win as never).onPointer(element, handlers);
+    const faults: unknown[] = [];
+    createBrowserPointerEnvironment(win as never).onPointer(element, { ...handlers, fault: (error) => faults.push(error) });
     expect(() => fire("pointerdown", { pointerId: 1, clientX: 0, clientY: 0, timeStamp: 1, pointerType: "touch", button: 0 })).not.toThrow();
     expect(calls).toEqual(["down"]);
+    expect(faults).toEqual([failure]);
+  });
+
+  it("maps a lost pointer capture to a cancel", () => {
+    const { win, element, fire } = fakeBrowser();
+    const { calls, samples, handlers } = recorder();
+    createBrowserPointerEnvironment(win as never).onPointer(element, handlers);
+    fire("lostpointercapture", { pointerId: 5, clientX: 1, clientY: 2, timeStamp: 50 });
+    expect(calls).toEqual(["cancel"]);
+    expect(samples[0]).toEqual({ id: 5, x: 1, y: 2, time: 50 });
+  });
+
+  it("ignores the press of a pointer that is not the primary one", () => {
+    const { win, element, fire } = fakeBrowser();
+    const { calls, handlers } = recorder();
+    createBrowserPointerEnvironment(win as never).onPointer(element, handlers);
+    fire("pointerdown", { pointerId: 2, clientX: 0, clientY: 0, timeStamp: 1, pointerType: "touch", button: 0, isPrimary: false });
+    expect(calls).toEqual([]);
+    fire("pointerdown", { pointerId: 1, clientX: 0, clientY: 0, timeStamp: 1, pointerType: "touch", button: 0, isPrimary: true });
+    expect(calls).toEqual(["down"]);
+  });
+
+  it("reads an inline style, and gives null for none", () => {
+    const { win, element, style } = fakeBrowser();
+    const env = createBrowserPointerEnvironment(win as never);
+    expect(env.getStyle?.(element, "touch-action")).toBeNull();
+    style.set("touch-action", "manipulation");
+    expect(env.getStyle?.(element, "touch-action")).toBe("manipulation");
+  });
+
+  it("ends a drag when the capture is lost, so a press whose release never arrives does not stick", () => {
+    const { win, element, fire } = fakeBrowser();
+    const drag = createDrag(element as never, { flavor: swipey, axis: "x", env: createBrowserPointerEnvironment(win as never) });
+    fire("pointerdown", { pointerId: 1, clientX: 0, clientY: 0, timeStamp: 1, pointerType: "touch", button: 0, isPrimary: true });
+    fire("pointermove", { pointerId: 1, clientX: 10, clientY: 0, timeStamp: 17 });
+    expect(drag.getState().dragging).toBe(true);
+    fire("lostpointercapture", { pointerId: 1, clientX: 10, clientY: 0, timeStamp: 30 });
+    expect(drag.getState().dragging).toBe(false);
+    drag.destroy();
   });
 
   it("removes all four listeners with the function it returns", () => {
     const { win, element, fire, listeners } = fakeBrowser();
     const { calls, handlers } = recorder();
     const off = createBrowserPointerEnvironment(win as never).onPointer(element, handlers);
-    expect([...listeners.keys()].sort()).toEqual(["pointercancel", "pointerdown", "pointermove", "pointerup"]);
+    expect([...listeners.keys()].sort()).toEqual(["lostpointercapture", "pointercancel", "pointerdown", "pointermove", "pointerup"]);
     off();
     fire("pointerdown", { pointerId: 1, clientX: 0, clientY: 0, timeStamp: 1, pointerType: "touch", button: 0 });
     expect(calls).toEqual([]);

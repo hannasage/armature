@@ -14,8 +14,9 @@ export class FakePointerEnv implements ArmaturePointerEnvironment {
   removed = 0;
   writes: Array<{ target: ArmatureTarget; property: string; value: string | null }> = [];
   styles = new Map<ArmatureTarget, Record<string, string>>();
-  /** When set, `setStyle` throws it. */
+  /** When set, `setStyle` throws it. With `failProperty` set, only a write of that property throws. */
   failWith: Error | undefined;
+  failProperty: string | undefined;
 
   requestFrame = (callback: (time: number) => void) => {
     const id = this.nextId++;
@@ -30,13 +31,14 @@ export class FakePointerEnv implements ArmaturePointerEnvironment {
   now = () => this.time;
   matchMedia = (query: string) => ({ matches: query.includes("prefers-reduced-motion") && this.reduced });
   setStyle = (target: ArmatureTarget, property: string, value: string | null) => {
-    if (this.failWith) throw this.failWith;
+    if (this.failWith && (this.failProperty === undefined || this.failProperty === property)) throw this.failWith;
     this.writes.push({ target, property, value });
     const next = { ...(this.styles.get(target) ?? {}) };
     if (value === null) delete next[property];
     else next[property] = value;
     this.styles.set(target, next);
   };
+  getStyle = (target: ArmatureTarget, property: string) => this.styles.get(target)?.[property] ?? null;
   onPointer = (target: ArmatureTarget, handlers: PointerHandlers) => {
     this.handlers.set(target, handlers);
     this.added += 1;

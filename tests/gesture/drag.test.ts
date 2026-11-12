@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FIXED_STEP } from "../../src/engine/spring";
+import { createSpring, criticalDamping, FIXED_STEP, retarget, stepSpring } from "../../src/engine/spring";
 import type { Flavor } from "../../src/engine/flavor";
 import { createDrag, type DragOptions } from "../../src/gesture";
 import { glassFlavor } from "../../src/glass/flavor";
@@ -80,10 +80,9 @@ describe("dragging", () => {
     expect(env.pending).toBe(0);
   });
 
-  it("follows one pointer: a second down and moves of another pointer are ignored", () => {
+  it("follows one pointer: moves and releases of another pointer are ignored", () => {
     const { env, el } = setup({ axis: "x" });
     env.down(el, 100, 0, 1);
-    env.down(el, 0, 0, 2);
     env.move(el, 0, 0, 2);
     expect(env.writesTo("translate")).toEqual([]);
     env.move(el, 130, 0, 1);
@@ -91,6 +90,60 @@ describe("dragging", () => {
     env.up(el, 130, 0, 2);
     env.move(el, 140, 0, 1);
     expect(env.read(el)).toBe("40px 0px");
+  });
+
+  it("treats a press of another pointer as the end of a press that lost its release, and follows the new one", () => {
+    const { env, el, drag } = setup({ axis: "x" });
+    const swipe = vi.fn();
+    drag.onSwipe(swipe);
+    env.press(el, [0, 0], [80, 0], 80, 8); // the up of pointer 1 never arrives
+    env.down(el, 500, 0, 2);
+    expect(drag.getState()).toMatchObject({ dragging: true, x: 80, vx: 0 });
+    env.move(el, 510, 0, 2);
+    expect(env.read(el)).toBe("90px 0px");
+    env.move(el, 900, 0, 1); // the old pointer is not heard any more
+    expect(env.read(el)).toBe("90px 0px");
+    env.up(el, 510, 0, 2);
+    expect(swipe).not.toHaveBeenCalled();
+    expect(drag.getState().dragging).toBe(false);
+  });
+
+  it("ignores a second press of the pointer that is already down", () => {
+    const { env, el } = setup({ axis: "x" });
+    env.down(el, 100, 0, 1);
+    env.move(el, 130, 0, 1);
+    env.down(el, 0, 0, 1);
+    env.move(el, 140, 0, 1);
+    expect(env.read(el)).toBe("40px 0px");
+  });
+
+  it("ignores a press at a coordinate that is not finite", () => {
+    const { env, el, drag } = setup({ axis: "x" });
+    env.down(el, Number.NaN, 0);
+    env.down(el, 0, Infinity);
+    expect(drag.getState().dragging).toBe(false);
+    env.move(el, 50, 0);
+    expect(env.writesTo("translate")).toEqual([]);
+    env.down(el, 0, 0);
+    expect(drag.getState().dragging).toBe(true);
+  });
+
+  it("logs a pointer that could not be captured once, at warn level, with the label of the flavor", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { env, el } = setup({ axis: "x" });
+    const handlers = env.handlers.get(el)!;
+    handlers.fault?.(new Error("no such pointer"));
+    handlers.fault?.(new Error("again"));
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("[swipey]");
+  });
+
+  it("writes no number as exponent text, whatever the pointer says", () => {
+    const { env, el } = setup({ axis: "both" });
+    env.down(el, 0, 0);
+    env.move(el, 1e300, -1e300);
+    expect(env.read(el)).toBe("1000000000px -1000000000px");
+    for (const value of env.writesTo("translate")) expect(value).not.toMatch(/e/i);
   });
 
   it("reports the state while it drags", () => {
@@ -158,15 +211,67 @@ describe("bounds and the rubber band", () => {
     expect(env.pending).toBe(0);
   });
 
-  it("is stiffer the farther it is pulled: the first pull back is stronger than the stiffness at the bound", () => {
+  it("is stiffer the farther it is pulled: the first pull back is stronger than a band of the stiffness at the bound", () => {
     const { env, el, drag } = setup({ axis: "x", bounds: [0, 300] });
     env.press(el, [0, 0], [-50, 0], 400, 8); // shown overshoot 35.294
     rest(env);
     env.up(el, -50, 0);
-    env.tick(4);
-    // 4 ms after rest the speed is k(d) d t. At the bound stiffness (300) it would be 42.3. At 35.294 px it is 388.2 * 35.294 * 0.004 = 54.8.
-    expect(drag.getState().vx).toBeGreaterThan(52);
-    expect(drag.getState().vx).toBeLessThan(57.6);
+    env.tick(1000 / 60); // two slices of the solver
+    const start = -50 / (1 + 50 / 120);
+    // The same two slices with the stiffness fixed at the bound (300, critically damped).
+    let fixed = retarget(createSpring({ stiffness: 300, damping: criticalDamping(300), restSpeed: 5, restDelta: 0.5 }, start), 0);
+    fixed = stepSpring(stepSpring(fixed, 0, FIXED_STEP), 0, FIXED_STEP);
+    const ratio = drag.getState().vx / fixed.velocity;
+    expect(ratio).toBeGreaterThan(1.15); // the band is 1.29 times as stiff at the start
+    expect(ratio).toBeLessThan(1.4);
+  });
+
+  it("returns from the band at the same pace on a 30, 60, or 144 Hz screen", () => {
+    const at = (hz: number) => {
+      const { env, el, drag } = setup({ axis: "x", bounds: [0, 300] });
+      env.press(el, [0, 0], [400, 0], 800, 8);
+      rest(env);
+      env.up(el, 400, 0);
+      const frames = Math.round(hz / 6); // 1/6 s: 5, 10, and 24 frames
+      for (let i = 0; i < frames; i++) env.tick(1000 / hz);
+      return drag.getState().x;
+    };
+    const slow = at(30);
+    expect(slow).toBeGreaterThan(300.5); // still on its way, so the three runs differ if the pace differs
+    expect(at(60)).toBeCloseTo(slow, 2);
+    expect(at(144)).toBeCloseTo(slow, 2);
+  });
+
+  it("never shows a hard flick past the reach: a decay that meets a bound at 12,000 px/s stays under 120 px past it", () => {
+    const { env, el } = setup({ axis: "x", bounds: [0, 300] });
+    env.press(el, [0, 0], [250, 0], 20, 4);
+    env.up(el, 250, 0);
+    env.settle();
+    const xs = env.writesTo("translate").map(xOf);
+    expect(Math.max(...xs)).toBeGreaterThan(330);
+    expect(Math.max(...xs)).toBeLessThan(420);
+    expect(env.read(el)).toBe("300px 0px");
+  });
+
+  it("never shows a release past the reach, from a pointer far past the bound", () => {
+    const { env, el } = setup({ axis: "x", bounds: [0, 300] });
+    env.press(el, [0, 0], [100_000, 0], 20, 4);
+    env.up(el, 100_000, 0);
+    env.settle();
+    for (const value of env.writesTo("translate")) expect(xOf(value)).toBeLessThan(420);
+    expect(env.read(el)).toBe("300px 0px");
+  });
+
+  it("lets a press grab an element that sits at the reach, with no jump", () => {
+    const { env, el, drag } = setup({ axis: "x", bounds: [0, 300] });
+    env.press(el, [0, 0], [100_000, 0], 20, 4);
+    rest(env);
+    env.up(el, 100_000, 0);
+    env.tick(1000 / 60);
+    const held = drag.getState().x;
+    env.down(el, 0, 0);
+    env.move(el, 0, 0);
+    expect(drag.getState().x).toBeCloseTo(held, 6);
   });
 
   it("scales the release velocity by the band, so a hard flick outward does not shoot far past the reach", () => {
@@ -358,7 +463,8 @@ describe("snap", () => {
 });
 
 describe("a scripted pointer run, with pinned frames", () => {
-  // The first frame of each run was checked by hand: two slices of the solver (snap), two slices of the decay (band).
+  // These are regression pins: the numbers are what the code gave when it was written. Only frame 1 of each run was checked by hand:
+  // two slices of the solver (snap), and two slices of the decay (band run).
   it("pins the frames of a release that snaps: a flick of 1000 px/s at x = 140 with snap points at 0, 150, and 300", () => {
     const { env, el } = setup({ axis: "x", bounds: [0, 300], snap: [0, 150, 300] });
     env.press(el, [0, 0], [140, 0], 140, 10);
@@ -382,8 +488,8 @@ describe("a scripted pointer run, with pinned frames", () => {
       frames.push(env.read(el));
     }
     expect(frames).toEqual([
-      "265.856px 0px", "280.689px 0px", "294.566px 0px", "305.826px 0px", "311.008px 0px", "312.709px 0px",
-      "312.552px 0px", "311.502px 0px", "310.104px 0px", "308.648px 0px", "307.279px 0px", "306.058px 0px",
+      "265.856px 0px", "280.689px 0px", "294.566px 0px", "305.826px 0px", "310.991px 0px", "312.671px 0px",
+      "312.503px 0px", "311.452px 0px", "310.059px 0px", "308.611px 0px", "307.249px 0px", "306.035px 0px",
     ]);
     expect(env.settle()).toBe(14);
     expect(env.read(el)).toBe("300px 0px");
@@ -451,11 +557,12 @@ describe("swipe", () => {
     expect(() => drag.onSwipe(null as never)).toThrow(TypeError);
   });
 
-  it("logs a listener that throws once, and still calls the others", () => {
+  it("logs each listener that throws once, and still calls the others", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { env, el, drag } = setup({ axis: "x" });
     const good = vi.fn();
-    drag.onSwipe(() => { throw new Error("listener"); });
+    drag.onSwipe(() => { throw new Error("first"); });
+    drag.onSwipe(() => { throw new Error("second"); });
     drag.onSwipe(good);
     for (let i = 0; i < 2; i++) {
       env.press(el, [0, 0], [80, 0], 80, 8);
@@ -463,7 +570,7 @@ describe("swipe", () => {
       env.settle();
     }
     expect(good).toHaveBeenCalledTimes(2);
-    expect(log).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledTimes(2);
     expect(String(log.mock.calls[0][0])).toContain("[swipey]");
   });
 });
@@ -670,6 +777,60 @@ describe("destroy", () => {
   });
 });
 
+describe("a stop that is not a destroy", () => {
+  it("after a failed write, removes touch-action, removes the listeners, and says it failed", () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { env, el, drag } = setup({ axis: "x" });
+    expect(env.read(el, "touch-action")).toBe("pan-y");
+    env.down(el, 0, 0);
+    env.failWith = new Error("boom");
+    env.failProperty = "translate";
+    env.move(el, 10, 0);
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(env.read(el, "touch-action")).toBeUndefined();
+    expect(env.handlers.has(el)).toBe(false);
+    expect(drag.getState()).toMatchObject({ destroyed: true, dragging: false, moving: false });
+    expect(drag.getState().failed).toBeInstanceOf(Error);
+    expect(drag.getState().failed?.message).toBe("boom");
+  });
+
+  it("has no failure in its state after a destroy of its own", () => {
+    const { drag } = setup({ axis: "x" });
+    drag.destroy();
+    expect(drag.getState().failed).toBeUndefined();
+  });
+
+  it("removes touch-action in destroy even when the write of translate throws, and logs nothing", () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { env, el, drag } = setup({ axis: "x", bounds: [0, 300] });
+    env.down(el, 0, 0);
+    env.move(el, 400, 0); // out of the bounds, so destroy writes the bound
+    env.failWith = new Error("boom");
+    env.failProperty = "translate";
+    expect(() => drag.destroy()).not.toThrow();
+    expect(env.read(el, "touch-action")).toBeUndefined();
+    expect(env.handlers.has(el)).toBe(false);
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("removes the listeners in destroy even when touch-action cannot be removed", () => {
+    const { env, drag } = setup({ axis: "x" });
+    env.failWith = new Error("boom");
+    expect(() => drag.destroy()).not.toThrow();
+    expect(env.removed).toBe(1);
+  });
+
+  it("gives back the touch-action the author had set, and not a bare removal", () => {
+    const env = new FakePointerEnv();
+    const el = {} as Target;
+    env.styles.set(el, { "touch-action": "manipulation" });
+    const drag = createDrag(el, { flavor: swipey, env, axis: "x" });
+    expect(env.read(el, "touch-action")).toBe("pan-y");
+    drag.destroy();
+    expect(env.read(el, "touch-action")).toBe("manipulation");
+  });
+});
+
 describe("what the drag is given", () => {
   it("throws a TypeError when the element is not an object", () => {
     for (const bad of [null, undefined, 3, "div"]) expect(() => createDrag(bad as never, { flavor: swipey, env: new FakePointerEnv() })).toThrow(TypeError);
@@ -698,6 +859,24 @@ describe("what the drag is given", () => {
     expect(() => setup({ axis: "x", snap: [[0, 0]] as never })).toThrow(/snap/);
     expect(() => setup({ axis: "both", snap: [0, 1] as never })).toThrow(/snap/);
     expect(() => setup({ axis: "both", snap: [[0, Infinity]] })).toThrow(/snap/);
+  });
+
+  it("refuses a snap point outside the bounds", () => {
+    expect(() => setup({ axis: "x", bounds: [0, 300], snap: [0, 400] })).toThrow(/snap/);
+    expect(() => setup({ axis: "both", bounds: { y: [0, 100] }, snap: [[0, 0], [10, 101]] })).toThrow(/snap/);
+    expect(() => setup({ axis: "both", bounds: { y: [0, 100] }, snap: [[0, 0], [9999, 100]] })).not.toThrow();
+  });
+
+  it("copies the snap points, so a later change of the caller's list does nothing", () => {
+    const points: Array<[number, number]> = [[0, 0], [300, 100]];
+    const { env, el, drag } = setup({ axis: "both", snap: points });
+    points[1][0] = 0;
+    points.push([200, 60]);
+    env.press(el, [0, 0], [200, 60], 200, 10);
+    rest(env);
+    env.up(el, 200, 60);
+    env.settle();
+    expect(drag.getState()).toMatchObject({ x: 300, y: 100 });
   });
 
   it("throws nothing, and writes nothing to the element, when the options are bad", () => {
