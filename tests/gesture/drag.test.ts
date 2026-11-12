@@ -376,6 +376,22 @@ describe("bounds and the rubber band", () => {
     }
   });
 
+  it("never shows a frame at or past the reach, for a small reach at 30, 60, and 144 Hz: a 12,000 px/s flick into a bound", () => {
+    for (const reach of [30, 60]) {
+      const flavor: Flavor = { ...swipey, gesture: { ...swipey.gesture!, rubberBand: { stiffness: 300, reach } } };
+      for (const hz of [30, 60, 144]) {
+        const { env, el } = setup({ axis: "x", bounds: [0, 300] }, flavor);
+        env.press(el, [0, 0], [250, 0], 20, 4);
+        env.up(el, 250, 0);
+        env.settle(1000 / hz);
+        const peak = Math.max(...env.writesTo("translate").map(xOf)) - 300;
+        expect(peak, `reach ${reach} at ${hz} Hz`).toBeGreaterThan(0);
+        expect(peak, `reach ${reach} at ${hz} Hz`).toBeLessThan(reach * 0.999 + 1e-9);
+        expect(env.read(el)).toBe("300px 0px");
+      }
+    }
+  });
+
   it("holds a snap spring under the reach too, and still comes to rest on the snap point", () => {
     const { env, el } = setup({ axis: "x", bounds: [0, 300], snap: [0, 300] });
     env.press(el, [0, 0], [290, 0], 24, 4); // 12,000 px/s toward the bound, 10 px short of it

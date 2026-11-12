@@ -3,8 +3,8 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// G4 adds the `/gesture` entry. Its cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The cap is a proposal for the maintainer.
-// No other cap moves.
+// G4 adds the `/gesture` entry. Its cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The maintainer approved the cap of 5,850
+// on 2026-11-12. No other cap moves.
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const lib = (await import(pathToFileURL(join(root, "scripts/size-lib.mjs")).href)) as {
@@ -27,9 +27,20 @@ describe("the /gesture size after G4", () => {
     expect(gesture.measuredGzipped).toBeLessThanOrEqual(gesture.cap);
   });
 
-  it("keeps the amendment proposal beside the cap, and marks the cap as not yet approved", () => {
+  it("keeps the amendment proposal beside the cap, and records the approval of the cap of 5,850", () => {
     expect(gesture.proposal).toBe("3.0 KB");
-    expect(gesture.approval).toBeUndefined();
+    expect(gesture.cap).toBe(5850);
+    expect(gesture.approval).toBe("approved by the maintainer, 2026-11-12");
+  });
+
+  it("records the approval of the spring-only entry at its size after G4, with its cap of 4,000 unchanged", () => {
+    expect(budget.caps["@hannasage/armature"].cap).toBe(4000);
+    expect(budget.caps["@hannasage/armature"].approval).toContain("3,854");
+    expect(baseline).toContain("the maintainer approved the `.` entry at 3,854");
+  });
+
+  it("keeps the approved size of the tarball as the baseline, and records the current measure beside it", () => {
+    expect(baseline).toMatch(/MEASURED_SIZE[^\n]*222,018[^\n]*approved by the maintainer/);
   });
 
   it("no longer lists /gesture among the entries that do not exist yet", () => {
