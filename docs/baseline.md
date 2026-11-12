@@ -507,17 +507,17 @@ Method: `node scripts/size.mjs`, the same as G0 to G4. esbuild 0.28.2, `bundle`,
 | --- | --- | ---: | ---: |
 | `@hannasage/armature/timeline` | `src/timeline/index.ts` | 14,184 | 5,866 |
 
-The cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The cap is not approved: the maintainer has not seen it. The amendment 1 proposal sits beside it.
+The cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The maintainer approved the cap of 6,460 (approved by the maintainer, 2026-11-12). The amendment 1 proposal sits beside it.
 
-| Entry | Measured (gzipped) | Cap (not approved) | Amendment 1 proposal |
+| Entry | Measured (gzipped) | Cap (approved) | Amendment 1 proposal |
 | --- | ---: | ---: | --- |
 | `/timeline` | 5,866 | 6,460 | 4.0 KB |
 
-The cap of `/timeline`, as a bullet (not approved):
+The cap of `/timeline`, as a bullet (approved by the maintainer, 2026-11-12):
 
 - `/timeline`: 6,460.
 
-The measure is the size after review round 2, which added the end slope for a bezier with x2 = 1 and, in round 1, the finite checks, the end speed of a tween, the cap flag, and the strict spring check. The entry is 1,866 bytes over the 4.0 KB proposal. Where the bytes sit, in minified bytes of the bundle:
+The measure is the size after review round 2, which added the end slope for a bezier with x2 = 1 and, in round 1, the finite checks, the end speed of a tween, the cap flag, and the strict spring check. The approved cap of 6,460 was derived from the measure of 5,866 after review round 2. The table shows that measure. After review round 3 (the vertical tangent and the speed cut) the entry is 5,893 gzipped (14,259 minified), so the room under the cap is 567 bytes. The entry is 1,893 bytes over the 4.0 KB proposal. Where the bytes sit, in minified bytes of the bundle:
 
 | File | Minified (bytes) |
 | --- | ---: |
@@ -537,18 +537,15 @@ No cap moved. The measures after G5: `.` 3,853 (cap 4,000), `/frame` 807, `/valu
 
 ### The tarball
 
-`npm run check:pack` passed. The tarball is 244,327 bytes in 208 files, under the limit of 333,027 (1.5 times the approved MEASURED_SIZE of 222,018). MEASURED_SIZE did not change.
+`npm run check:pack` passed. The tarball is 244,580 bytes in 208 files, under the limit of 333,027 (1.5 times the approved MEASURED_SIZE of 222,018). MEASURED_SIZE did not change.
 
-### Decision for the maintainer: `validateFlavor` does not check the timeline part
+### The flavor check: `validateFlavor` does not check the timeline part
 
-Amendment 1 says `validateFlavor` checks the new flavor parts. At G5 it does not check the `timeline` part. The `.` entry is 3,853 bytes against a cap of 4,000, and a check of the part adds more than the 147 bytes of room. A registry that `/timeline` fills when its module loads would cost `.` about 9 bytes. It was tried and dropped, for two reasons. It is a side effect of loading a module, and the package declares `styles.css` as its only file with side effects. And `defineFlavor` in a file that never imports `/timeline` would skip the check anyway.
+Amendment 1 says `validateFlavor` checks the new flavor parts. At G5 it does not check the `timeline` part. The `.` entry is 3,853 bytes against a cap of 4,000, and a check of the part adds more than the 147 bytes of room. The maintainer chose option A on 2026-11-12: `createTimeline` and `requireTimeline` run the check, and `validateFlavor` does not. The `.` cap stays at 4,000.
 
-What holds instead: `createTimeline` and `requireTimeline` run the check, so a bad part fails when a timeline is made. A flavor with no `timeline` part stays valid.
+The two other options were not chosen. A check inline in `validateFlavor` needs a higher `.` cap. A registry that `/timeline` fills when its module loads would cost `.` about 9 bytes, but it is a side effect of loading a module, and the package declares `styles.css` as its only file with side effects.
 
-Variants for the maintainer:
-- A. Keep it as it is.
-- B. Raise the `.` cap and check the part inline in `validateFlavor`. The cap rule forbids this without approval.
-- C. Bring back the registry, and accept the side effect on module load.
+So a bad part fails when a timeline is made. A flavor with no `timeline` part stays valid.
 
 ### Public names
 

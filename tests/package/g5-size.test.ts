@@ -3,8 +3,8 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// G5 adds the `/timeline` entry. Its cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The cap is a proposal: the
-// maintainer has not approved it. No existing cap moves, and the spring-only entry stays under its cap of 4,000.
+// G5 adds the `/timeline` entry. Its cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The maintainer approved the cap of
+// 6,460 on 2026-11-12. No existing cap moves, and the spring-only entry stays under its cap of 4,000.
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const lib = (await import(pathToFileURL(join(root, "scripts/size-lib.mjs")).href)) as {
@@ -27,23 +27,33 @@ describe("the /timeline size after G5", () => {
     expect(timeline.measuredGzipped).toBeLessThanOrEqual(timeline.cap);
   });
 
-  it("keeps the amendment proposal beside the cap, and marks the cap as not approved", () => {
+  it("keeps the amendment proposal beside the cap, and records the approval of the cap of 6,460", () => {
     expect(timeline.proposal).toBe("4.0 KB");
-    expect(timeline.approval).toMatch(/^not approved/);
-    expect(timeline.approval).not.toMatch(/approved by the maintainer/);
+    expect(timeline.cap).toBe(6460);
+    expect(timeline.approval).toBe("approved by the maintainer, 2026-11-12");
   });
 
   it("no longer lists /timeline among the entries that do not exist yet", () => {
     expect(Object.keys(budget.proposedForNewEntries)).not.toContain(KEY);
   });
 
-  it("writes the figures in docs/baseline.md, with the cap marked not approved, and the tarball re-measured", () => {
+  it("writes the figures in docs/baseline.md, with the cap approved, and the tarball re-measured", () => {
     expect(baseline).toContain("## G5 build");
     const section = baseline.slice(baseline.indexOf("## G5 build"));
     expect(section).toContain(`- \`/timeline\`: ${timeline.cap.toLocaleString("en-US")}`);
-    expect(section).toMatch(/not approved/);
+    expect(section).toContain("approved by the maintainer, 2026-11-12");
+    expect(section).not.toMatch(/not approved/);
     expect(section).toMatch(/tarball[^\n]*\d{3},\d{3} bytes/i);
     expect(section).toContain("1.5");
+  });
+
+  it("records that the maintainer chose option A for the flavor check on 2026-11-12, and leaves no open decision", () => {
+    const section = baseline.slice(baseline.indexOf("## G5 build"));
+    expect(section).toMatch(/maintainer chose option A on 2026-11-12/);
+    expect(section).not.toMatch(/Decision for the maintainer|Variants for the maintainer/);
+    const flavors = readFileSync(join(root, "docs/flavors.md"), "utf8");
+    expect(flavors).toMatch(/maintainer chose this on 2026-11-12/);
+    expect(flavors).not.toMatch(/as a decision for the maintainer/);
   });
 
   it("keeps the approved size of the tarball as the baseline", () => {

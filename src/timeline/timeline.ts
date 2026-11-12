@@ -146,7 +146,11 @@ function valueAt(track: Track, t: number): number {
 /** The slope of a curve where it ends, at progress 1. A bezier knows it. Another curve gets a difference with the first error term removed. */
 function endSlope(curve: Curve): number {
   const points = (curve as { points?: readonly number[] }).points;
-  if (points?.length === 4 && points[2] < 1) return (1 - points[3]) / (1 - points[2]);
+  if (points?.length === 4) {
+    // With x2 below 1 the slope has a closed form. With x2 of 1 and y2 not 1 the tangent is vertical, and no speed is handed over.
+    if (points[2] < 1) return (1 - points[3]) / (1 - points[2]);
+    if (points[3] !== 1) return 0;
+  }
   const f = (h: number) => (curve(1) - curve(1 - h)) / h;
   const slope = 2 * f(1e-4) - f(2e-4);
   return Number.isFinite(slope) ? slope : 0;
@@ -158,7 +162,9 @@ function stateAt(track: Track, t: number, speed = false): { p: number; v: number
   if (seg?.p) return { p: seg.p[slice(seg, t)], v: seg.w![slice(seg, t)] };
   const ended = seg !== undefined && seg.e > seg.s && t >= seg.e - EPS;
   const v = speed && ended ? ((seg.b - seg.a) * endSlope(seg.c!) * 1000) / (seg.e - seg.s) : 0;
-  return { p: valueAt(track, t), v: Number.isFinite(v) ? v : 0 };
+  // The speed is cut to the span of the tween in one slice, so a steep curve cannot spike.
+  const most = Math.abs(seg ? seg.b - seg.a : 0) / FIXED_STEP;
+  return { p: valueAt(track, t), v: Number.isFinite(v) ? Math.max(-most, Math.min(most, v)) : 0 };
 }
 
 /** Runs a spring or a decay slice by slice from `s`, to the time `cut` or until it rests. Every step is a whole `FIXED_STEP`. */

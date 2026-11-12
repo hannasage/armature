@@ -148,7 +148,7 @@ The part has no names, so it adds nothing to the rule that names are unique acro
 
 A name is lowercase letters, digits, and hyphens, and starts with a letter. A curve name must not be the key of a spring, because a step names one or the other.
 
-`validateFlavor` does not check this part. The spring-only entry has no room under its cap of 4,000 bytes for it. `createTimeline` and `requireTimeline` check it, so a bad part fails when a timeline is made. This differs from the rule of the amendment that `validateFlavor` checks every new part. `docs/baseline.md`, section "G5 build", records it as a decision for the maintainer.
+`validateFlavor` does not check this part. The spring-only entry has no room under its cap of 4,000 bytes for it. `createTimeline` and `requireTimeline` check it, so a bad part fails when a timeline is made. This differs from the rule of the amendment that `validateFlavor` checks every new part. The maintainer chose this on 2026-11-12, and `docs/baseline.md`, section "G5 build", records it.
 
 ## Personalities
 
