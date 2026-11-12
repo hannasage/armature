@@ -18,9 +18,9 @@ npm install @hannasage/armature@beta
 React is an optional peer. The engine and the DOM controllers need no React.
 Install React 18 or later only if you use the React entries.
 
-## The nine subpaths
+## The ten subpaths
 
-The package has nine JavaScript entries and one stylesheet.
+The package has ten JavaScript entries and one stylesheet.
 The package is ESM only. Each entry has a `types` file and an `import` file, and there is no CommonJS build.
 Each entry loads only what it needs.
 Every entry except `glass` and `glass/react` holds no glass code.
@@ -30,6 +30,7 @@ Every entry except `glass` and `glass/react` holds no glass code.
 - `@hannasage/armature/values` holds the value layer: the number, vector, color, path, and 3D transform kinds, a spring over a vector, and `createValue`, a spring controller that runs on the scheduler.
 - `@hannasage/armature/curves` holds the cubic-bezier evaluator, named easings as data, the tween with the same step interface as the spring, a tween controller that runs on the scheduler, and a bezier fitting aid that reports its error.
 - `@hannasage/armature/linear` writes a spring or a curve as a CSS `linear()` string within a tolerance. It checks that the browser supports `linear()`, and it falls back to a fitted cubic-bezier.
+- `@hannasage/armature/gesture` holds drag with a rubber band past the bounds, decay on release, snap to the nearest point with the release velocity, and swipe. It also holds the pointer environment and the pointer velocity tracker. `createDrag` takes a flavor with a `gesture` part. See `docs/gesture.md`.
 - `@hannasage/armature/dom` holds the DOM controllers: surface, lens, follower, delegation, and scroll reveal. Each one takes a flavor.
 - `@hannasage/armature/react` holds the generic React hooks and providers, such as `useArmatureSurface`, `useArmatureFollower`, and `ArmatureProvider`. Each one takes a flavor.
 - `@hannasage/armature/glass` holds the glass flavor, `glassFlavor`, with the refraction filter, the PNG encoder, the browser check, and the glass names.

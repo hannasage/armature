@@ -43,6 +43,7 @@ import { createScheduler, type Scheduler } from "@hannasage/armature/frame";
 import { colorKind, createValue, numberKind, pathKind, transform3dKind, transform3dStyles, type Transform3D, type Value } from "@hannasage/armature/values";
 import { bezier, createTween, createTweenValue, easing, stepTween, type Easing, type TweenState } from "@hannasage/armature/curves";
 import { fitLinear, toEasing, toLinear, type EasingResult } from "@hannasage/armature/linear";
+import { createDrag, createPointerVelocity, type Drag, type SwipeDirection } from "@hannasage/armature/gesture";
 import { createFollower, type Follower } from "@hannasage/armature/dom";
 import { ArmatureProvider, useArmatureSurface } from "@hannasage/armature/react";
 import { createGlassFilter, glassFlavor, type GlassFlavor } from "@hannasage/armature/glass";
@@ -70,6 +71,13 @@ export const tween: TweenState = stepTween(createTween(0, 1, 0.5, easing("projec
 export const css: string = toLinear({ stiffness: 170, damping: 26 }, { tolerance: 0.005 });
 export const fit: number = fitLinear(ease).count;
 export const picked: EasingResult = toEasing({ stiffness: 170, damping: 26 }, { supports: () => false });
+
+export function drag(element: HTMLElement, flavor: Flavor): Drag {
+  const handle = createDrag(element, { flavor, axis: "x", bounds: [0, 300], snap: [0, 150, 300] });
+  handle.onSwipe((direction: SwipeDirection) => direction.toUpperCase());
+  return handle;
+}
+export const flick: number = createPointerVelocity().read(0).x;
 
 export function follow(element: HTMLElement): Follower {
   return createFollower(element, { flavor: demo, name: "thumb" });

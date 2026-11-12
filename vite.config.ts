@@ -10,6 +10,7 @@ export default defineConfig({
       entry: {
         index: "src/index.ts",
         "frame/index": "src/frame/index.ts",
+        "gesture/index": "src/gesture/index.ts",
         "values/index": "src/values/index.ts",
         "curves/index": "src/curves/index.ts",
         "linear/index": "src/linear/index.ts",

@@ -442,3 +442,53 @@ The caps of the other entries did not change. The measures after G3: `.` 3,686 (
 
 `/values` adds `colorKind`, `pathKind`, `transform3dKind`, `transform3dStyles`, and the types `Transform3D` and `Transform3DStyles`.
 `transform3dStyles` is public beyond the spec. Amendment 1 says only that the output is the properties `translate`, `rotate`, and `scale`, with `perspective` on the parent. A kind turns a value into one string, and one string cannot say which property goes on the parent. So `transform3dStyles` returns the element properties and the parent property apart.
+
+## G4 build
+
+Date: 2026-11-12 (UTC).
+Source: branch `task/g4-gesture`. G4 adds the entry `@hannasage/armature/gesture`: the pointer environment, the pointer velocity tracker, and `createDrag` with the rubber band, decay, snap, and swipe. It adds the optional `gesture` part to the flavor contract.
+Method: `node scripts/size.mjs`, the same as G0 to G3. esbuild 0.28.2, `bundle`, `minify`, `esm`, React external, then gzip. Node 24 in Docker.
+
+### The `/gesture` entry
+
+| Entry | Source | Minified (bytes) | Gzipped (bytes) |
+| --- | --- | ---: | ---: |
+| `@hannasage/armature/gesture` | `src/gesture/index.ts` | 12,445 | 4,809 |
+
+The cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The cap is a proposal for the maintainer. It is not approved. The amendment 1 proposal sits beside it.
+
+| Entry | Measured (gzipped) | Cap | Amendment 1 proposal |
+| --- | ---: | ---: | --- |
+| `/gesture` | 4,809 | 5,290 | 3.0 KB |
+
+The cap of `/gesture`, as a bullet (a proposal, not approved):
+
+- `/gesture`: 5,290.
+
+The entry is 1,809 bytes over the 3.0 KB proposal. Where the bytes sit, each file bundled alone:
+
+| Part | Gzipped (bytes) |
+| --- | ---: |
+| `src/engine/flavor.ts`, pulled in by `requireGesture` through `validateFlavor` | 1,824 |
+| `src/engine/spring.ts` | 733 |
+| `src/gesture/drag.ts`, engine external | 3,110 |
+| `src/gesture/pointer-env.ts`, engine external | 424 |
+| `src/gesture/pointer-velocity.ts`, engine external | 421 |
+
+- The gesture files add about 2.2 KB to the engine files in the bundle. That is under the 3.0 KB proposal. The engine files that `/gesture` must carry make up the rest.
+- `requireGesture` calls `validateFlavor`, as the other require helpers do. That keeps a bad `gesture` part from reaching the drag. A drag that skipped the check would save about 1.8 KB, and a bad part would then fail late.
+
+### Other entries
+
+The caps of the other entries did not change. The measures after G4: `.` 3,854 (cap 4,000), `/frame` 807, `/values` 6,615, `/curves` 2,363, `/linear` 3,351, `/dom` 11,310 (cap 12,170), `/react` 11,663 (cap 12,650), `/glass` 7,881 (cap 8,430), `/glass/react` 12,668 (cap 13,710), and `styles.css` 749 gzipped bytes.
+
+The check of the new `gesture` part in `validateFlavor` grew `.` from 3,686 to 3,854, `/dom` from 11,138 to 11,310, `/react` from 11,494 to 11,663, `/glass` from 7,705 to 7,881, and `/glass/react` from 12,501 to 12,668. Each stays under its cap.
+
+### Not exported from `/dom`
+
+The package layout section of amendment 1 says the new controllers are exported from `/dom`. `createDrag` is not, at G4. The drag, the pointer environment, and the tracker add about 2.2 KB to `/dom`, which has 860 bytes of room under its cap of 12,170. The cap rule forbids raising it, so `createDrag` is exported from `/gesture` only. Exporting it from `/dom` needs a decision on the `/dom` cap.
+
+### Public names
+
+`/gesture` exports `createDrag`, `createPointerVelocity`, `createBrowserPointerEnvironment`, `requireGesture`, and the types `ArmaturePointerEnvironment`, `Drag`, `DragBounds`, `DragOptions`, `DragState`, `PointerHandlers`, `PointerSample`, `PointerVelocity`, `PointerVelocityOptions`, and `SwipeDirection`. The engine entry exports the type `GestureFlavor`.
+The public names beyond the spec are `createPointerVelocity`, `createBrowserPointerEnvironment`, and `requireGesture`. The spec names the pointer environment and the tracker as parts of the milestone and gives no function names for them.

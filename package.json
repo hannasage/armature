@@ -36,6 +36,10 @@
       "types": "./dist/frame/index.d.ts",
       "import": "./dist/frame/index.js"
     },
+    "./gesture": {
+      "types": "./dist/gesture/index.d.ts",
+      "import": "./dist/gesture/index.js"
+    },
     "./values": {
       "types": "./dist/values/index.d.ts",
       "import": "./dist/values/index.js"
