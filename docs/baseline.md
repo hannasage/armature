@@ -385,3 +385,49 @@ The maintainer approved the `/curves` cap of 2,500, the `/linear` cap of 3,700 a
 
 - A spring that does not come to rest within 10 seconds or 20,000 steps is cut short. `fitLinear` and `toEasing` return `truncated: true`. `toLinear` throws a RangeError that names the cap.
 - The `toEasing` fallback returns `degraded: true` when the fitted bezier is further from the solver than the tolerance. The option `maxError` turns that into a RangeError.
+
+## G3 build
+
+Date: 2026-11-12 (UTC).
+Source: branch `task/g3-kinds`. G3 adds three kinds to `/values`: color, path, and 3D transform. It adds no entry and no subpath. It adds one small hook to the kind interface, the optional `align`, and one line to `createValue` that calls it.
+Method: `node scripts/size.mjs`, the same as G0, G1, and G2. esbuild 0.28.2, `bundle`, `minify`, `esm`, React external, then gzip. Node 24 in Docker.
+
+### The `/values` entry
+
+| Entry | Source | Minified (bytes) | Gzipped (bytes) |
+| --- | --- | ---: | ---: |
+| `@hannasage/armature/values` | `src/values/index.ts` | 13,594 | 6,244 |
+
+The cap is the measured size plus 10 percent, rounded up to the next 10 bytes. It is a proposal for the maintainer. It is not approved. The amendment 1 proposal sits beside it.
+
+| Entry | Measured (gzipped) | Proposed cap | Cap before G3 | Amendment 1 proposal |
+| --- | ---: | ---: | ---: | --- |
+| `/values` | 6,244 | 6,870 | 1,830 | 4.0 KB (path: about 1.5 KB, alone) |
+
+The proposed cap of `/values`, as a bullet (a proposal for the maintainer, not approved):
+
+- `/values`: 6,870.
+
+The entry is over the 4.0 KB proposal. The path kind is part of the entry, because it sits in `/values` as the package layout says. Where the bytes sit:
+
+| Part | Gzipped (bytes), each file alone |
+| --- | ---: |
+| Path kind, `src/values/path.ts` | 1,131 |
+| Color kind with its name table | 2,870 |
+| The name table alone, `src/values/color-names.ts` | 1,332 |
+| 3D transform kind | 1,332 |
+| Before G3: number, vector, and the controller | 1,656 |
+
+- Without the path kind, `/values` would be 5,410. That is 1,410 over the 4.0 KB proposal, and the name table is 1,332 of it.
+- The path kind alone is 1,131, under the proposal of about 1.5 KB. It is its own file, so a bundler drops it from a consumer that does not use it.
+- The 148 CSS color names cost 1,332 gzipped bytes, because names do not compress. A shorter list of the 17 basic names would save about 1.1 KB. That is a choice for the maintainer.
+- A path, a color, or a 3D transform is a small step for the code and a large step for the size, because the kinds carry their own matrices and parsers.
+
+### Other entries
+
+The caps of the other entries did not change. The measures after G3: `.` 3,686 (cap 4,000), `/frame` 807, `/curves` 2,363, `/linear` 3,351, `/dom` 11,138, `/react` 11,494, `/glass` 7,705, `/glass/react` 12,501, and `styles.css` 749 gzipped bytes. The engine entry `.` did not grow, and a test checks that it reaches no file of `/values`.
+
+### Public names
+
+`/values` adds `colorKind`, `pathKind`, `transform3dKind`, `transform3dStyles`, and the types `Transform3D` and `Transform3DStyles`.
+`transform3dStyles` is public beyond the spec. Amendment 1 says only that the output is the properties `translate`, `rotate`, and `scale`, with `perspective` on the parent. A kind turns a value into one string, and one string cannot say which property goes on the parent. So `transform3dStyles` returns the element properties and the parent property apart.

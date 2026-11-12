@@ -40,7 +40,7 @@ const peers = [`react@${dev.react}`, `@types/react@${dev["@types/react"]}`];
 
 const CONSUMER_SOURCE = `import { createSpring, defineFlavor, retarget, stepSpring, type Flavor, type SpringState } from "@hannasage/armature";
 import { createScheduler, type Scheduler } from "@hannasage/armature/frame";
-import { createValue, numberKind, type Value } from "@hannasage/armature/values";
+import { colorKind, createValue, numberKind, pathKind, transform3dKind, transform3dStyles, type Transform3D, type Value } from "@hannasage/armature/values";
 import { bezier, createTween, createTweenValue, easing, stepTween, type Easing, type TweenState } from "@hannasage/armature/curves";
 import { fitLinear, toEasing, toLinear, type EasingResult } from "@hannasage/armature/linear";
 import { createFollower, type Follower } from "@hannasage/armature/dom";
@@ -58,6 +58,10 @@ const filter = createGlassFilter({ width: 120, height: 48, radius: 24 });
 export function track(scheduler: Scheduler): Value<number> {
   return createValue(scheduler, numberKind, 0, { spring: { stiffness: 170, damping: 26 } });
 }
+export const hue: string = colorKind.interpolate("hsl(350 100% 50%)", "hsl(10 100% 50%)", 0.5);
+export const outline: string = pathKind("M0 0 L10 10 Z").interpolate("M0 0 L10 10 Z", "M5 5 L20 20 Z", 0.5);
+export const turn: Transform3D = transform3dKind.parse({ rotate: { axis: [0, 0, 1], angle: 45 }, perspective: 500 });
+export const styles: string = transform3dStyles(turn).parent.perspective;
 export const scheduler: Scheduler = createScheduler({ requestFrame: () => 0, cancelFrame: () => undefined, now: () => 0 });
 
 export const slide = createTweenValue(scheduler, numberKind, 0, { duration: 0.3, curve: easing("ease-out") });

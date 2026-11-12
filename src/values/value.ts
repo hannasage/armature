@@ -102,7 +102,7 @@ export function createValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kind<T>,
     get: () => kind.fromArray(state.value),
     to(target, move) {
       if (destroyed) return;
-      const next = parts(target);
+      const next = kind.align ? kind.align(state.value, parts(target)) : parts(target);
       if (move?.spring) config = move.spring;
       if (options.reducedMotion?.() === true) {
         jump(next);

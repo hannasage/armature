@@ -34,10 +34,10 @@ describe("the path kind: parse", () => {
   });
 
   it("reads the arc flags without a separator", () => {
-    const kind = pathKind("M0 0a1 1 0 00 1 1");
-    expect(kind.parse("M0 0a1 1 0 00 1 1")).toBe("M 0 0 a 1 1 0 0 0 1 1");
-    expect(kind.parse("M0 0a1 1 0 0 0 1 1")).toBe("M 0 0 a 1 1 0 0 0 1 1");
-    expect(kind.parse("M0 0a1 1 0 1 1 1 1")).toBe("M 0 0 a 1 1 0 1 1 1 1");
+    expect(pathKind("M0 0a1 1 0 00 1 1").parse("M0 0a1 1 0 00 1 1")).toBe("M 0 0 a 1 1 0 0 0 1 1");
+    expect(pathKind("M0 0a1 1 0 00 1 1").parse("M0 0a1 1 0 0 0 1 1")).toBe("M 0 0 a 1 1 0 0 0 1 1");
+    expect(pathKind("M0 0a1 1 0 11 1 1").parse("M0 0a1 1 0 11 1 1")).toBe("M 0 0 a 1 1 0 1 1 1 1");
+    expect(pathKind("M0 0a1 1 0 01-1-1").parse("M0 0a1 1 0 01-1-1")).toBe("M 0 0 a 1 1 0 0 1 -1 -1");
   });
 
   it("repeats a command when its numbers repeat, and a moveto turns into a lineto", () => {

@@ -27,7 +27,7 @@ Every entry except `glass` and `glass/react` holds no glass code.
 
 - `@hannasage/armature` is the engine. It has the spring solver, the browser environments, the scroll velocity tracker, the reduced-motion check, and the flavor contract with its types.
 - `@hannasage/armature/frame` holds the shared frame scheduler. One frame loop steps every task in fixed slices, so a 30, 60, or 144 Hz screen runs the same slices. It pauses while the tab is hidden, and a manual `advance` runs it in a test.
-- `@hannasage/armature/values` holds the value layer: the number kind and the vector kind, a spring over a vector, and `createValue`, a spring controller that runs on the scheduler.
+- `@hannasage/armature/values` holds the value layer: the number, vector, color, path, and 3D transform kinds, a spring over a vector, and `createValue`, a spring controller that runs on the scheduler.
 - `@hannasage/armature/curves` holds the cubic-bezier evaluator, named easings as data, the tween with the same step interface as the spring, a tween controller that runs on the scheduler, and a bezier fitting aid that reports its error.
 - `@hannasage/armature/linear` writes a spring or a curve as a CSS `linear()` string within a tolerance. It checks that the browser supports `linear()`, and it falls back to a fitted cubic-bezier.
 - `@hannasage/armature/dom` holds the DOM controllers: surface, lens, follower, delegation, and scroll reveal. Each one takes a flavor.
@@ -86,6 +86,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 - `docs/flavors.md` explains the flavor contract: each field, and which engine code reads it.
 - `docs/glass-how-it-works.md` explains the numbers of the glass flavor: the spring, the displacement map, and the filter.
 - `docs/liquid-glass-readme.md` is the original guide to the glass package, from before the engine was split out. Its import paths are the old ones.
+- `docs/kinds.md` explains the kinds: color (and why it blends in OKLab), path, and 3D transform, with the rule that nothing writes `transform`.
 - `docs/baseline.md` records the measurements taken at each milestone.
 - `docs/releasing.md` lists the steps to publish a prerelease.
 - `CHANGELOG.md` lists the changes in each version.

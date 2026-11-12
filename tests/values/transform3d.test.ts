@@ -13,7 +13,7 @@ const quaternion = (value: Transform3D) => kind.toArray(value).slice(3, 7);
 /** The signed angle about z, in degrees, in (-180, 180]. */
 const signedZ = (value: Transform3D): number => {
   const raw = value.rotate.angle * Math.sign(value.rotate.axis[2] || 1);
-  return ((((raw + 180) % 360) + 360) % 360) - 180 || 180;
+  return ((((raw + 180) % 360) + 360) % 360) - 180;
 };
 
 describe("the 3D transform kind: parse", () => {
