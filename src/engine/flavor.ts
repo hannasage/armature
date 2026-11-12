@@ -52,6 +52,26 @@ export interface Flavor<P extends string = string> {
   readonly followers?: FollowerFlavor;
   /** Drag, decay, snap, and swipe: the numbers `createDrag` from `@hannasage/armature/gesture` reads. */
   readonly gesture?: GestureFlavor;
+  /** Named sequences and default curves: the names `createTimeline` from `@hannasage/armature/timeline` reads. */
+  readonly timeline?: TimelineFlavor;
+}
+
+/** One named sequence of a timeline: keys that name their curve or spring by a key of `TimelineFlavor.curves` or of `Flavor.springs`. */
+export interface TimelineSequence {
+  /** `[time in ms, value, step?]`. The times do not go back. A step is a name, and a key with no step takes the default curve. */
+  readonly keys: ReadonlyArray<readonly [time: number, value: number, step?: string]>;
+}
+
+/**
+ * The timeline part of a flavor. Every piece is optional, and the empty part is valid. A name is lowercase letters, digits, and hyphens, and starts
+ * with a letter. A curve name must not be the key of a spring, because a step names one or the other.
+ */
+export interface TimelineFlavor {
+  /** Named cubic-bezier curves, as `[x1, y1, x2, y2]` control points, with x1 and x2 from 0 to 1. */
+  readonly curves?: Readonly<Record<string, readonly [x1: number, y1: number, x2: number, y2: number]>>;
+  /** A key in `curves`. A key of a track that names no step takes this curve. */
+  readonly defaultCurve?: string;
+  readonly sequences?: Readonly<Record<string, TimelineSequence>>;
 }
 
 /** The gesture part of a flavor. A drag writes the individual CSS property `translate`, so the part names no variable and no attribute. */
@@ -265,7 +285,8 @@ const checked = new WeakSet<object>();
  * the reveal fallback is one of the reveal personalities, every spring key names a spring in `springs`,
  * every surface switch is a boolean when it is set, and every follower has a unique variable name that no other part uses,
  * rest limits, and a spring key that names a spring in `springs`. A gesture part has a friction, a rubber band, swipe thresholds, rest limits,
- * and a snap spring key. Every spring and every rest limit holds finite numbers in range.
+ * and a snap spring key. Every spring and every rest limit holds finite numbers in range. The timeline part is not checked here, because the spring-only entry has no room for it:
+ * `createTimeline` and `requireTimeline` from `@hannasage/armature/timeline` check it.
  * The require helpers call it, and a flavor that passes is not checked again.
  */
 export function validateFlavor(flavor: Flavor): void {

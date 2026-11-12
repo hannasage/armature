@@ -79,13 +79,9 @@ describe("the entries", () => {
     expect(inputs.filter((file) => /(^|\/)src\/(timeline|gesture|frame|values|curves|linear)\//.test(file))).toEqual([]);
   });
 
-  it("does not export the flavor check registry from the spring-only entry", () => {
-    expect(readFileSync(join(root, "src/index.ts"), "utf8")).not.toMatch(/flavor-checks/);
-  });
-
-  it("keeps the spring-only entry lean: the hook for the timeline check adds under 100 bytes, and the entry stays under its cap", async () => {
+  it("keeps the spring-only entry as G4 left it: no timeline check in validateFlavor, and the size of 3,854", async () => {
     const { gzipped } = await bundle("src/index.ts");
-    expect(gzipped).toBeLessThanOrEqual(3854 + 100);
+    expect(gzipped).toBeLessThanOrEqual(3854 + 20);
     expect(gzipped).toBeLessThanOrEqual(4000);
   });
 

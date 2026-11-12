@@ -8,7 +8,9 @@ import { swipey } from "../helpers/gesture-flavor";
 import { FakeTimelineEnv } from "../helpers/fake-timeline-env";
 import { tempo } from "../helpers/timeline-flavor";
 
-// The timeline part is optional. The check of it runs in validateFlavor once the /timeline module is loaded, and the import above loads it.
+// The timeline part is optional. validateFlavor of the spring-only entry does not check it, because that entry has no room under its cap. The check
+// runs in requireTimeline and createTimeline.
+const check = (flavor: Flavor) => requireTimeline(flavor);
 
 const part = tempo.timeline as TimelineFlavor;
 const withPart = (patch: Record<string, unknown> | null | string | number | unknown[]): Flavor =>
@@ -27,10 +29,11 @@ describe("the timeline part of a flavor", () => {
     }
   });
 
-  it("validates a good part, an empty part, and a part of one piece, and defineFlavor freezes it", () => {
+  it("passes a good part, an empty part, and a part of one piece, and defineFlavor freezes it", () => {
+    expect(() => check(tempo)).not.toThrow();
     expect(() => validateFlavor(tempo)).not.toThrow();
-    expect(() => validateFlavor(withPart({ curves: undefined, defaultCurve: undefined, sequences: undefined }))).not.toThrow();
-    expect(() => validateFlavor(withPart({ curves: {}, defaultCurve: undefined, sequences: {} }))).not.toThrow();
+    expect(() => check(withPart({ curves: undefined, defaultCurve: undefined, sequences: undefined }))).not.toThrow();
+    expect(() => check(withPart({ curves: {}, defaultCurve: undefined, sequences: {} }))).not.toThrow();
     const frozen = defineFlavor({ ...tempo, timeline: { curves: { x: [0, 0, 1, 1] as const }, sequences: { go: { keys: [[0, 0, "settle"] as const, [100, 1, "x"] as const] } } } });
     expect(Object.isFrozen(frozen.timeline)).toBe(true);
     expect(Object.isFrozen(frozen.timeline?.sequences?.go.keys[1])).toBe(true);
@@ -71,13 +74,15 @@ describe("the timeline part of a flavor", () => {
     ["a step that names nothing", { sequences: { go: { keys: [[0, 0], [100, 1, "nope"]] } } }, /sequence "go".*"nope"/],
   ])("rejects %s", (_name, patch, message) => {
     const flavor = withPart(patch as never);
-    expect(() => validateFlavor(flavor)).toThrow(TypeError);
-    expect(() => validateFlavor(flavor)).toThrow(/The flavor "tempo" has /);
-    expect(() => validateFlavor(flavor)).toThrow(message);
+    expect(() => check(flavor)).toThrow(TypeError);
+    expect(() => check(flavor)).toThrow(/The flavor "tempo" has /);
+    expect(() => check(flavor)).toThrow(message);
   });
 
-  it("is checked once the flavor passes through defineFlavor too", () => {
-    expect(() => defineFlavor(withPart({ defaultCurve: "nope" }))).toThrow(/default curve/);
+  it("is not checked by validateFlavor of the spring-only entry: that is a recorded deviation, and the timeline checks it instead", () => {
+    const flavor = withPart({ defaultCurve: "nope" });
+    expect(() => validateFlavor(flavor)).not.toThrow();
+    expect(() => createTimeline(new FakeTimelineEnv(), { flavor, tracks: [] })).toThrow(/default curve/);
   });
 
   it("returns the part from requireTimeline, and throws when the flavor has none or a bad one", () => {

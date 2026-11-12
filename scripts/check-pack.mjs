@@ -44,6 +44,7 @@ import { colorKind, createValue, numberKind, pathKind, transform3dKind, transfor
 import { bezier, createTween, createTweenValue, easing, stepTween, type Easing, type TweenState } from "@hannasage/armature/curves";
 import { fitLinear, toEasing, toLinear, type EasingResult } from "@hannasage/armature/linear";
 import { createDrag, createPointerVelocity, type Drag, type SwipeDirection } from "@hannasage/armature/gesture";
+import { createTimeline, type Timeline } from "@hannasage/armature/timeline";
 import { createFollower, type Follower } from "@hannasage/armature/dom";
 import { ArmatureProvider, useArmatureSurface } from "@hannasage/armature/react";
 import { createGlassFilter, glassFlavor, type GlassFlavor } from "@hannasage/armature/glass";
@@ -76,6 +77,10 @@ export function drag(element: HTMLElement, flavor: Flavor): Drag {
   const handle = createDrag(element, { flavor, axis: "x", bounds: [0, 300], snap: [0, 150, 300] });
   handle.onSwipe((direction: SwipeDirection) => direction.toUpperCase());
   return handle;
+}
+export function timeline(element: HTMLElement): Timeline {
+  const env = { requestFrame: () => 0, cancelFrame: () => undefined, now: () => 0, setStyle: () => undefined };
+  return createTimeline(env, { tracks: [{ target: element, value: "opacity", keys: [[0, 0], [300, 1, easing("ease-out")], [800, 0.5, { stiffness: 170, damping: 26 }]] }] });
 }
 export const flick: number = createPointerVelocity().read(0).x;
 

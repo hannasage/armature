@@ -493,3 +493,62 @@ The package layout section of amendment 1 says the new controllers are exported 
 
 `/gesture` exports `createDrag`, `createPointerVelocity`, `createBrowserPointerEnvironment`, `requireGesture`, and the types `ArmaturePointerEnvironment`, `Drag`, `DragBounds`, `DragOptions`, `DragState`, `PointerHandlers`, `PointerSample`, `PointerVelocity`, `PointerVelocityOptions`, and `SwipeDirection`. The engine entry exports the type `GestureFlavor`.
 The public names beyond the spec are `createPointerVelocity`, `createBrowserPointerEnvironment`, and `requireGesture`. The spec names the pointer environment and the tracker as parts of the milestone and gives no function names for them.
+
+
+## G5 build
+
+Date: 2026-11-12 (UTC).
+Source: branch `task/g5-timeline`. G5 adds the entry `@hannasage/armature/timeline`: `createTimeline` with tracks, keyframes, place together or in sequence, stagger, and play, pause, reverse, seek, and scrub. A step is a curve, a spring, or a decay. It adds the optional `timeline` part to the flavor contract.
+Method: `node scripts/size.mjs`, the same as G0 to G4. esbuild 0.28.2, `bundle`, `minify`, `esm`, React external, then gzip. Node 24 in Docker.
+
+### The `/timeline` entry
+
+| Entry | Source | Minified (bytes) | Gzipped (bytes) |
+| --- | --- | ---: | ---: |
+| `@hannasage/armature/timeline` | `src/timeline/index.ts` | 13,611 | 5,562 |
+
+The cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The cap is not approved: the maintainer has not seen it. The amendment 1 proposal sits beside it.
+
+| Entry | Measured (gzipped) | Cap (not approved) | Amendment 1 proposal |
+| --- | ---: | ---: | --- |
+| `/timeline` | 5,562 | 6,120 | 4.0 KB |
+
+The cap of `/timeline`, as a bullet (not approved):
+
+- `/timeline`: 6,120.
+
+The entry is 1,562 bytes over the 4.0 KB proposal. Where the bytes sit, in minified bytes of the bundle:
+
+| File | Minified (bytes) |
+| --- | ---: |
+| `src/timeline/timeline.ts` | 7,633 |
+| `src/timeline/flavor.ts` | 2,191 |
+| `src/engine/spring.ts` | 1,457 |
+| `src/frame/scheduler.ts` | 1,381 |
+| `src/curves/bezier.ts` | 759 |
+| `src/engine/env.ts` | 117 |
+
+The engine files are the spring solver, the scheduler, and the bezier evaluator. The timeline needs each one, so none can go. The entry does not bundle `src/engine/flavor.ts`: it runs its own check of the timeline part, which saves about 1.8 KB.
+
+### Other entries
+
+No cap moved. The measures after G5: `.` 3,853 (cap 4,000), `/frame` 807, `/values` 6,615, `/curves` 2,363, `/linear` 3,351, `/gesture` 5,346 (cap 5,850), `/dom` 11,325, `/react` 11,678, `/glass` 7,892, `/glass/react` 12,677, and `styles.css` 749 gzipped bytes. The entry `.` did not grow: G5 adds only types to `src/engine/flavor.ts`.
+
+### The tarball
+
+`npm run check:pack` passed. The tarball is 241,927 bytes in 205 files, under the limit of 333,027 (1.5 times the approved MEASURED_SIZE of 222,018). MEASURED_SIZE did not change.
+
+### Decision for the maintainer: `validateFlavor` does not check the timeline part
+
+Amendment 1 says `validateFlavor` checks the new flavor parts. At G5 it does not check the `timeline` part. The `.` entry is 3,853 bytes against a cap of 4,000, and a check of the part adds more than the 147 bytes of room. A registry that `/timeline` fills when its module loads would cost `.` about 9 bytes. It was tried and dropped, for two reasons. It is a side effect of loading a module, and the package declares `styles.css` as its only file with side effects. And `defineFlavor` in a file that never imports `/timeline` would skip the check anyway.
+
+What holds instead: `createTimeline` and `requireTimeline` run the check, so a bad part fails when a timeline is made. A flavor with no `timeline` part stays valid.
+
+Variants for the maintainer:
+- A. Keep it as it is.
+- B. Raise the `.` cap and check the part inline in `validateFlavor`. The cap rule forbids this without approval.
+- C. Bring back the registry, and accept the side effect on module load.
+
+### Public names
+
+`/timeline` exports `createTimeline`, `createBrowserTimelineEnvironment`, `requireTimeline`, and the types `DecayStep`, `Keyframe`, `Timeline`, `TimelineEnvironment`, `TimelineOptions`, `TimelineState`, `TimelineStep`, and `TrackSpec`. The engine entry exports the types `TimelineFlavor` and `TimelineSequence`. The names beyond the spec are `createBrowserTimelineEnvironment` and `requireTimeline`.

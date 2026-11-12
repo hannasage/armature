@@ -7,6 +7,7 @@ The versions follow semantic versioning, with one note for prereleases: the API 
 
 Changes for the next beta. They are not published.
 
+- New entry `@hannasage/armature/timeline`: `createTimeline`, with tracks, keyframes, place together, in sequence, or staggered, and play, pause, reverse, seek, and scrub on the shared scheduler. A step is a curve, a spring, or a decay. It adds the optional `timeline` part to the flavor contract (named curves, a default curve, named sequences), checked by `createTimeline` and `requireTimeline`.
 - New entry `@hannasage/armature/frame`: a shared frame scheduler. It steps tasks in fixed slices of 1/120 s, clamps a long frame to `MAX_FRAME`, pauses while the tab is hidden, and has a manual `advance` for tests.
 - New entry `@hannasage/armature/values`: the number kind and the vector kind, a spring over a vector that matches the scalar spring component by component, and `createValue`, a spring controller that runs on the scheduler.
 - New entry `@hannasage/armature/curves`: `bezier`, which evaluates a cubic-bezier and writes its CSS string, named `easings` as data (with the Projection UI curve), `createTween` and `stepTween` with the step interface of the spring, `createTweenValue` on the scheduler, and `fitBezier`, which fits a bezier to samples and reports the error.
