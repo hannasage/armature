@@ -17,7 +17,8 @@ Changes for the next beta. They are not published.
   - `transform3dKind` holds a translation, a rotation, a scale, and a perspective. A rotation takes the short way. It writes only `translate`, `rotate`, and `scale`, never `transform`. `transform3dStyles` splits them from the `perspective` of the parent.
 - A kind can have an optional `align` method. `createValue` calls it before a move, so a spring picks the nearest of two equal targets.
 - A kind can have an optional `restDelta`. `createValue` uses it when the spring sets none, so each kind rests at its own scale. The color kind sets 0.0002 and the 3D transform kind 0.0005.
-- `getState().velocity` is the raw list of numbers for every kind except the number kind.
+- `getState().velocity` is the raw list of numbers for every kind except one that sets the `scalar` flag, which only the number kind does. `Kind` and `Value` take a second type parameter for it.
+- A move spring with no `restDelta` inherits the explicit one of the base spring, then the kind default. A `restDelta` that is not finite and above 0 counts as unset. `pathKind(template, { restDelta })` sets the rest distance of a path, for example on a unit viewBox.
 - The kinds check their input in every method and throw a `TypeError` for a number that is not finite. The path kind keeps full precision and rounds to 6 decimals when it writes text.
 - New hook `useArmatureFollower` in `@hannasage/armature/react`.
 - A follower move can name its own spring: `follower.setTarget(1, { springKey: "settle" })`. Position, velocity, and target stay.

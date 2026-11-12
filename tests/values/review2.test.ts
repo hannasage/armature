@@ -42,7 +42,8 @@ describe("the velocity of a value follows the scalar flag, and not the name", ()
   });
 
   it("gives a flagged kind with another name a number too", () => {
-    const state = velocityOf({ ...numberKind, name: "count" }, 0, 10);
+    const flagged: Kind<number, true> = { ...numberKind, name: "count" };
+    const state = velocityOf(flagged, 0, 10);
     const velocity: number = state.velocity;
     expect(typeof velocity).toBe("number");
   });

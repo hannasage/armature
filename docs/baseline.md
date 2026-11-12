@@ -423,16 +423,16 @@ The entry is over the 4.0 KB proposal. The path kind is part of the entry, becau
 - The 148 CSS color names cost 1,332 gzipped bytes, because names do not compress. A shorter list of the 17 basic names would save about 1.1 KB. That is a choice for the maintainer.
 - A path, a color, or a 3D transform is a small step for the code and a large step for the size, because the kinds carry their own matrices and parsers.
 
-### After review round 1
+### After review rounds 1 and 2
 
-The review fixes added checks for finite numbers, a rest scale per kind, and full precision in the path kind. The `/values` entry is now 6,530 gzipped bytes (minified 14,505), against the cap of 6,870. The room is 340 bytes. The cap did not change.
+The review fixes added checks for finite numbers, a rest scale per kind, full precision in the path kind, the `scalar` flag, and the rest order of a move spring. The `/values` entry is now 6,615 gzipped bytes (minified 14,767), against the cap of 6,870. The room is 255 bytes. The cap did not change.
 
 | Part | Gzipped (bytes), each file alone |
 | --- | ---: |
-| Path kind | 1,221 |
-| Color kind with its name table | 3,016 |
+| Path kind | 1,283 |
+| Color kind with its name table | 3,025 |
 | 3D transform kind | 1,421 |
-| `/values` without the path kind | 5,613 |
+| `/values` without the path kind | 5,648 |
 
 ### Other entries
 

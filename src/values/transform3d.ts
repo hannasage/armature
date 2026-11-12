@@ -83,7 +83,7 @@ export function transform3dStyles(value: Transform3D): Transform3DStyles {
   };
 }
 
-export const transform3dKind: Kind<Transform3D> = {
+export const transform3dKind: Kind<Transform3D, false> = {
   name: "transform3d",
   parse(input) {
     if (input === null || typeof input !== "object" || Array.isArray(input)) throw new TypeError("A 3D transform value must be an object with translate, rotate, scale, and perspective.");

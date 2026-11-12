@@ -83,8 +83,12 @@ const shapeOf = (segments: Segment[]): string[] => segments.map(({ c, n }) => (i
 const round = (n: number): string => String(Number(n.toFixed(6)));
 const write = (segments: Segment[], digits: (n: number) => string): string => segments.map(({ c, n }) => [c, ...n.map(digits)].join(" ")).join(" ");
 
-/** A kind for the paths that have the structure of `template`. */
-export function pathKind(template: string): Kind<string> {
+/**
+ * A kind for the paths that have the structure of `template`. The numbers of a path are in the units of its coordinates, and the rest distance
+ * defaults to 0.01 of a unit. On a unit viewBox (0 to 1) that is 1% of the box, so pass `{ restDelta }` there, for example 0.0001.
+ */
+export function pathKind(template: string, options: { restDelta?: number } = {}): Kind<string, false> {
+  if (options.restDelta !== undefined && !(finite(options.restDelta) && options.restDelta > 0)) throw new TypeError("The restDelta of a path kind must be a finite number above 0.");
   const base = read(template);
   const shape = shapeOf(base);
   const expected = shape.join(" ");
@@ -108,6 +112,7 @@ export function pathKind(template: string): Kind<string> {
 
   return {
     name: `path:${shape.join("")}`,
+    restDelta: options.restDelta,
     parse: (input) => write(check(input), String),
     toArray,
     fromArray,

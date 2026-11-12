@@ -7,7 +7,7 @@
 import { lerp } from "../engine/math";
 import { finite, text } from "./util";
 
-export interface Kind<T> {
+export interface Kind<T, S extends boolean = boolean> {
   readonly name: string;
   /** Turns an input into a value, or throws a TypeError that says what the kind needs. */
   parse(input: unknown): T;
@@ -22,6 +22,11 @@ export interface Kind<T> {
    */
   readonly restDelta?: number;
   /**
+   * Set to `true` only by the number kind. A kind with this flag has one component, and the velocity of its value is one number. For every
+   * other kind the velocity is the raw list of components. The flag drives the type of the velocity and the value at run time, not the name.
+   */
+  readonly scalar?: S extends true ? true : never;
+  /**
    * Optional. Picks, among the component lists that make one and the same target, the one nearest to `from`, so a spring travels the short way.
    * A rotation has two quaternions for one turn, and the controller asks this before it springs. It returns a new array, and a kind with
    * one list per target leaves this out.
@@ -33,8 +38,9 @@ export interface Kind<T> {
   serialize(value: T): string;
 }
 
-export const numberKind: Kind<number> = {
+export const numberKind: Kind<number, true> = {
   name: "number",
+  scalar: true,
   parse(input) {
     if (!finite(input)) throw new TypeError("A number value must be a finite number.");
     return input;
@@ -47,7 +53,7 @@ export const numberKind: Kind<number> = {
 };
 
 /** A kind for an array of `length` numbers, such as a point or a size. */
-export function vectorKind(length: number): Kind<number[]> {
+export function vectorKind(length: number): Kind<number[], false> {
   if (!Number.isInteger(length) || length < 1) throw new TypeError("A vector kind needs a whole length of 1 or more.");
   const name = `vector${length}`;
   return {

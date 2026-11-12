@@ -9,9 +9,20 @@ A kind has these parts:
 - `interpolate(from, to, progress)` blends two values.
 - `distance(a, b)` measures how far apart two values are.
 - `toArray(value)` and `fromArray(parts)` turn a value into numbers and back. A spring moves these numbers one by one.
+- `restDelta` is optional. It is the default rest distance of the kind.
+- `scalar` is optional. Only the number kind sets it.
 - `align(from, to)` is optional. It picks, among the number lists that name one target, the one nearest to `from`.
 
-Every kind has the same rest rule. A value is at rest when it is close enough to its target and slow enough. The spring settings `restDelta` and `restSpeed` set "close enough" and "slow enough", and both default to 0.01. The number lists differ in scale for each kind, so a kind can set its own default `restDelta`, and `createValue` uses it when the spring sets none. The color kind uses 0.0002 (a dark channel changes by a few byte levels for a small step), the 3D transform kind uses 0.0005 (about 0.06 degrees of rotation, and under 1 px of perspective at 1000 px), and the path kind and the others use 0.01. A `restDelta` in the spring config always wins.
+Every kind has the same rest rule. A value is at rest when it is close enough to its target and slow enough. The spring settings `restDelta` and `restSpeed` set "close enough" and "slow enough", and both default to 0.01. The number lists differ in scale for each kind, so a kind can set its own default `restDelta`, and `createValue` uses it when the spring sets none. The color kind uses 0.0002 (a dark channel changes by a few byte levels for a small step), the 3D transform kind uses 0.0005 (about 0.06 degrees of rotation, and under 1 px of perspective at 1000 px), and the path kind and the others use 0.01. The rest distance of a spring is the first of these that is a finite number above 0:
+
+1. the `restDelta` of that spring (a move can pass its own spring);
+2. the explicit `restDelta` of the base spring, the one given to `createValue`;
+3. the default `restDelta` of the kind;
+4. the default of the engine, 0.01.
+
+So a move spring with no `restDelta` inherits the explicit one of the base spring, and then the default of the kind. A `restDelta` of 0, a negative number, `NaN`, or `Infinity` counts as unset.
+
+The 3D transform kind uses one `restDelta` for all 11 components, because a spring takes one. A large perspective rests coarser: the perspective is moved as 1000 divided by the distance, so at 1000 px a step of 0.0005 is about 0.5 px, and at 5000 px it is about 12 px. The path kind rests at 0.01 of a coordinate unit. On a unit viewBox that is 1% of the box, so pass a smaller one: `pathKind(template, { restDelta: 0.0001 })`.
 
 ## Color
 
@@ -132,4 +143,4 @@ A spring moves the number list of a value. The lists are:
 - path: every number of the path except arc flags.
 - 3D transform: 11 numbers. Translation (3), a quaternion (4), scale (3), and the inverse perspective (1).
 
-`getState().velocity` is a number for the number kind. For every other kind it is the raw list of numbers, in the shape of `toArray`. A velocity is not a color, a path, or a rotation, so it is not written as one.
+`getState().velocity` is a number for a kind with the `scalar` flag, which only the number kind has. The flag, and not the name, decides it, and the type follows it. For every other kind it is the raw list of numbers, in the shape of `toArray`. A velocity is not a color, a path, or a rotation, so it is not written as one.

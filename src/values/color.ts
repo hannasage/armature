@@ -79,7 +79,7 @@ const toArray = (value: string): number[] => {
 };
 
 const fromArray = (parts: readonly number[]): string => {
-  if (parts.length < 4 || !parts.slice(0, 4).every(finite)) throw new TypeError("A color needs 4 finite components: the lightness and two axes, each times the alpha, then the alpha.");
+  if (parts.length !== 4 || !parts.slice(0, 4).every(finite)) throw new TypeError("A color needs exactly 4 finite components: the lightness and two axes, each times the alpha, then the alpha.");
   // The parts are premultiplied by the alpha they came with. An alpha past 1 is clamped for the output, and the parts are divided by it first.
   const raw = parts[3];
   if (Math.round(clamp(raw, 0, 1) * 255) === 0) return "#00000000";
@@ -87,7 +87,7 @@ const fromArray = (parts: readonly number[]): string => {
   return write([...apply(FROM_LMS, lms).map((c) => 255 * toGamma(clamp(c, 0, 1))), raw]);
 };
 
-export const colorKind: Kind<string> = {
+export const colorKind: Kind<string, false> = {
   name: "color",
   parse: (input) => write(read(input)),
   toArray,
