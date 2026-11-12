@@ -471,6 +471,39 @@ describe("the visibility pair", () => {
   });
 });
 
+describe("once-only logging", () => {
+  it("logs each kind of failure once: a tabHidden throw does not silence a requestFrame throw", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const env = new PageEnv();
+    env.tabHidden = () => { throw new Error("no state"); };
+    const real = env.requestFrame;
+    let throws = 3;
+    env.requestFrame = (callback) => {
+      if (throws-- > 0) throw new Error("no frames");
+      return real(callback);
+    };
+    const scheduler = createScheduler(env);
+    scheduler.add(counter());
+    scheduler.add(counter());
+    scheduler.add(counter());
+    const lines = spy.mock.calls.map((call) => String(call[0]));
+    expect(lines.filter((line) => line.includes("tabHidden threw"))).toHaveLength(1);
+    expect(lines.filter((line) => line.includes("requestFrame threw"))).toHaveLength(1);
+  });
+});
+
+describe("destroy inside a step", () => {
+  it("runs no later frame hook", () => {
+    const env = new PageEnv();
+    const scheduler = createScheduler(env);
+    const other = counter();
+    scheduler.add({ step: () => { scheduler.destroy(); } });
+    scheduler.add(other);
+    env.tick(1000 / 60);
+    expect(other.frames).toBe(0);
+  });
+});
+
 describe("a frame time that is not finite", () => {
   it("keeps the last good frame time, so the next frame is measured from it", () => {
     const env = new PageEnv();

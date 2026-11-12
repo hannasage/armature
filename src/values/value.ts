@@ -62,7 +62,7 @@ export function createValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kind<T>,
     if (same(state.value, emitted)) return;
     const shown = state.value;
     options.onChange?.(kind.fromArray(shown));
-    // A throw above leaves `emitted` as it was, so the next emit tries again.
+    // A throw above leaves `emitted` as it was. The retry happens on the next `to()` or `set()`, not by itself.
     emitted = shown;
   };
 
@@ -114,7 +114,9 @@ export function createValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kind<T>,
         if (!same(state.value, next) || state.velocity.some((n) => n !== 0)) jump(next);
         return;
       }
-      remove ??= scheduler.add(task);
+      // Adding is idempotent, and it restarts a frame loop that stopped, for example after a failed requestFrame.
+      // If `add` throws, the retargeted state stays, and the next `to()` adds the task again.
+      remove = scheduler.add(task);
     },
     set(value) {
       if (destroyed) return;

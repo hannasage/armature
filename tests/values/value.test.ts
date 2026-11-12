@@ -189,6 +189,26 @@ describe("a throwing onChange", () => {
   });
 });
 
+describe("a requestFrame that throws mid-move", () => {
+  it("is restarted by the next to(), and the value settles", () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { env, scheduler } = setup();
+    const value = createValue(scheduler, numberKind, 0, { spring });
+    value.to(1);
+    env.tick(1000 / 60);
+    const real = env.requestFrame;
+    env.requestFrame = () => { throw new Error("no frames"); };
+    env.tick(1000 / 60);
+    expect(env.pending).toBe(0);
+    expect(value.getState().moving).toBe(true);
+    env.requestFrame = real;
+    value.to(1);
+    expect(env.pending).toBe(1);
+    env.settle();
+    expect(value.get()).toBe(1);
+  });
+});
+
 describe("a vector value", () => {
   it("springs each component and rests when every component rests", () => {
     const { env, scheduler } = setup();

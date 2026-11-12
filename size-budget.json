@@ -28,13 +28,13 @@
       "measuredGzipped": 749
     },
     "@hannasage/armature/frame": {
-      "cap": 860,
-      "measuredGzipped": 780,
+      "cap": 890,
+      "measuredGzipped": 804,
       "proposal": "1.0 KB"
     },
     "@hannasage/armature/values": {
       "cap": 1830,
-      "measuredGzipped": 1658,
+      "measuredGzipped": 1656,
       "proposal": "4.0 KB (path: about 1.5 KB, alone)"
     }
   },

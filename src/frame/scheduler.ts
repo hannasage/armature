@@ -60,11 +60,11 @@ export function createScheduler(env: FrameEnvironment): Scheduler {
   let scheduled = false;
   let destroyed = false;
   let running = false;
-  let warned = false;
-  /** Logs the first environment failure of this scheduler, and no more. */
+  const warned = new Set<string>();
+  /** Logs each kind of environment failure once per scheduler, so one kind cannot silence another. */
   const warn = (text: string, error?: unknown) => {
-    if (!warned) console.error(`[armature] ${text}`, error);
-    warned = true;
+    if (!warned.has(text)) console.error(`[armature] ${text}`, error);
+    warned.add(text);
   };
   let unwatch: (() => void) | undefined;
   /** The tasks that get a frame call at the end of the run that is going on. */
@@ -96,8 +96,17 @@ export function createScheduler(env: FrameEnvironment): Scheduler {
 
   const run = (seconds: number) => {
     running = true;
+    try {
+      step(seconds);
+    } finally {
+      running = false;
+    }
+  };
+
+  const step = (seconds: number) => {
     carry += Math.min(MAX_FRAME, seconds);
     waiting = new Set(tasks);
+    // The slack lets `carry` end a hair below zero, down to -SLACK. That is harmless: the next frame adds to it.
     while (carry >= FIXED_STEP - SLACK && tasks.size > 0) {
       carry -= FIXED_STEP;
       for (const task of [...tasks]) {
@@ -107,7 +116,6 @@ export function createScheduler(env: FrameEnvironment): Scheduler {
       }
     }
     for (const task of [...waiting]) if (waiting.has(task)) call(task, () => task.frame?.());
-    running = false;
   };
 
   const stopFrame = () => {
@@ -195,6 +203,7 @@ export function createScheduler(env: FrameEnvironment): Scheduler {
       if (destroyed) return;
       destroyed = true;
       tasks.clear();
+      waiting.clear();
       stopAll();
     },
   };
