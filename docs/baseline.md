@@ -157,7 +157,7 @@ This records the size of the package as npm packs it, measured with `npm pack --
 - The tarball holds `dist`, `README.md`, `LICENSE`, and `package.json`, and nothing else.
 
 `npm run check:pack` fails when the tarball is larger than 1.5 times this size, which is 205,939 bytes.
-G4 build, 2026-11-12 (UTC): the tarball is 222,023 bytes, unpacked 748,041 bytes, in 196 files, measured with `npm pack --json` after `npm run build`. The limit is now 333,034 bytes, still 1.5 times. This re-baseline is pending the maintainer's approval, together with the `/gesture` cap of 5,850. The first G4 measure was 218,694 bytes, before review round 1, and 221,140 bytes after round 1. The 137,293 above is the earlier baseline.
+G4 build, 2026-11-12 (UTC): the tarball is 222,018 bytes, unpacked 747,984 bytes, in 196 files, measured with `npm pack --json` after `npm run build`. The limit is now 333,027 bytes, still 1.5 times. This re-baseline is pending the maintainer's approval, together with the `/gesture` cap of 5,850. The first G4 measure was 218,694 bytes, before review round 1, 221,140 bytes after round 1, and 222,023 bytes after round 2. The 137,293 above is the earlier baseline.
 The measured size is the constant `MEASURED_SIZE` in `scripts/pack-rules.mjs`. Change it only when a maintainer accepts a new size and records the new number here.
 The same check lists the tarball files, installs the tarball into a clean project with React as the peer, imports every subpath by package name, type-checks a consumer file under `nodenext` and `bundler`, and resolves the stylesheet.
 
@@ -454,25 +454,25 @@ Method: `node scripts/size.mjs`, the same as G0 to G3. esbuild 0.28.2, `bundle`,
 
 | Entry | Source | Minified (bytes) | Gzipped (bytes) |
 | --- | --- | ---: | ---: |
-| `@hannasage/armature/gesture` | `src/gesture/index.ts` | 13,605 | 5,316 |
+| `@hannasage/armature/gesture` | `src/gesture/index.ts` | 13,617 | 5,315 |
 
 The cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The cap is a proposal for the maintainer. It is not approved. The amendment 1 proposal sits beside it.
 
 | Entry | Measured (gzipped) | Cap | Amendment 1 proposal |
 | --- | ---: | ---: | --- |
-| `/gesture` | 5,316 | 5,850 | 3.0 KB |
+| `/gesture` | 5,315 | 5,850 | 3.0 KB |
 
 The cap of `/gesture`, as a bullet (a proposal, not approved):
 
 - `/gesture`: 5,850.
 
-The entry is 2,316 bytes over the 3.0 KB proposal. Where the bytes sit, each file bundled alone:
+The entry is 2,315 bytes over the 3.0 KB proposal. Where the bytes sit, each file bundled alone:
 
 | Part | Gzipped (bytes) |
 | --- | ---: |
 | `src/engine/flavor.ts`, pulled in by `requireGesture` through `validateFlavor` | 1,824 |
 | `src/engine/spring.ts` | 733 |
-| `src/gesture/drag.ts`, engine external | 3,636 |
+| `src/gesture/drag.ts`, engine external | 3,634 |
 | `src/gesture/pointer-env.ts`, engine external | 477 |
 | `src/gesture/pointer-velocity.ts`, engine external | 421 |
 

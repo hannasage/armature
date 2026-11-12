@@ -8,8 +8,8 @@
  * The shown overshoot stays below `reach` in every case: under the pointer, in a decay, and on a spring.
  * A release with enough speed and distance also fires a swipe. Under reduced motion a release has no inertia: the element goes straight to its end point.
  *
- * One frame loop runs, and only while something moves. The decay and the band spring step in the engine's fixed slices, and the snap spring uses
- * the solver's own slices, so a 30, 60, or 144 Hz screen lands in the same place. Every read of the browser goes through the injected environment.
+ * One frame loop runs, and only while something moves. The decay and every spring step in the engine's fixed slices, so a 30, 60, or 144 Hz
+ * screen lands in the same place. Every read of the browser goes through the injected environment.
  */
 import { prefersReducedMotion, type ArmatureTarget } from "../engine/env";
 import { logTag, springOf, type Flavor } from "../engine/flavor";
@@ -237,23 +237,19 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
     if (isAtRest(a.spring)) [a.p, a.v, a.mode] = [target, 0, "rest"];
   };
   /**
-   * Steps a spring. A band spring steps in whole slices of `FIXED_STEP` and takes its stiffness again at each one, so the pace does not
-   * depend on the frame rate. A snap spring has a fixed stiffness, and the solver slices it itself. A spring never shows more than `limit` past a bound.
+   * Steps a spring in whole slices of `FIXED_STEP`, so the path does not depend on the frame rate. A band spring takes its stiffness again at each
+   * slice. A spring never shows more than `limit` past a bound, and the clamp applies at each slice.
    */
-  const advance = (a: Axis, steps: number, dt: number) => {
+  const advance = (a: Axis, steps: number) => {
     let spring = a.spring!;
-    if (a.band) {
-      for (let i = 0; i < steps && !isAtRest(spring); i++) {
-        spring = reconfigure(spring, bandSpring(Math.abs(spring.value - spring.target)));
-        spring = stepSpring(spring, spring.target, FIXED_STEP);
+    for (let i = 0; i < steps && !isAtRest(spring); i++) {
+      if (a.band) spring = reconfigure(spring, bandSpring(Math.abs(spring.value - spring.target)));
+      spring = stepSpring(spring, spring.target, FIXED_STEP);
+      const o = over(a, spring.value);
+      if (Math.abs(o) > limit) {
+        const value = edge(a, spring.value) + Math.sign(o) * limit;
+        spring = { ...spring, value, settledValue: value, velocity: 0, settledVelocity: 0, carry: 0 };
       }
-    } else {
-      spring = stepSpring(spring, spring.target, dt);
-    }
-    const o = over(a, spring.value);
-    if (Math.abs(o) > limit) {
-      const value = edge(a, spring.value) + Math.sign(o) * limit;
-      spring = { ...spring, value, settledValue: value, velocity: 0, settledVelocity: 0, carry: 0 };
     }
     [a.spring, a.p, a.v] = [spring, spring.value, spring.velocity];
     if (isAtRest(spring)) a.mode = "rest";
@@ -265,7 +261,7 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
       if (over(a, a.p) !== 0) {
         // The element crossed a bound: the band takes it, with the rest of this frame.
         launch(a, edge(a, a.p), bandSpring(Math.abs(over(a, a.p))), true);
-        if (a.mode === "spring") advance(a, steps - i - 1, 0);
+        if (a.mode === "spring") advance(a, steps - i - 1);
         return;
       }
       if (Math.abs(a.v) < rest.restSpeed) {
@@ -300,7 +296,7 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
     }
     for (const a of axes) {
       if (a.mode === "decay") decay(a, steps);
-      else if (a.mode === "spring") advance(a, steps, dt);
+      else if (a.mode === "spring") advance(a, steps);
     }
     if (write() && moving()) requestNext();
   }
@@ -329,10 +325,13 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
       }
       // Pressed out of the bounds: outward the band resists from the overshoot shown at the press, inward the element follows one to one.
       const u = a.dir * (c - a.p0);
-      const o = u > 0 ? Math.min(limit, a.s0 + u / (1 + u / rubberBand.reach)) : a.s0 + u;
+      // The band has only the room that is left under the limit, so the pull is smooth and never meets a wall.
+      const room = Math.max(0, limit - a.s0);
+      const o = u > 0 ? a.s0 + u / (1 + u / room) : a.s0 + u;
       const p = a.bound + a.dir * o;
-      a.p = over(a, p) * a.dir < 0 ? shown(a, p) : p;
-      a.slope = u > 0 ? slopeAt(u) : 1;
+      const far = over(a, p) * a.dir < 0;
+      a.p = far ? shown(a, p) : p;
+      a.slope = far ? slopeAt(Math.abs(over(a, p))) : u > 0 ? 1 / (1 + u / room) ** 2 : 1;
     });
     velocity.add(s.x, s.y, s.time);
     return write();

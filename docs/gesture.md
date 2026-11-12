@@ -32,9 +32,9 @@ A snap point must lie inside the bounds of the axes that have bounds, or the dra
 
 Past a bound, the pointer pulls the element on a band. The element shows an overshoot of `d / (1 + d / reach)` for a pointer overshoot of d. The rule is exact: the shown overshoot stays below `reach` in every case. This holds under the pointer, in a decay that meets a bound, and on a spring, even at the speed ceiling of 12,000 px per second. The code keeps it at 0.999 times `reach` at most.
 
-A press on an element that is out of the bounds takes hold with no jump. From there the element follows the finger one to one inward, and the band resists the finger outward, starting from the overshoot the element showed at the press. So an element left at the reach still follows the finger at once.
+A press on an element that is out of the bounds takes hold with no jump. From there the element follows the finger one to one inward, and the band resists the finger outward, starting from the overshoot s0 the element showed at the press. The band has only the room that is left under the limit, so the shown overshoot is `s0 + u / (1 + u / (0.999 * reach - s0))` for an outward pull u. It rises smoothly toward the limit and never meets a wall. The release speed is scaled by the slope of that curve. If the finger is dragged inward past the opposite bound, the band of that bound takes over, with its own slope. So an element left at the reach still follows the finger at once.
 
-On release, a band spring pulls the element back to the bound. Its stiffness is `stiffness * (1 + d / reach)`, so it is stiffer the farther the element is. The band steps in whole slices of 1/120 s and takes its stiffness again at each slice, so a 30, 60, or 144 Hz screen returns at the same pace. The spring is critically damped, so it does not oscillate. The speed of the release is scaled by the slope of the band, so a hard flick outward does not shoot far past the reach. A flick that meets a bound is also slowed on entering the band, to the speed at which a critically damped spring peaks at 0.8 times `reach`. At the 300 stiffness of the test flavor that is about 4,500 px per second. The clamp at 0.999 times `reach` is a backstop. When it binds, for example on a snap spring that overshoots hard, it stops the element at that distance and sets its speed to 0. It rarely binds for a band spring.
+On release, a band spring pulls the element back to the bound. Its stiffness is `stiffness * (1 + d / reach)`, so it is stiffer the farther the element is. Every spring steps in whole slices of 1/120 s, and the band takes its stiffness again at each slice, so a 30, 60, or 144 Hz screen returns at the same pace. The spring is critically damped, so it does not oscillate. The speed of the release is scaled by the slope of the band, so a hard flick outward does not shoot far past the reach. A flick that meets a bound is also slowed on entering the band, to the speed at which a critically damped spring peaks at 0.8 times `reach`. At the 300 stiffness of the test flavor that is about 4,500 px per second. The clamp at 0.999 times `reach` is a backstop. When it binds, for example on a snap spring that overshoots hard, it stops the element at that distance and sets its speed to 0. It rarely binds for a band spring.
 
 ## What a release does
 
@@ -73,7 +73,7 @@ If the environment throws while the drag writes, the drag logs one line that sta
 
 ## The pointer environment
 
-No milestone is set for a React hook for the drag yet. Hanna decides the milestone. Until then, call `createDrag` in an effect and call `destroy` in its cleanup.
+No milestone is set for a React hook for the drag yet. The maintainer decides the milestone. Until then, call `createDrag` in an effect and call `destroy` in its cleanup.
 
 The drag reads the browser only through `ArmaturePointerEnvironment`. It is the pointer twin of the scroll environment: `requestFrame`, `cancelFrame`, `now`, `matchMedia`, `setStyle`, `getStyle` (optional), and `onPointer`. A pointer sample is `{ id, x, y, time }`, with `time` in milliseconds on the engine clock.
 
@@ -92,6 +92,6 @@ A test passes a fake environment and calls the handlers itself. The tests of thi
 
 ## Size
 
-The entry measured 5,316 gzipped bytes at G4. The amendment proposed 3.0 KB. Two engine files are part of it: the flavor check, about 1.8 KB, because `requireGesture` calls `validateFlavor`, and the spring solver, about 0.7 KB. The gesture files are about 2.8 KB. The cap in `size-budget.json` is a proposal. See `docs/baseline.md`, section "G4 build".
+The entry measured 5,315 gzipped bytes at G4. The amendment proposed 3.0 KB. Two engine files are part of it: the flavor check, about 1.8 KB, because `requireGesture` calls `validateFlavor`, and the spring solver, about 0.7 KB. The gesture files are about 2.8 KB. The cap in `size-budget.json` is a proposal. See `docs/baseline.md`, section "G4 build".
 
 The drag is not exported from `/dom`. The size of `/dom` would pass its cap.
