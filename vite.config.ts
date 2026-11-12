@@ -11,6 +11,8 @@ export default defineConfig({
         index: "src/index.ts",
         "frame/index": "src/frame/index.ts",
         "values/index": "src/values/index.ts",
+        "curves/index": "src/curves/index.ts",
+        "linear/index": "src/linear/index.ts",
         "dom/index": "src/dom/index.ts",
         "react/index": "src/react/index.ts",
         "glass/index": "src/glass/index.ts",

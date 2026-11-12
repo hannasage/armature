@@ -31,6 +31,18 @@ export const API = {
     types: ["Kind", "Value", "ValueMove", "ValueOptions", "ValueState", "VectorSpringState"],
     generic: true,
   },
+  "./curves": {
+    values: ["bezier", "createTween", "createTweenValue", "easing", "easings", "fitBezier", "isTweenDone", "retargetTween", "stepTween"],
+    types: [
+      "BezierFit", "BezierPoints", "Curve", "Easing", "EasingName", "TweenMove", "TweenState", "TweenValue", "TweenValueOptions", "TweenValueState"
+    ],
+    generic: true,
+  },
+  "./linear": {
+    values: ["fitLinear", "supportsLinear", "toEasing", "toLinear"],
+    types: ["EasingOptions", "EasingResult", "LinearFit", "LinearOptions", "SupportsProbe"],
+    generic: true,
+  },
   "./dom": {
     values: [
       "REST_POSE", "attachSurface", "belowFold", "createFollower", "createLens", "createScrollReveal", "createSurface", "dragAttributes", "dragTarget",

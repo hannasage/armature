@@ -41,6 +41,8 @@ const peers = [`react@${dev.react}`, `@types/react@${dev["@types/react"]}`];
 const CONSUMER_SOURCE = `import { createSpring, defineFlavor, retarget, stepSpring, type Flavor, type SpringState } from "@hannasage/armature";
 import { createScheduler, type Scheduler } from "@hannasage/armature/frame";
 import { createValue, numberKind, type Value } from "@hannasage/armature/values";
+import { bezier, createTween, createTweenValue, easing, stepTween, type Easing, type TweenState } from "@hannasage/armature/curves";
+import { fitLinear, toEasing, toLinear, type EasingResult } from "@hannasage/armature/linear";
 import { createFollower, type Follower } from "@hannasage/armature/dom";
 import { ArmatureProvider, useArmatureSurface } from "@hannasage/armature/react";
 import { createGlassFilter, glassFlavor, type GlassFlavor } from "@hannasage/armature/glass";
@@ -57,6 +59,13 @@ export function track(scheduler: Scheduler): Value<number> {
   return createValue(scheduler, numberKind, 0, { spring: { stiffness: 170, damping: 26 } });
 }
 export const scheduler: Scheduler = createScheduler({ requestFrame: () => 0, cancelFrame: () => undefined, now: () => 0 });
+
+export const slide = createTweenValue(scheduler, numberKind, 0, { duration: 0.3, curve: easing("ease-out") });
+export const ease: Easing = bezier(0.22, 1, 0.36, 1);
+export const tween: TweenState = stepTween(createTween(0, 1, 0.5, easing("projection")), 1 / 60);
+export const css: string = toLinear({ stiffness: 170, damping: 26 }, { tolerance: 0.005 });
+export const fit: number = fitLinear(ease).count;
+export const picked: EasingResult = toEasing({ stiffness: 170, damping: 26 }, { supports: () => false });
 
 export function follow(element: HTMLElement): Follower {
   return createFollower(element, { flavor: demo, name: "thumb" });
