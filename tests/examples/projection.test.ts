@@ -31,7 +31,7 @@ describe("the Projection flavor", () => {
 
   it("has a surface, followers, and no lens and no reveal", () => {
     expect(projection.surface).toBeDefined();
-    expect(projection.follower).toBeDefined();
+    expect(projection.followers).toBeDefined();
     expect(projection.lens).toBeUndefined();
     expect(projection.reveal).toBeUndefined();
   });
@@ -42,7 +42,7 @@ describe("the Projection flavor", () => {
     expect(key("enter")).toBe("mechanical");
     expect(key("exit")).toBe("settle");
     expect(key("dialog")).toBe("settle");
-    expect(Object.keys(projection.follower ?? {}).sort()).toEqual(["dialog", "enter", "exit", "thumb"]);
+    expect(Object.keys(projection.followers ?? {}).sort()).toEqual(["dialog", "enter", "exit", "thumb"]);
   });
 
   it("builds names that cannot meet a Projection UI token", () => {

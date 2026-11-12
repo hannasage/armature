@@ -53,8 +53,11 @@ describe("size measure", () => {
     }
   });
 
-  it("keeps the spring-only entry free of glass code, so it is the smallest JavaScript entry", async () => {
-    const js = (await lib.measureAll()).filter((r) => !r.key.endsWith(".css"));
+  it("keeps the spring-only entry free of glass code, so it is the smallest of the entries that carry the DOM, React, or glass code", async () => {
+    // Only the entries that carry DOM, React, or glass code are compared. /frame and /values are small entries of their own.
+    const carriers = Object.keys(pkg.exports).filter((key) => /^\.\/(dom|react|glass)/.test(key)).map((key) => `${pkg.name}/${key.slice(2)}`);
+    const rows = await lib.measureAll();
+    const js = rows.filter((r) => r.key === pkg.name || carriers.includes(r.key));
     const engine = js.find((r) => r.key === pkg.name);
     expect(js.length).toBeGreaterThan(1);
     expect(engine).toBeDefined();

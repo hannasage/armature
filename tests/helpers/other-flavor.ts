@@ -75,7 +75,7 @@ export const acme: Flavor<AcmePersonality> & { surface: NonNullable<Flavor["surf
     readyAttribute: "bar",
     readyValue: "on",
     springKeys: { x: "slideX", width: "slideW" },
-    pixelRest: { restDelta: 0.1, restSpeed: 2 },
+    rest: { restDelta: 0.1, restSpeed: 2 },
     stretchVelocity: 2000,
     maxStretch: 0.3,
   },

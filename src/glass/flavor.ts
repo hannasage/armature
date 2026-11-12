@@ -72,7 +72,7 @@ const lens: LensFlavor = {
   readyAttribute: "lens",
   readyValue: "ready",
   springKeys: { x: "lensX", width: "lensWidth" },
-  pixelRest: { restDelta: 0.05, restSpeed: 1 },
+  rest: { restDelta: 0.05, restSpeed: 1 },
   stretchVelocity: 10_000,
   maxStretch: 0.12,
 };

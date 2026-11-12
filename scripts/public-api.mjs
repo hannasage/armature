@@ -14,9 +14,21 @@ export const API = {
       "requireFollower", "requireLens", "requireReveal", "requireSurface", "retarget", "springOf", "stepSpring", "validateFlavor"
     ],
     types: [
-      "Flavor", "SurfaceFlavor", "LensFlavor", "RevealFlavor", "FollowerSpec", "FollowerFlavor", "PersonalitySpec", "RevealStart", "StartContext", "StartInput", "FeelOptions",
+      "Flavor", "SurfaceFlavor", "LensFlavor", "RevealFlavor", "FollowerSpec", "FollowerFlavor", "RestLimits", "PersonalitySpec", "RevealStart", "StartContext", "StartInput", "FeelOptions",
       "SpringConfig", "SpringState", "ArmatureEnvironment", "ArmatureTarget", "ArmatureScrollEnvironment", "Preferences",
     ],
+    generic: true,
+  },
+  "./frame": {
+    values: ["createScheduler"],
+    types: ["FrameEnvironment", "FrameTask", "Scheduler"],
+    generic: true,
+  },
+  "./values": {
+    values: [
+      "createValue", "createVectorSpring", "isVectorAtRest", "numberKind", "reconfigureVector", "retargetVector", "stepVectorSpring", "vectorKind"
+    ],
+    types: ["Kind", "Value", "ValueMove", "ValueOptions", "ValueState", "VectorSpringState"],
     generic: true,
   },
   "./dom": {
@@ -26,14 +38,14 @@ export const API = {
       "revealGroupAttributes", "revealLineAttributes", "revealPose", "revealRootMargin", "revealSpring", "revealStart",
       "scrollDirection", "staggerDelayFor", "startScrollReveal", "velocityBlend"
     ],
-    types: ["SurfaceOptions", "LensOptions", "FollowerOptions", "FollowerState", "Follower", "DelegateOptions", "ScrollRevealOptions", "ScrollRevealController", "MountScrollRevealOptions", "ArmatureRevealAttributes"],
+    types: ["SurfaceOptions", "LensOptions", "FollowerOptions", "FollowerState", "FollowerMove", "Follower", "DelegateOptions", "ScrollRevealOptions", "ScrollRevealController", "MountScrollRevealOptions", "ArmatureRevealAttributes"],
     generic: true,
   },
   "./react": {
     values: [
-      "ArmatureProvider", "ArmatureRevealProvider", "useArmatureLens", "useArmatureReveal", "useArmatureSurface"
+      "ArmatureProvider", "ArmatureRevealProvider", "useArmatureFollower", "useArmatureLens", "useArmatureReveal", "useArmatureSurface"
     ],
-    types: ["ArmatureProviderProps", "ArmatureRevealProviderProps", "LensHandle", "UseArmatureRevealOptions"],
+    types: ["ArmatureProviderProps", "ArmatureRevealProviderProps", "FollowerHandle", "FollowerMove", "LensHandle", "UseArmatureRevealOptions"],
     generic: true,
   },
   "./glass": {

@@ -3,5 +3,7 @@
 export { ArmatureProvider, type ArmatureProviderProps } from "./ArmatureProvider";
 export { useArmatureSurface } from "./useArmatureSurface";
 export { useArmatureLens, type LensHandle } from "./useArmatureLens";
+export { useArmatureFollower, type FollowerHandle } from "./useArmatureFollower";
+export type { FollowerMove } from "../dom/follower";
 export { useArmatureReveal, type UseArmatureRevealOptions } from "./useArmatureReveal";
 export { ArmatureRevealProvider, type ArmatureRevealProviderProps } from "./ArmatureRevealProvider";

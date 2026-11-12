@@ -203,3 +203,117 @@ Caps are in `size-budget.json`. Each cap is the gzipped size above plus 10 perce
 - `/styles.css`: 830.
 
 `npm run check:size` fails when an entry is over its cap or has no cap. `npm run check:readme` fails when the README disagrees with `package.json` on the status, the version, the install command, or the list of subpaths. CI runs both.
+
+## G1 trace
+
+Date: 2026-11-12 (UTC).
+Question: the `.` entry grew from 2,910 gzipped bytes at Milestone 1 to 3,632 at G0. Which files and commits add the 722 bytes?
+Nothing is trimmed and no cap changed. A maintainer decides on any trim.
+
+Method: esbuild 0.28.2 with `bundle`, `minify`, the `esm` format, React external, and `metafile`. Entry `src/index.ts`. The source of each commit came from `git archive`. The per-file number is `bytesInOutput` from the metafile, which counts minified bytes. The gzipped number is the whole output run through Node `gzipSync`, the same call as `scripts/size-lib.mjs`.
+
+Two commits:
+- Milestone 1: `0df2676`, the last commit of the Milestone 1 branch. Its minified size is 7,172 bytes, which matches this file.
+- G0: `f0a01e4`, the head of `main` when G1 started. Its figures match the G0 table (10,001 and 3,632).
+
+A note on the Milestone 1 gzipped figure. This file says 2,910. Node `gzipSync` gives 2,902 for the same bundle, and the `gzip -c` command gives 2,905. The 8 byte gap has no known cause. The like-for-like growth is 730 bytes (3,632 minus 2,902), not 722.
+
+### Bytes per input file
+
+| File | `0df2676` minified | `f0a01e4` minified | Change |
+| --- | ---: | ---: | ---: |
+| `src/engine/flavor.ts` | 1,732 | 4,514 | +2,782 |
+| `src/engine/spring.ts` | 1,517 | 1,519 | +2 |
+| `src/engine/scroll-env.ts` | 1,612 | 1,612 | 0 |
+| `src/engine/scroll-velocity.ts` | 779 | 779 | 0 |
+| `src/engine/env.ts` | 518 | 518 | 0 |
+| `src/engine/preferences.ts` | 262 | 262 | 0 |
+| `src/engine/guard.ts` | 207 | 207 | 0 |
+| `src/index.ts` | 0 | 0 | 0 |
+| Output, minified | 7,172 | 10,001 | +2,829 |
+| Output, gzipped | 2,902 | 3,632 | +730 |
+
+One file explains the growth. `src/engine/flavor.ts` adds 2,782 of the 2,829 minified bytes. The other seven files are the same, except for 2 bytes in `spring.ts`.
+
+### Bytes per commit
+
+Each row is the entry measured at that commit. Five commits touch `src/engine`. The other commits between the two points change no file that the `.` entry imports.
+
+| Commit | What it does | Minified | Gzipped | Gzipped change |
+| --- | --- | ---: | ---: | ---: |
+| `0df2676` | Milestone 1 | 7,172 | 2,902 | |
+| `0d8c7f2` | Adds the optional follower part to the flavor contract | 7,757 | 3,060 | +158 |
+| `9d34451` | Adds the `specular` and `glow` switches and their boolean check | 7,925 | 3,124 | +64 |
+| `1b7cca4` | Validates the numbers in a flavor (`checkSpring`, `checkRest`) | 9,062 | 3,396 | +272 |
+| `b3b5929` | Validates follower variable names | 9,812 | 3,576 | +180 |
+| `1921598` | Adds `defineFlavor` and `deepFreeze` | 10,001 | 3,632 | +56 |
+
+The sum of the five changes is 730 bytes. Of that, 572 bytes (the last four rows) come from validation code and its error messages. The follower part itself (the first row) adds 158 bytes, and a share of that is its first validation lines.
+
+### Where the bytes sit now
+
+`validateFlavor` and what it calls hold most of them. These are one-at-a-time measures. Each one removes a piece from the `f0a01e4` source in a scratch copy and measures the `.` entry again. The pieces overlap, so the savings do not add up.
+
+| Piece removed | Minified | Gzipped | Saved (gzipped) |
+| --- | ---: | ---: | ---: |
+| Nothing (`f0a01e4`) | 10,001 | 3,632 | |
+| `defineFlavor` and `deepFreeze` | 9,812 | 3,576 | 56 |
+| The `specular` and `glow` boolean check | 9,833 | 3,570 | 62 |
+| The number checks (`checkSpring` and `checkRest` bodies) | 9,095 | 3,409 | 223 |
+| The follower checks in `validateFlavor` | 8,683 | 3,337 | 295 |
+| Every error message in `validateFlavor` cut to a short code (16 messages) | 8,856 | 3,368 | 264 |
+| All validation (`validateFlavor` only asserts an object, and `defineFlavor` is gone) | 6,579 | 2,674 | 958 |
+
+### Trim proposal
+
+Each item lists an estimate from the table above. No item is done. The savings overlap, so a pair saves less than the sum.
+
+1. Move the checks to their own entry, for example `@hannasage/armature/flavor`. `defineFlavor`, `validateFlavor`, `checkSpring`, `checkRest`, and `deepFreeze` go there. The `.` entry keeps the types and the small helpers. The estimate is up to 958 bytes gzipped, which brings `.` to about 2,674. The cost is a behavior change. The `require*` helpers call `validateFlavor` today, so a flavor that skips `defineFlavor` would no longer be checked at first use. Tests that rely on that check would change. This is the largest saving and the largest change.
+2. Shorten the 16 error messages in `validateFlavor`. The estimate is up to 264 bytes gzipped. That figure is a ceiling, because it replaces each message with a bare code. A message that still names the flavor and the field saves less. The cost is less help for a person who reads the error.
+3. Move only `defineFlavor` and `deepFreeze` to the new entry. The estimate is 56 bytes. The cost is that a flavor author imports from a second entry to freeze a flavor.
+4. Drop the number checks. The estimate is 223 bytes. The cost is that a flavor with `NaN` or a negative stiffness is no longer caught at start-up. This item loses a safety check, so it is the weakest of the five.
+5. Drop the follower checks. The estimate is 295 bytes. The cost is that a duplicate or reserved follower variable is no longer caught. This item also loses a safety check.
+6. Raise the cap instead and trim nothing. The `.` cap is 4,000 bytes in `size-budget.json` today, and the measured size is 3,632. The amendment 1 proposal was 3.5 KB (3,500 bytes). No change to the cap is made here.
+
+Amendment 2 item 3 adds clear errors for the old names `pixelRest` and `follower` to `validateFlavor`. That adds a few lines to the `.` entry. The G1 build measures the real figure and reports it.
+
+## G1 build
+
+Date: 2026-11-12 (UTC).
+Source: branch `task/g1-engine-trace-and-contract`. G1 adds two entries, `/frame` and `/values`, and three changes from amendment 2: a React follower hook, one spring per follower move, and one shape for rest limits with the names `rest` and `followers`.
+Method: `node scripts/size.mjs`, the same as G0. esbuild 0.28.2, `bundle`, `minify`, `esm`, React external, then gzip. Node 24 in Docker.
+
+### New entries
+
+| Entry | Source | Minified (bytes) | Gzipped (bytes) |
+| --- | --- | ---: | ---: |
+| `@hannasage/armature/frame` | `src/frame/index.ts` | 1,444 | 807 |
+| `@hannasage/armature/values` | `src/values/index.ts` | 4,003 | 1,656 |
+
+Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The amendment 1 proposal sits beside each cap.
+
+| Entry | Measured (gzipped) | Cap | Amendment 1 proposal |
+| --- | ---: | ---: | --- |
+| `/frame` | 807 | 890 | 1.0 KB |
+| `/values` | 1,656 | 1,830 | 4.0 KB (path: about 1.5 KB, alone) |
+
+The proposals are larger because they were written for the full plan. `/values` holds only the number kind, the vector kind, and the value controller today. Color, path, and 3D transform arrive in G3 and raise the figure. `/values` carries the spring solver, because the vector spring runs it. `/frame` carries only the two step constants of `src/engine/spring.ts`, because esbuild drops the rest of that file.
+The caps of the new entries, as bullets:
+
+- `/frame`: 890.
+- `/values`: 1,830.
+
+### Changes to existing entries
+
+- `.` grew from 3,632 to 3,688 gzipped bytes (minified 10,001 to 10,211). The 56 bytes come from the clear errors for the old names `pixelRest` and `follower` in `validateFlavor` (amendment 2, item 3). The `/frame` and `/values` code adds nothing to it, and a test checks that the entry reaches no file of either one. The cap of 4,000 is unchanged.
+- `/dom` is 11,140 gzipped bytes, against 11,058 at G0 and a cap of 12,170. The cap is unchanged. The change comes from the spring switch of a follower move (amendment 2, item 2).
+- `/react` is 11,496 gzipped bytes, against 10,706 at G0 and a cap of 11,780. The cap is unchanged. The change comes from `useArmatureFollower` (amendment 2, item 1), which pulls the follower code into the entry. The room left under the cap is 284 bytes.
+- `/glass` is 7,706 gzipped bytes, against 7,655 at G0 and a cap of 8,430. `/glass/react` is 12,504, against 12,461 and a cap of 13,710.
+
+### The `"use client"` files
+
+The `"use client"` line is now on eleven files. The new one is `src/react/useArmatureFollower.ts`, the follower hook. `scripts/postbuild.mjs` lists the eleven and fails the build when the set differs.
+
+### Review rounds 1 to 3
+
+The review fixes added error handling to `/frame` and `/values`, so the two sizes above are the ones after round 3. The caps of the two new entries are derived from them by the stated rule. No cap of an entry that existed at G0 changed. The sizes of the other entries after round 3 are `.` 3,686, `/dom` 11,138, `/react` 11,494, `/glass` 7,705, and `/glass/react` 12,501 gzipped bytes, all under their caps. The two new caps wait for the maintainer's approval.

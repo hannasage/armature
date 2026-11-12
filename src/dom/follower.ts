@@ -1,6 +1,6 @@
 import { cssVar, logTag, requireFollower, springOf, type Flavor } from "../engine/flavor";
 import { createBrowserEnvironment, prefersReducedMotion, type ArmatureEnvironment, type ArmatureTarget } from "../engine/env";
-import { createSpring, isAtRest, MAX_FRAME, retarget, stepSpring, type SpringConfig, type SpringState } from "../engine/spring";
+import { createSpring, isAtRest, MAX_FRAME, reconfigure, retarget, stepSpring, type SpringConfig, type SpringState } from "../engine/spring";
 
 export interface FollowerOptions {
   /** The names, springs, and rest limits to use. Required. It needs a follower part with the named follower. */
@@ -26,12 +26,23 @@ export interface FollowerState {
   moving: boolean;
 }
 
+/** What one move of a follower can set. */
+export interface FollowerMove {
+  /**
+   * A key into `Flavor.springs`. The follower switches to that spring for this move and for the moves after it that name none.
+   * Position, velocity, and target stay. A key that does not exist throws the `TypeError` of `springOf`, and the follower changes nothing.
+   * The rest limits of the follower still apply under the spring.
+   */
+  springKey?: string;
+}
+
 export interface Follower {
   /**
    * Springs toward a new target. Position and velocity stay, so a turn in flight keeps its momentum.
    * A target that is not finite is ignored. The first one of each follower is logged. Under reduced motion the follower snaps to the target at once.
+   * A move can name its own spring with `springKey`, so one follower can enter on one spring and leave on another.
    */
-  setTarget(target: number): void;
+  setTarget(target: number, move?: FollowerMove): void;
   /** Jumps to a value (default: the current target) with no travel and no velocity, and stops the frame loop. A value that is not finite is ignored and logged like a bad target. */
   snap(value?: number): void;
   getState(): FollowerState;
@@ -56,9 +67,10 @@ export function createFollower(target: ArmatureTarget, options: FollowerOptions)
   if ((typeof target !== "object" && typeof target !== "function") || target === null) throw new TypeError(`${who} needs an element to write to.`);
   if (options.initial !== undefined && !Number.isFinite(options.initial)) throw new TypeError(`${who} got an initial value that is not a finite number.`);
   const name = cssVar(flavor, spec.var);
-  // A key set to undefined does not erase the flavor's rest limits.
-  const given = Object.fromEntries(Object.entries(options.spring ?? springOf(flavor, spec.springKey)).filter(([, value]) => value !== undefined));
-  const config = { restDelta: spec.rest.restDelta, restSpeed: spec.rest.restSpeed, ...given } as SpringConfig;
+  // The rest limits of the flavor sit under the spring. A key set to undefined does not erase them.
+  const withRest = (spring: SpringConfig): SpringConfig =>
+    ({ restDelta: spec.rest.restDelta, restSpeed: spec.rest.restSpeed, ...Object.fromEntries(Object.entries(spring).filter(([, value]) => value !== undefined)) }) as SpringConfig;
+  let config = withRest(options.spring ?? springOf(flavor, spec.springKey));
 
   let spring: SpringState = createSpring(config, options.initial);
   // A boolean says whether a frame is waiting. An id can be 0, and an environment can run the callback before it returns the id.
@@ -156,17 +168,20 @@ export function createFollower(target: ArmatureTarget, options: FollowerOptions)
   if (!write()) giveUp();
 
   return {
-    setTarget(next) {
+    setTarget(next, move) {
       if (destroyed) return;
+      // Look the key up first, so a bad key throws before anything changes.
+      const chosen = move?.springKey === undefined ? undefined : withRest(springOf(flavor, move.springKey));
       if (!Number.isFinite(next)) {
         ignore();
         return;
       }
+      if (chosen) config = chosen;
       if (prefersReducedMotion(env)) {
         jumpTo(next);
         return;
       }
-      spring = retarget(spring, next);
+      spring = retarget(chosen ? reconfigure(spring, config) : spring, next);
       if (isAtRest(spring)) {
         // Already there, or so close that it looks still: finish without a frame.
         if (spring.value !== next || spring.velocity !== 0) jumpTo(next);

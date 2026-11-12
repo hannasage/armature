@@ -66,9 +66,9 @@ describe("defineFlavor", () => {
   it("accepts a flavor that is already frozen, such as the glass flavor, and a shared or repeated object", () => {
     expect(defineFlavor(glassFlavor)).toBe(glassFlavor);
     const shared = { restDelta: 0.001, restSpeed: 0.01 };
-    const flavor = defineFlavor({ name: "s", prefix: "s", logLabel: "s", springs: { a: { stiffness: 1, damping: 1 } }, follower: { x: { var: "x", springKey: "a", rest: shared }, y: { var: "y", springKey: "a", rest: shared } } });
+    const flavor = defineFlavor({ name: "s", prefix: "s", logLabel: "s", springs: { a: { stiffness: 1, damping: 1 } }, followers: { x: { var: "x", springKey: "a", rest: shared }, y: { var: "y", springKey: "a", rest: shared } } });
     expect(Object.isFrozen(shared)).toBe(true);
-    expect(flavor.follower?.y.rest).toBe(shared);
+    expect(flavor.followers?.y.rest).toBe(shared);
   });
 
   it("throws a clear TypeError when the argument is not an object", () => {

@@ -4,11 +4,11 @@ import { glassFlavor } from "../../src/glass/flavor";
 import { acme } from "../helpers/other-flavor";
 
 const thumb: FollowerSpec = { var: "thumb", springKey: "tap", rest: { restDelta: 0.001, restSpeed: 0.01 } };
-const withFollowers = (follower: Flavor["follower"], patch: Partial<Flavor> = {}): Flavor => ({ ...acme, follower, ...patch });
+const withFollowers = (followers: Flavor["followers"], patch: Partial<Flavor> = {}): Flavor => ({ ...acme, followers, ...patch });
 
 describe("the follower part of a flavor", () => {
   it("is optional: the glass flavor and the test flavor have none and still validate", () => {
-    expect(glassFlavor.follower).toBeUndefined();
+    expect(glassFlavor.followers).toBeUndefined();
     expect(() => validateFlavor(glassFlavor)).not.toThrow();
     expect(() => validateFlavor(acme)).not.toThrow();
   });
@@ -45,10 +45,10 @@ describe("requireFollower", () => {
     expect(requireFollower(flavor, "thumb")).toBe(thumb);
   });
 
-  it("throws a clear TypeError when the flavor has no follower part", () => {
-    expect(() => requireFollower(acme, "thumb")).toThrow('The flavor "acme" has no follower part.');
+  it("throws a clear TypeError when the flavor has no followers part", () => {
+    expect(() => requireFollower(acme, "thumb")).toThrow('The flavor "acme" has no followers part.');
     expect(() => requireFollower(acme, "thumb")).toThrow(TypeError);
-    expect(() => requireFollower(glassFlavor, "thumb")).toThrow('The flavor "glass" has no follower part.');
+    expect(() => requireFollower(glassFlavor, "thumb")).toThrow('The flavor "glass" has no followers part.');
   });
 
   it("throws a clear TypeError for a name the flavor does not have, including names Object has", () => {

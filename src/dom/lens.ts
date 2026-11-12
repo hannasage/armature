@@ -96,7 +96,7 @@ export function createLens(options: LensOptions): Lens {
   };
   const readyAttribute = dataAttr(flavor, config.readyAttribute);
   // Pixels need only to look still. The flavor sets the thresholds.
-  const withPixelRest = (spring: SpringConfig): SpringConfig => ({ restDelta: config.pixelRest.restDelta, restSpeed: config.pixelRest.restSpeed, ...spring });
+  const withPixelRest = (spring: SpringConfig): SpringConfig => ({ restDelta: config.rest.restDelta, restSpeed: config.rest.restSpeed, ...spring });
   const rules = { first: true, reducedMotion: true, keyboard: true, ...options.jumpRules };
   const xConfig = withPixelRest(options.springs?.x ?? springOf(flavor, config.springKeys.x));
   const wConfig = withPixelRest(options.springs?.width ?? springOf(flavor, config.springKeys.width));

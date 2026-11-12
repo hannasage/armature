@@ -3,6 +3,17 @@
 This file lists the changes in each version of `@hannasage/armature`.
 The versions follow semantic versioning, with one note for prereleases: the API can still change between prereleases.
 
+## Unreleased
+
+Changes for the next beta. They are not published.
+
+- New entry `@hannasage/armature/frame`: a shared frame scheduler. It steps tasks in fixed slices of 1/120 s, clamps a long frame to `MAX_FRAME`, pauses while the tab is hidden, and has a manual `advance` for tests.
+- New entry `@hannasage/armature/values`: the number kind and the vector kind, a spring over a vector that matches the scalar spring component by component, and `createValue`, a spring controller that runs on the scheduler.
+- New hook `useArmatureFollower` in `@hannasage/armature/react`.
+- A follower move can name its own spring: `follower.setTarget(1, { springKey: "settle" })`. Position, velocity, and target stay.
+
+- Breaking, for flavor authors: the lens rest limits are now `lens.rest` and not `lens.pixelRest`. The follower part is now `followers` and not `follower`. A flavor with an old name throws a `TypeError` that says the new name. The type `RestLimits` names the shape of every rest limit.
+
 ## 1.0.0-beta.0
 
 This is the first beta. It is meant for the npm `beta` tag. Install it with `npm install @hannasage/armature@beta`, and pin the exact version.

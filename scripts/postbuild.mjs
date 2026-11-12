@@ -1,6 +1,6 @@
 // Runs after the build. It copies the stylesheet, adds the file extension to the imports in the type declarations,
 // and checks the "use client" lines.
-// The source files that start with "use client" must be the ten files that use a hook. They must start with it in dist, and no other file may.
+// The source files that start with "use client" must be the eleven files that use a hook. They must start with it in dist, and no other file may.
 import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
@@ -38,10 +38,11 @@ const actual = walk("dist", [".js"])
   .map((file) => file.slice("dist/".length))
   .sort();
 
-// The files that use a hook carry the line: the five generic ones and the five glass-bound wrappers. The glass filter component and every other file must not.
+// The files that use a hook carry the line: the six generic ones and the five glass-bound wrappers. The glass filter component and every other file must not.
 const CLIENT_FILES = [
   "react/ArmatureProvider.js",
   "react/ArmatureRevealProvider.js",
+  "react/useArmatureFollower.js",
   "react/useArmatureLens.js",
   "react/useArmatureReveal.js",
   "react/useArmatureSurface.js",

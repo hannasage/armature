@@ -36,14 +36,14 @@ Only the top level is needed by every flavor. The other four parts are optional.
 - `surface`: read by the surface and by delegation.
 - `lens`: read by the lens.
 - `reveal`: read by the scroll reveal and by the attribute builders.
-- `follower`: read by the follower. Added in Milestone 2, after the Projection flavor needed it.
+- `followers`: read by the follower. Added in Milestone 2, after the Projection flavor needed it.
 
 ## Top level fields
 
 - `name` is a short word for messages. `validateFlavor` and the require helpers put it in their errors. The React hooks use it in the context of a logged failure, such as `glass surface`.
 - `prefix` starts every CSS variable and data attribute. `cssVar` and `dataAttr` read it, and every controller calls those two helpers.
 - `logLabel` starts every logged error, in brackets. `logTag` reads it. The guard (`guardedSetup`) and the scroll reveal use it for their default log lines.
-- `springs` is a map of named spring presets. `springOf` reads it. The surface and the lens look up their springs here by key. `validateFlavor` checks that every key named in the `surface`, `lens`, and `follower` parts exists in this map.
+- `springs` is a map of named spring presets. `springOf` reads it. The surface and the lens look up their springs here by key. `validateFlavor` checks that every key named in the `surface`, `lens`, and `followers` parts exists in this map.
 
 ## The surface part
 
@@ -66,7 +66,7 @@ The lens is the travelling indicator under the current item of a row. `createLen
 - `vars` holds the suffixes of the six CSS variables the lens writes: `x`, `y`, `w`, `h`, `sx`, and `sy`.
 - `readyAttribute` and `readyValue` name the attribute that says the lens is showing, and the value it takes.
 - `springKeys` names the position spring and the width spring in the `springs` map.
-- `pixelRest` holds the rest thresholds merged under both lens springs. Pixels only need to look still.
+- `rest` holds the rest thresholds merged under both lens springs. Pixels only need to look still. It is a `RestLimits`, the same shape as the surface rest and the follower rest. The old name `pixelRest` throws a `TypeError` that says to use `rest`.
 - `stretchVelocity` is the speed, in pixels per second, that adds 100 percent of stretch.
 - `maxStretch` is the most the lens stretches along x, as a fraction.
 
@@ -89,7 +89,9 @@ The reveal is the spring that brings elements into view as the page scrolls, and
 - `hints` holds the `will-change` values while a piece moves: `move`, `clip`, and `drag`. The controller reads them.
 - `drag` holds the drag numbers: `shiftMax`, `rotateMax`, `fullVelocity`, the `depth` range with its `fallback`, and the drag `spring`. `dragTarget` and `parseDepth` read the numbers. The controller reads the spring. The `dragAttributes` builder reads the depth range.
 
-## The follower part
+## The followers part
+
+The part was named `follower` in `1.0.0-beta.0`. A flavor that still uses the old name throws a `TypeError` that says to use `followers`.
 
 A follower springs one number toward a target and writes it as a CSS variable. A toggle thumb, a toast that slides in, and a slider thumb are followers. `createFollower` reads this part. Unlike the other parts, this one holds many entries, because a component often needs more than one number.
 
@@ -97,7 +99,7 @@ The part is a record from a follower name to a spec. `requireFollower(flavor, na
 
 - `var` is the suffix of the CSS variable the follower writes. The value is a bare number. The stylesheet decides the unit. The suffix is lowercase letters, digits, and hyphens, and starts with a letter. It is unique across followers, and no surface, lens, or reveal variable uses the same suffix. `validateFlavor` checks this.
 - `springKey` names the spring in the `springs` map. `validateFlavor` checks that it exists.
-- `rest` is required. It holds `restDelta` and `restSpeed`, both finite numbers above 0. They are merged under the spring, so a spring that sets its own thresholds keeps them.
+- `rest` is required. It is a `RestLimits`: `restDelta` and `restSpeed`, both finite numbers above 0. They are merged under the spring, so a spring that sets its own thresholds keeps them.
 
 A follower keeps its position and its velocity when the target changes in flight. It snaps to the target under reduced motion. This holds while it is moving too: the follower checks the setting on every frame, so it jumps to its target and stops its frame loop when the reader turns reduced motion on in the middle of a move. It stops its frame loop when the spring is at rest. It uses the engine's fixed step, so a 30, 60, and 144 Hz screen land in the same place. It ignores a target that is `NaN` or `Infinity`, and logs one line for the first such value of each follower.
 
@@ -110,6 +112,15 @@ thumb.setTarget(0); // turns in flight and keeps its velocity
 thumb.snap(0); // jumps with no travel
 thumb.destroy();
 ```
+
+A React component uses `useArmatureFollower` from `@hannasage/armature/react`. It makes the follower when the element mounts and destroys it on unmount. The handle has `setTarget`, `snap`, and `getState`, and no `destroy`. Before the element mounts, and on the server, `getState` gives the initial state. A flavor with no `followers` part logs one line and the hook skips the start.
+
+```tsx
+const thumb = useArmatureFollower(ref, { flavor: projection, name: "thumb", initial: 0 });
+thumb.setTarget(1);
+```
+
+A move can name its own spring. `thumb.setTarget(1, { springKey: "mechanical" })` switches the follower to that spring and then retargets. Position, velocity, and target stay, so a turn in flight keeps its speed. The follower keeps the chosen spring for later moves that name none. The `springKey` in the follower spec is the default. A key that is not in `springs` throws the `TypeError` of `springOf`, and the follower changes nothing. The rest limits of the follower still apply under the chosen spring. Under reduced motion the follower still snaps, whatever spring the move names.
 
 A call can replace the spring with the `spring` option. The rest limits of the flavor still apply. If the environment throws while the follower writes its variable, the follower logs one line that starts with the flavor's label, stops its frame loop, and rests on its target. It does not throw into the page. A key of the `spring` option that is `undefined` is skipped, so it does not erase a rest limit. `createFollower` throws a `TypeError` that names the follower and the flavor when the element is missing or when `initial` is not a finite number.
 
@@ -162,7 +173,7 @@ import { attachSurface } from "@hannasage/armature/dom";
 attachSurface(button, { flavor: acme });
 ```
 
-A flavor with only a `surface` part is complete for a surface. A call that needs the `lens`, `reveal`, or `follower` part on this flavor throws a `TypeError` that says the flavor has no such part.
+A flavor with only a `surface` part is complete for a surface. A call that needs the `lens`, `reveal`, or `followers` part on this flavor throws a `TypeError` that says the flavor has no such part.
 
 ## Write your own wrapper
 

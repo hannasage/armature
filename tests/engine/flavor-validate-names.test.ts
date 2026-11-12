@@ -4,7 +4,7 @@ import { acme } from "../helpers/other-flavor";
 
 const rest = { restDelta: 0.001, restSpeed: 0.01 };
 const thumb: FollowerSpec = { var: "thumb", springKey: "tap", rest };
-const withFollowers = (follower: Flavor["follower"]): Flavor => ({ ...acme, follower });
+const withFollowers = (followers: Flavor["followers"]): Flavor => ({ ...acme, followers });
 
 describe("validateFlavor and follower variable names", () => {
   it("rejects a name that is not lowercase letters, digits, and hyphens starting with a letter", () => {
@@ -37,7 +37,7 @@ describe("validateFlavor and follower variable names", () => {
   });
 
   it("allows a follower name that only looks like a variable of a part the flavor does not have", () => {
-    const bare: Flavor = { name: "bare", prefix: "zz", logLabel: "bare", springs: { s: { stiffness: 1, damping: 1 } }, follower: { x: { var: "press", springKey: "s", rest } } };
+    const bare: Flavor = { name: "bare", prefix: "zz", logLabel: "bare", springs: { s: { stiffness: 1, damping: 1 } }, followers: { x: { var: "press", springKey: "s", rest } } };
     expect(() => validateFlavor(bare)).not.toThrow();
   });
 });
