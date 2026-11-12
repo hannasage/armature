@@ -1,0 +1,164 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createScheduler } from "../../src/frame";
+import { numberKind, vectorKind } from "../../src/values";
+import { FIXED_STEP } from "../../src/engine/spring";
+import { createTweenValue, easing } from "../../src/curves";
+import { FakeEnv } from "../helpers/fake-env";
+
+// The tween value controller: a tween over a kind, run by the G1 scheduler.
+
+function setup() {
+  const env = new FakeEnv();
+  const scheduler = createScheduler(env);
+  return { env, scheduler };
+}
+
+afterEach(() => vi.restoreAllMocks());
+
+describe("a number tween value", () => {
+  it("starts at rest on its initial value and asks for no frame", () => {
+    const { env, scheduler } = setup();
+    const value = createTweenValue(scheduler, numberKind, 3, { duration: 0.5 });
+    expect(value.get()).toBe(3);
+    expect(value.getState()).toEqual({ value: 3, target: 3, moving: false });
+    expect(env.requested).toBe(0);
+    expect(scheduler.size).toBe(0);
+  });
+
+  it("runs on the scheduler, calls onChange per frame, and ends exactly on the target", () => {
+    const { scheduler } = setup();
+    const seen: number[] = [];
+    const value = createTweenValue(scheduler, numberKind, 0.1, { duration: 0.5, onChange: (v) => seen.push(v) });
+    value.to(0.3);
+    expect(value.getState().moving).toBe(true);
+    for (let i = 0; i < 100; i += 1) scheduler.advance(1 / 60);
+    expect(value.get()).toBe(0.3);
+    expect(seen.at(-1)).toBe(0.3);
+    expect(value.getState().moving).toBe(false);
+    expect(scheduler.size).toBe(0);
+  });
+
+  it("follows its curve at the middle of the move", () => {
+    const { scheduler } = setup();
+    const curve = easing("projection");
+    const value = createTweenValue(scheduler, numberKind, 0, { duration: 1, curve });
+    value.to(10);
+    for (let i = 0; i < 60; i += 1) scheduler.advance(FIXED_STEP);
+    expect(value.get()).toBeCloseTo(10 * curve(0.5), 6);
+  });
+
+  it("takes a duration and a curve for one move", () => {
+    const { scheduler } = setup();
+    const value = createTweenValue(scheduler, numberKind, 0, { duration: 5 });
+    value.to(4, { duration: 0.1 });
+    for (let i = 0; i < 20; i += 1) scheduler.advance(FIXED_STEP);
+    expect(value.get()).toBe(4);
+  });
+
+  it("turns in flight from the value on screen", () => {
+    const { scheduler } = setup();
+    const value = createTweenValue(scheduler, numberKind, 0, { duration: 1 });
+    value.to(10);
+    for (let i = 0; i < 60; i += 1) scheduler.advance(FIXED_STEP);
+    const mid = value.get();
+    expect(mid).toBeGreaterThan(0);
+    expect(mid).toBeLessThan(10);
+    value.to(-10);
+    expect(value.getState().target).toBe(-10);
+    scheduler.advance(FIXED_STEP);
+    expect(Math.abs(value.get() - mid)).toBeLessThan(1);
+    for (let i = 0; i < 200; i += 1) scheduler.advance(FIXED_STEP);
+    expect(value.get()).toBe(-10);
+  });
+
+  it("jumps with set(), stops the frame, and calls onChange", () => {
+    const { scheduler } = setup();
+    const seen: number[] = [];
+    const value = createTweenValue(scheduler, numberKind, 0, { duration: 1, onChange: (v) => seen.push(v) });
+    value.to(10);
+    value.set(7);
+    expect(value.get()).toBe(7);
+    expect(value.getState()).toEqual({ value: 7, target: 7, moving: false });
+    expect(scheduler.size).toBe(0);
+    expect(seen.at(-1)).toBe(7);
+  });
+
+  it("jumps to the target at once when reduced motion is on", () => {
+    const { scheduler } = setup();
+    const value = createTweenValue(scheduler, numberKind, 0, { duration: 1, reducedMotion: () => true });
+    value.to(9);
+    expect(value.get()).toBe(9);
+    expect(scheduler.size).toBe(0);
+  });
+
+  it("jumps at once for a zero duration", () => {
+    const { scheduler } = setup();
+    const value = createTweenValue(scheduler, numberKind, 0, { duration: 0 });
+    value.to(9);
+    expect(value.get()).toBe(9);
+    expect(scheduler.size).toBe(0);
+  });
+
+  it("throws a TypeError for a target the kind cannot parse, and changes nothing", () => {
+    const { scheduler } = setup();
+    const value = createTweenValue(scheduler, numberKind, 1, { duration: 1 });
+    expect(() => value.to(Number.NaN)).toThrow(TypeError);
+    expect(value.getState()).toEqual({ value: 1, target: 1, moving: false });
+  });
+
+  it("throws a TypeError for a duration that is not usable", () => {
+    const { scheduler } = setup();
+    expect(() => createTweenValue(scheduler, numberKind, 0, { duration: -1 })).toThrow(TypeError);
+    const value = createTweenValue(scheduler, numberKind, 0, { duration: 1 });
+    expect(() => value.to(1, { duration: Number.NaN })).toThrow(TypeError);
+  });
+
+  it("ignores every call after destroy and keeps the last value", () => {
+    const { scheduler } = setup();
+    const value = createTweenValue(scheduler, numberKind, 0, { duration: 1 });
+    value.to(10);
+    scheduler.advance(0.1);
+    const at = value.get();
+    value.destroy();
+    value.destroy();
+    value.to(50);
+    value.set(3);
+    expect(value.get()).toBe(at);
+    expect(scheduler.size).toBe(0);
+  });
+
+  it("leaves the frame loop when onChange throws, and recovers on the next to()", () => {
+    const { scheduler } = setup();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let fail = true;
+    const value = createTweenValue(scheduler, numberKind, 0, {
+      duration: 1,
+      onChange: () => {
+        if (fail) throw new Error("draw failed");
+      },
+    });
+    value.to(10);
+    scheduler.advance(FIXED_STEP);
+    expect(scheduler.size).toBe(0);
+    fail = false;
+    value.to(5);
+    for (let i = 0; i < 200; i += 1) scheduler.advance(FIXED_STEP);
+    expect(value.get()).toBe(5);
+  });
+});
+
+describe("a vector tween value", () => {
+  it("tweens every component and ends exactly on the target", () => {
+    const { scheduler } = setup();
+    const value = createTweenValue(scheduler, vectorKind(2), [0, 0], { duration: 0.3, curve: easing("ease-in-out") });
+    value.to([0.7, -0.1]);
+    for (let i = 0; i < 100; i += 1) scheduler.advance(FIXED_STEP);
+    expect(value.get()).toEqual([0.7, -0.1]);
+  });
+
+  it("throws a TypeError for a target of the wrong length", () => {
+    const { scheduler } = setup();
+    const value = createTweenValue(scheduler, vectorKind(2), [0, 0], { duration: 0.3 });
+    expect(() => value.to([1] as unknown as number[])).toThrow(TypeError);
+  });
+});
