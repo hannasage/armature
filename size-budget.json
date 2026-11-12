@@ -1,11 +1,12 @@
 {
-  "description": "Gzipped size cap in bytes for each package entry. Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. npm run check:size fails when an entry is over its cap or has no cap. A proposal is the figure in the amendment 1 spec, kept for comparison. The measuredGzipped value of each row is the size its cap was derived from: the G0 baseline for the entries that existed at G0, the G1 measure after review round 1 for /frame, the G2 measure for /curves and /linear, the G3 measure for /values, and the G4 measure for /gesture. The sizes are in docs/baseline.md, sections G1 build, G2 build, G3 build, and G4 build. The /gesture cap of 5,850 is a proposal for the maintainer and is not approved. The entries under proposedForNewEntries do not exist yet and are not checked. The caps of /curves, /linear, /react and /values carry an approval note. The /react cap was re-derived from its G2 measure of 11,494 by the same rule, and no trim was made. Each row names, in measuredIn, the docs/baseline.md section that holds its measured table row. measuredAfterReview is the size after the review fixes, and the real headroom is the cap minus that size. The /values cap of 6,870 was derived from its G3 measure of 6,244 and approved by the maintainer; measuredAfterReview is the size after review round 2. pathAlone is the size of src/values/path.ts alone, and withoutPath is the /values entry without the path kind.",
+  "description": "Gzipped size cap in bytes for each package entry. Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. npm run check:size fails when an entry is over its cap or has no cap. A proposal is the figure in the amendment 1 spec, kept for comparison. The measuredGzipped value of each row is the size its cap was derived from: the G0 baseline for the entries that existed at G0, the G1 measure after review round 1 for /frame, the G2 measure for /curves and /linear, the G3 measure for /values, and the G4 measure for /gesture. The sizes are in docs/baseline.md, sections G1 build, G2 build, G3 build, and G4 build. The /gesture cap of 5,850 was derived from its G4 measure of 5,316 and approved by the maintainer; measuredAfterReview is the size after review round 4. The entries under proposedForNewEntries do not exist yet and are not checked. The caps of /curves, /linear, /react, /values and /gesture carry an approval note. The /react cap was re-derived from its G2 measure of 11,494 by the same rule, and no trim was made. Each row names, in measuredIn, the docs/baseline.md section that holds its measured table row. measuredAfterReview is the size after the review fixes, and the real headroom is the cap minus that size. The /values cap of 6,870 was derived from its G3 measure of 6,244 and approved by the maintainer; measuredAfterReview is the size after review round 2. pathAlone is the size of src/values/path.ts alone, and withoutPath is the /values entry without the path kind.",
   "measuredWith": "esbuild 0.28.2, bundle, minify, esm, React external, then gzip. See docs/baseline.md, sections G0 and G1 build.",
   "caps": {
     "@hannasage/armature": {
       "cap": 4000,
       "measuredGzipped": 3632,
       "proposal": "3.5 KB",
+      "approval": "the maintainer approved the size of 3,854 after G4 on 2026-11-12; the cap stays 4,000",
       "measuredIn": "G0"
     },
     "@hannasage/armature/dom": {
@@ -52,9 +53,11 @@
     },
     "@hannasage/armature/gesture": {
       "cap": 5850,
-      "measuredGzipped": 5315,
+      "measuredGzipped": 5316,
       "proposal": "3.0 KB",
-      "measuredIn": "G4 build"
+      "approval": "approved by the maintainer, 2026-11-12",
+      "measuredIn": "G4 build",
+      "measuredAfterReview": 5332
     },
     "@hannasage/armature/curves": {
       "cap": 2500,

@@ -92,6 +92,6 @@ A test passes a fake environment and calls the handlers itself. The tests of thi
 
 ## Size
 
-The entry measured 5,315 gzipped bytes at G4. The amendment proposed 3.0 KB. Two engine files are part of it: the flavor check, about 1.8 KB, because `requireGesture` calls `validateFlavor`, and the spring solver, about 0.7 KB. The gesture files are about 2.8 KB. The cap in `size-budget.json` is a proposal. See `docs/baseline.md`, section "G4 build".
+The entry measured 5,332 gzipped bytes at G4. The amendment proposed 3.0 KB. Two engine files are part of it: the flavor check, about 1.8 KB, because `requireGesture` calls `validateFlavor`, and the spring solver, about 0.7 KB. The gesture files are about 2.8 KB. The maintainer approved the cap of 5,850 in `size-budget.json`. See `docs/baseline.md`, section "G4 build".
 
 The drag is not exported from `/dom`. The size of `/dom` would pass its cap.

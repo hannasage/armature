@@ -260,6 +260,9 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
       a.p += a.v * FIXED_STEP;
       if (over(a, a.p) !== 0) {
         // The element crossed a bound: the band takes it, with the rest of this frame.
+        // The step may carry it past the limit at once, so the position is held there before any frame shows it.
+        const past = over(a, a.p);
+        if (Math.abs(past) > limit) a.p = edge(a, a.p) + Math.sign(past) * limit;
         launch(a, edge(a, a.p), bandSpring(Math.abs(over(a, a.p))), true);
         if (a.mode === "spring") advance(a, steps - i - 1);
         return;

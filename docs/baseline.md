@@ -157,7 +157,7 @@ This records the size of the package as npm packs it, measured with `npm pack --
 - The tarball holds `dist`, `README.md`, `LICENSE`, and `package.json`, and nothing else.
 
 `npm run check:pack` fails when the tarball is larger than 1.5 times this size, which is 205,939 bytes.
-G4 build, 2026-11-12 (UTC): the tarball is 222,018 bytes, unpacked 747,984 bytes, in 196 files, measured with `npm pack --json` after `npm run build`. The limit is now 333,027 bytes, still 1.5 times. This re-baseline is pending the maintainer's approval, together with the `/gesture` cap of 5,850. The first G4 measure was 218,694 bytes, before review round 1, 221,140 bytes after round 1, and 222,023 bytes after round 2. The 137,293 above is the earlier baseline.
+G4 build, 2026-11-12 (UTC): `MEASURED_SIZE` is now 222,018 bytes, and it is approved by the maintainer. The limit is 333,027 bytes, still 1.5 times. The 137,293 above is the earlier baseline. The current measure after review round 4 is a tarball of 222,132 bytes, unpacked 748,454 bytes, in 196 files, measured with `npm pack --json` after `npm run build`. The measures before that were 218,694 bytes at the first build, 221,140 after round 1, 222,023 after round 2, and 222,018 after round 3. The maintainer also approved the `/gesture` cap of 5,850.
 The measured size is the constant `MEASURED_SIZE` in `scripts/pack-rules.mjs`. Change it only when a maintainer accepts a new size and records the new number here.
 The same check lists the tarball files, installs the tarball into a clean project with React as the peer, imports every subpath by package name, type-checks a consumer file under `nodenext` and `bundler`, and resolves the stylesheet.
 
@@ -454,25 +454,25 @@ Method: `node scripts/size.mjs`, the same as G0 to G3. esbuild 0.28.2, `bundle`,
 
 | Entry | Source | Minified (bytes) | Gzipped (bytes) |
 | --- | --- | ---: | ---: |
-| `@hannasage/armature/gesture` | `src/gesture/index.ts` | 13,617 | 5,315 |
+| `@hannasage/armature/gesture` | `src/gesture/index.ts` | 13,605 | 5,316 |
 
-The cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The cap is a proposal for the maintainer. It is not approved. The amendment 1 proposal sits beside it.
+The cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The maintainer approved the cap of 5,850 (approved by the maintainer, 2026-11-12). The amendment 1 proposal sits beside it. The measure above is the one the cap came from, at review round 2. After review round 4 the entry is 5,332 gzipped bytes (minified 13,677), so the room under the cap is 518 bytes.
 
 | Entry | Measured (gzipped) | Cap | Amendment 1 proposal |
 | --- | ---: | ---: | --- |
-| `/gesture` | 5,315 | 5,850 | 3.0 KB |
+| `/gesture` | 5,316 | 5,850 | 3.0 KB |
 
-The cap of `/gesture`, as a bullet (a proposal, not approved):
+The cap of `/gesture`, as a bullet (approved by the maintainer, 2026-11-12):
 
 - `/gesture`: 5,850.
 
-The entry is 2,315 bytes over the 3.0 KB proposal. Where the bytes sit, each file bundled alone:
+The entry is 2,316 bytes over the 3.0 KB proposal. Where the bytes sit, each file bundled alone:
 
 | Part | Gzipped (bytes) |
 | --- | ---: |
 | `src/engine/flavor.ts`, pulled in by `requireGesture` through `validateFlavor` | 1,824 |
 | `src/engine/spring.ts` | 733 |
-| `src/gesture/drag.ts`, engine external | 3,634 |
+| `src/gesture/drag.ts`, engine external | 3,650 |
 | `src/gesture/pointer-env.ts`, engine external | 477 |
 | `src/gesture/pointer-velocity.ts`, engine external | 421 |
 
@@ -483,7 +483,7 @@ The entry is 2,315 bytes over the 3.0 KB proposal. Where the bytes sit, each fil
 
 The caps of the other entries did not change. The measures after G4: `.` 3,854 (cap 4,000), `/frame` 807, `/values` 6,615, `/curves` 2,363, `/linear` 3,351, `/dom` 11,310 (cap 12,170), `/react` 11,663 (cap 12,650), `/glass` 7,881 (cap 8,430), `/glass/react` 12,668 (cap 13,710), and `styles.css` 749 gzipped bytes.
 
-The check of the new `gesture` part in `validateFlavor` grew `.` from 3,686 to 3,854, `/dom` from 11,138 to 11,310, `/react` from 11,494 to 11,663, `/glass` from 7,705 to 7,881, and `/glass/react` from 12,501 to 12,668. Each stays under its cap.
+Note that the maintainer approved the `.` entry at 3,854 (the cap of 4,000 is unchanged). The check of the new `gesture` part in `validateFlavor` grew `.` from 3,686 to 3,854, `/dom` from 11,138 to 11,310, `/react` from 11,494 to 11,663, `/glass` from 7,705 to 7,881, and `/glass/react` from 12,501 to 12,668. Each stays under its cap.
 
 ### Not exported from `/dom`
 
