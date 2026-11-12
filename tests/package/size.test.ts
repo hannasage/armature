@@ -23,7 +23,7 @@ const lib = (await import(pathToFileURL(join(root, "scripts/size-lib.mjs")).href
 
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { name: string; exports: Record<string, unknown> };
 const budget = JSON.parse(readFileSync(join(root, "size-budget.json"), "utf8")) as {
-  caps: Record<string, { cap: number; measuredGzipped: number }>;
+  caps: Record<string, { cap: number; measuredGzipped: number; measuredIn?: string; measuredAfterReview?: number }>;
   proposedForNewEntries: Record<string, string>;
 };
 
@@ -219,12 +219,36 @@ describe("size budget file", () => {
     for (const [key, entry] of Object.entries(budget.caps)) expect(baselineLines).toContain(`- ${label(key)}: ${fmt(entry.cap)}.`);
   });
 
-  it("matches measuredGzipped to the gzipped column of the docs/baseline.md table row of each entry", () => {
+  /** The lines of the `## <title>` section of docs/baseline.md, up to the next `## ` heading. */
+  const section = (title: string): string[] => {
+    const start = baselineLines.indexOf(`## ${title}`);
+    if (start < 0) return [];
+    const end = baselineLines.findIndex((line, i) => i > start && line.startsWith("## "));
+    return baselineLines.slice(start + 1, end < 0 ? undefined : end);
+  };
+
+  it("names, for each entry, the baseline section that holds its measured row", () => {
+    for (const [key, entry] of Object.entries(budget.caps)) expect(entry.measuredIn, key).toBeTypeOf("string");
+  });
+
+  it("matches measuredGzipped to the gzipped column of the one table row of each entry in the section it names", () => {
     for (const [key, entry] of Object.entries(budget.caps)) {
-      const row = baselineLines.find((line) => line.startsWith(`| \`${key}\` |`));
-      expect(row, key).toBeDefined();
-      const cells = row!.split("|").map((cell) => cell.trim());
+      const rows = section(entry.measuredIn ?? "missing").filter((line) => line.startsWith(`| \`${key}\` |`));
+      expect(rows, `${key} in ${entry.measuredIn}`).toHaveLength(1);
+      const cells = rows[0].split("|").map((cell) => cell.trim());
       expect([key, cells[cells.length - 2]]).toEqual([key, fmt(entry.measuredGzipped)]);
+    }
+  });
+
+  it("records the size after review for /curves and /linear, and it is the current size", async () => {
+    const rows = await lib.measureAll();
+    for (const short of ["curves", "linear"]) {
+      const key = `${pkg.name}/${short}`;
+      const entry = budget.caps[key];
+      expect(entry.measuredAfterReview, key).toBe(rows.find((r) => r.key === key)!.gzipped);
+      expect(entry.measuredAfterReview, key).toBeLessThanOrEqual(entry.cap);
+      const line = baselineLines.find((l) => l.startsWith(`| \`/${short}\` |`) && l.includes(fmt(entry.measuredAfterReview!)));
+      expect(line, key).toBeDefined();
     }
   });
 

@@ -40,6 +40,14 @@
       "types": "./dist/values/index.d.ts",
       "import": "./dist/values/index.js"
     },
+    "./curves": {
+      "types": "./dist/curves/index.d.ts",
+      "import": "./dist/curves/index.js"
+    },
+    "./linear": {
+      "types": "./dist/linear/index.d.ts",
+      "import": "./dist/linear/index.js"
+    },
     "./dom": {
       "types": "./dist/dom/index.d.ts",
       "import": "./dist/dom/index.js"

@@ -317,3 +317,71 @@ The `"use client"` line is now on eleven files. The new one is `src/react/useArm
 ### Review rounds 1 to 3
 
 The review fixes added error handling to `/frame` and `/values`, so the two sizes above are the ones after round 3. The caps of the two new entries are derived from them by the stated rule. No cap of an entry that existed at G0 changed. The sizes of the other entries after round 3 are `.` 3,686, `/dom` 11,138, `/react` 11,494, `/glass` 7,705, and `/glass/react` 12,501 gzipped bytes, all under their caps. The two new caps wait for the maintainer's approval.
+
+## G2 build
+
+Date: 2026-11-12 (UTC).
+Source: branch `task/g2-curves-tween-linear`. G2 adds two entries, `/curves` and `/linear`. It adds no React hook and changes no existing entry.
+Method: `node scripts/size.mjs`, the same as G0 and G1. esbuild 0.28.2, `bundle`, `minify`, `esm`, React external, then gzip. Node 24 in Docker.
+
+### New entries
+
+| Entry | Source | Minified (bytes) | Gzipped (bytes) |
+| --- | --- | ---: | ---: |
+| `@hannasage/armature/curves` | `src/curves/index.ts` | 4,634 | 2,270 |
+| `@hannasage/armature/linear` | `src/linear/index.ts` | 6,650 | 2,998 |
+
+Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The amendment 1 proposal sits beside each cap.
+
+| Entry | Measured (gzipped) | Cap | Amendment 1 proposal |
+| --- | ---: | ---: | --- |
+| `/curves` | 2,270 | 2,500 | 1.5 KB |
+| `/linear` | 2,998 | 3,300 | 1.0 KB |
+
+The caps of the new entries, as bullets (approved by the maintainer, 2026-11-12):
+
+- `/curves`: 2,500.
+- `/linear`: 3,300.
+- `/react`: 12,650.
+
+Both entries are over their proposals. The proposals were written before the code. Three parts cost the most:
+
+- The bezier fitting aid is the largest part of `/curves`. It is about 1.4 KB gzipped alone. It holds a grid search and a least-squares fit.
+- `/linear` carries the spring solver, because it samples a spring with the solver's own steps. The solver is about 1.2 KB gzipped.
+- `/linear` also carries the fitting aid, because `toEasing` falls back to a fitted bezier.
+
+A consumer that imports only `bezier` or only `toLinear` pays less. The build keeps one file per module, so a bundler drops what the consumer does not use. The numbers above are the whole entry.
+
+### The `/react` entry
+
+`/react` is 11,494 gzipped bytes. G2 adds no React hook and `/react` did not change in G2. Its old cap was 11,780, which left 286 bytes of room. The maintainer approved option A on 2026-11-12: re-derive the cap by the stated rule. The new cap is 12,650, which is the measured size plus 10 percent, rounded up to the next 10 bytes. No trim was made. The cap of no other entry changed.
+
+| Entry | Source | Minified (bytes) | Gzipped (bytes) |
+| --- | --- | ---: | ---: |
+| `@hannasage/armature/react` | `src/react/index.ts` | 31,618 | 11,494 |
+
+The engine entry `.` is 3,686 against a cap of 4,000, and a test checks that it reaches no file of `/curves` or `/linear`.
+
+### After review
+
+The review fixes added checks and flags. The sizes after review round 2 are in the table. Both are under the approved caps. The caps were derived from the first measures above, and they did not change. The `/react` entry did not change. `size-budget.json` keeps the figure as `measuredAfterReview`.
+
+| Entry | Measured first (gzipped) | After review (gzipped) | Cap | Room |
+| --- | ---: | ---: | ---: | ---: |
+| `/curves` | 2,270 | 2,363 | 2,500 | 137 |
+| `/linear` | 2,998 | 3,285 | 3,300 | 15 |
+
+The `/linear` room is 15 bytes. Round 2 asked for longer error messages (the tolerance, the duration, and the kind and value in the `maxError` message) and a check of `restSpeed` and `restDelta`. They did not fit under the cap, so they are not built. A `restSpeed` or `restDelta` that is not finite and above 0 falls back to the solver default of 0.01. A longer message needs a cap decision from the maintainer.
+
+### Approval
+
+The maintainer approved the `/curves` cap of 2,500, the `/linear` cap of 3,300, and the `/react` cap of 12,650. The approval is "approved by the maintainer, 2026-11-12". `size-budget.json` records it on each of the three entries.
+
+### Public names beyond the spec
+
+`fitLinear` and `LinearFit` are public beyond the spec. Amendment 1 names only `toLinear`. The builder chose to export the fit because it carries the error, the duration, the stop count, and the `truncated` flag, which a string cannot carry.
+
+### Truncation and fallback flags
+
+- A spring that does not come to rest within 10 seconds or 20,000 steps is cut short. `fitLinear` and `toEasing` return `truncated: true`. `toLinear` throws a RangeError that names the cap.
+- The `toEasing` fallback returns `degraded: true` when the fitted bezier is further from the solver than the tolerance. The option `maxError` turns that into a RangeError.
