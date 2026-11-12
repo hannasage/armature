@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { easing } from "../../src/curves";
 import { FIXED_STEP } from "../../src/engine/spring";
 import { fitLinear, toLinear } from "../../src/linear";
+import { linearFrom, sampleSource } from "../../src/linear/linear";
 import { evalStops, parseLinear, presets, solverSeries } from "../helpers/solver-series";
 
 // The `linear()` exporter. Each test reads the output with a parser of its own, then compares it to the solver's own series.
@@ -27,11 +28,20 @@ describe("toLinear on every preset", () => {
     });
   }
 
-  it("has a tolerance test for each preset by name", () => {
-    for (const [name, config] of presets) {
-      const { values } = solverSeries(config);
-      expect(gapToSolver(toLinear(config, { tolerance: 0.005 }), values), name).toBeLessThanOrEqual(0.005);
-    }
+  it.each(presets)("stays within 0.005 of the solver for the preset %s", (_name, config) => {
+    const { values } = solverSeries(config);
+    expect(gapToSolver(toLinear(config, { tolerance: 0.005 }), values)).toBeLessThanOrEqual(0.005);
+  });
+
+  it.each(presets)("stays within the smallest tolerance, 0.0005, for the preset %s", (_name, config) => {
+    const { values } = solverSeries(config);
+    const fit = fitLinear(config, { tolerance: 0.0005 });
+    expect(fit.error).toBeLessThanOrEqual(0.0005);
+    expect(gapToSolver(fit.css, values)).toBeLessThanOrEqual(0.0005);
+  });
+
+  it("does not truncate any preset", () => {
+    for (const [name, config] of presets) expect(fitLinear(config).truncated, name).toBe(false);
   });
 
   it("uses 0.005 when no tolerance is given", () => {
@@ -153,8 +163,10 @@ describe("bad input", () => {
     for (const duration of [0, -1, Number.NaN]) expect(() => toLinear(easing("ease"), { duration })).toThrow(TypeError);
   });
 
-  it("stays finite and short for a spring that never rests, and ends where the cap ends", () => {
-    const stops = parseLinear(toLinear({ stiffness: 100, damping: 0 }));
+  it("marks a spring that never rests as truncated, and keeps its stops finite", () => {
+    const fit = fitLinear({ stiffness: 100, damping: 0 });
+    expect(fit.truncated).toBe(true);
+    const stops = parseLinear(fit.css);
     expect(stops.length).toBeGreaterThan(2);
     for (const [at, value] of stops) {
       expect(Number.isFinite(at)).toBe(true);
@@ -162,8 +174,49 @@ describe("bad input", () => {
     }
   });
 
-  it("copes with a broken spring config the way the solver does, with safe numbers", () => {
-    const css = toLinear({ stiffness: Number.NaN, damping: -1 } as never);
-    expect(parseLinear(css).at(-1)).toEqual([1, 1]);
+  it("throws a RangeError that names the cap when toLinear would cut a spring short", () => {
+    expect(() => toLinear({ stiffness: 100, damping: 0 })).toThrow(RangeError);
+    expect(() => toLinear({ stiffness: 100, damping: 0 })).toThrow(/10 seconds or 20,000 steps/);
+  });
+
+  it("throws a TypeError for a spring with a stiffness, damping, or mass that is not usable", () => {
+    const bad = [
+      { stiffness: Number.NaN, damping: 10 }, { stiffness: 0, damping: 10 }, { stiffness: -5, damping: 10 }, { stiffness: Number.POSITIVE_INFINITY, damping: 10 },
+      { stiffness: 100, damping: Number.NaN }, { stiffness: 100, damping: -1 }, { stiffness: 100, damping: Number.POSITIVE_INFINITY },
+      { stiffness: 100, damping: 10, mass: 0 }, { stiffness: 100, damping: 10, mass: -1 }, { stiffness: 100, damping: 10, mass: Number.NaN },
+    ];
+    for (const config of bad) {
+      expect(() => toLinear(config), JSON.stringify(config)).toThrow(TypeError);
+      expect(() => fitLinear(config), JSON.stringify(config)).toThrow(TypeError);
+    }
+  });
+
+  it("accepts a spring with no damping, and a mass", () => {
+    expect(fitLinear({ stiffness: 100, damping: 0 }).count).toBeGreaterThan(2);
+    expect(fitLinear({ stiffness: 100, damping: 10, mass: 2 }).truncated).toBe(false);
+  });
+});
+
+describe("samples and stops are checked before CSS is written", () => {
+  it("samples a spring into at least two finite values and a finite positive duration", () => {
+    const samples = sampleSource({ stiffness: 170, damping: 26 });
+    expect(samples.ys.length).toBeGreaterThanOrEqual(2);
+    expect(samples.ys.every(Number.isFinite)).toBe(true);
+    expect(samples.duration).toBeGreaterThan(0);
+    expect(samples.truncated).toBe(false);
+  });
+
+  it("throws a TypeError from linearFrom for a value that is not finite, too few values, or a bad duration", () => {
+    expect(() => linearFrom({ ys: [0, Number.NaN, 1], duration: 1, truncated: false }, 0.005)).toThrow(TypeError);
+    expect(() => linearFrom({ ys: [0, Number.POSITIVE_INFINITY], duration: 1, truncated: false }, 0.005)).toThrow(TypeError);
+    expect(() => linearFrom({ ys: [1], duration: 1, truncated: false }, 0.005)).toThrow(TypeError);
+    expect(() => linearFrom({ ys: [], duration: 1, truncated: false }, 0.005)).toThrow(TypeError);
+    for (const duration of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => linearFrom({ ys: [0, 1], duration, truncated: false }, 0.005)).toThrow(TypeError);
+    }
+  });
+
+  it("never writes NaN or Infinity into the CSS for any preset", () => {
+    for (const [name, config] of presets) expect(toLinear(config), name).not.toMatch(/NaN|Infinity/);
   });
 });

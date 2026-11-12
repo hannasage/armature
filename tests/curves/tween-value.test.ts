@@ -162,3 +162,65 @@ describe("a vector tween value", () => {
     expect(() => value.to([1] as unknown as number[])).toThrow(TypeError);
   });
 });
+
+describe("failure and teardown", () => {
+  it("snaps to the target, stops, and throws when the curve returns a value that is not finite", () => {
+    const { scheduler } = setup();
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const value = createTweenValue(scheduler, numberKind, 0, { duration: 1, curve: () => Number.NaN });
+    value.to(10);
+    scheduler.advance(FIXED_STEP);
+    expect(logged).toHaveBeenCalled();
+    expect(String(logged.mock.calls[0])).toMatch(/not finite/);
+    expect(value.get()).toBe(10);
+    expect(value.getState()).toEqual({ value: 10, target: 10, moving: false });
+    expect(scheduler.size).toBe(0);
+  });
+
+  it("also rejects an infinite curve output", () => {
+    const { scheduler } = setup();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const value = createTweenValue(scheduler, numberKind, 0, { duration: 1, curve: () => Number.POSITIVE_INFINITY });
+    value.to(10);
+    scheduler.advance(FIXED_STEP);
+    expect(value.getState().moving).toBe(false);
+    expect(value.get()).toBe(10);
+  });
+
+  it("rests on the target when the kind throws inside a step, so moving is false", () => {
+    const { scheduler } = setup();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const broken = { ...numberKind, interpolate: () => { throw new Error("blend failed"); } };
+    const value = createTweenValue(scheduler, broken, 0, { duration: 1 });
+    value.to(10);
+    scheduler.advance(FIXED_STEP);
+    expect(value.getState()).toEqual({ value: 10, target: 10, moving: false });
+    expect(scheduler.size).toBe(0);
+  });
+
+  it("recovers on the next to() after a step throws", () => {
+    const { scheduler } = setup();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let fail = true;
+    const kind = { ...numberKind, interpolate: (a: number, b: number, p: number) => { if (fail) throw new Error("x"); return numberKind.interpolate(a, b, p); } };
+    const value = createTweenValue(scheduler, kind, 0, { duration: 0.1 });
+    value.to(10);
+    scheduler.advance(FIXED_STEP);
+    fail = false;
+    value.to(2);
+    for (let i = 0; i < 50; i += 1) scheduler.advance(FIXED_STEP);
+    expect(value.get()).toBe(2);
+  });
+
+  it("reports moving as false after destroy in the middle of a move, and keeps the value", () => {
+    const { scheduler } = setup();
+    const value = createTweenValue(scheduler, numberKind, 0, { duration: 1 });
+    value.to(10);
+    scheduler.advance(0.1);
+    const at = value.get();
+    expect(value.getState().moving).toBe(true);
+    value.destroy();
+    expect(value.getState()).toEqual({ value: at, target: at, moving: false });
+    expect(value.get()).toBe(at);
+  });
+});

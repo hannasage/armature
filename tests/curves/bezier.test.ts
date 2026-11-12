@@ -88,6 +88,16 @@ describe("bezier", () => {
     expect(Number.isFinite(ease(0.999))).toBe(true);
   });
 
+  it("stays accurate where x1 is 0 and y1 is large, because the slope of x is near zero there", () => {
+    for (const [x1, y1, x2, y2] of [[0, 1000, 1, 1], [0, 50, 0.2, 1], [0, 10, 1, 0]] as const) {
+      const ease = bezier(x1, y1, x2, y2);
+      for (const t of [0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 0.9]) {
+        const [x, y] = point(x1, y1, x2, y2, t);
+        expect(Math.abs(ease(x) - y) / Math.max(1, Math.abs(y)), `${y1} at t=${t}`).toBeLessThan(1e-5);
+      }
+    }
+  });
+
   it("writes its CSS string", () => {
     expect(bezier(0.22, 1, 0.36, 1).css).toBe("cubic-bezier(0.22, 1, 0.36, 1)");
     expect(bezier(0, 0, 1, 1).css).toBe("cubic-bezier(0, 0, 1, 1)");

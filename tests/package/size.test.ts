@@ -221,7 +221,7 @@ describe("size budget file", () => {
 
   it("matches measuredGzipped to the gzipped column of the docs/baseline.md table row of each entry", () => {
     for (const [key, entry] of Object.entries(budget.caps)) {
-      const row = baselineLines.find((line) => line.startsWith(`| \`${key}\` |`));
+      const row = baselineLines.filter((line) => line.startsWith(`| \`${key}\` |`)).at(-1);
       expect(row, key).toBeDefined();
       const cells = row!.split("|").map((cell) => cell.trim());
       expect([key, cells[cells.length - 2]]).toEqual([key, fmt(entry.measuredGzipped)]);

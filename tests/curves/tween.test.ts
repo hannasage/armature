@@ -135,6 +135,40 @@ describe("a tween ends exactly on its target (property)", () => {
   });
 });
 
+describe("edge cases (property)", () => {
+  it("lands on the target for a duration of 0, 1e-12, or 1e-9, and for a from equal to the target", () => {
+    for (const duration of [0, 1e-12, 1e-9, 1e-6]) {
+      for (const [from, to] of [[0, 1], [1, 1], [-3.5, 2.25], [0.1, 0.3]]) {
+        let state = createTween(from, to, duration, easing("ease-in-out"));
+        for (let i = 0; i < 10 && !isTweenDone(state); i += 1) state = stepTween(state, FIXED_STEP);
+        expect(isTweenDone(state), `${duration} ${from}`).toBe(true);
+        expect(state.value, `${duration} ${from}`).toBe(to);
+      }
+    }
+  });
+
+  it("lands on the target in one step for a huge dt", () => {
+    for (const dt of [1e3, 1e9, 1e300, Number.MAX_VALUE]) {
+      const state = stepTween(createTween(0.1, 0.3, 2, easing("projection")), dt);
+      expect(state.value, String(dt)).toBe(0.3);
+      expect(isTweenDone(state)).toBe(true);
+    }
+  });
+
+  it("ignores an infinite dt, so a bad frame time cannot jump the tween", () => {
+    const state = createTween(0, 1, 1);
+    expect(stepTween(state, Number.POSITIVE_INFINITY)).toBe(state);
+  });
+
+  it("lands on the target for a very large and a very small value", () => {
+    for (const [from, to] of [[0, 1e308], [-1e308, 1e308], [1e-300, 2e-300]]) {
+      let state = createTween(from, to, 0.2);
+      for (let i = 0; i < 100 && !isTweenDone(state); i += 1) state = stepTween(state, FIXED_STEP);
+      expect(state.value).toBe(to);
+    }
+  });
+});
+
 describe("retargetTween", () => {
   it("starts a new tween from the value on screen", () => {
     const mid = stepTween(createTween(0, 10, 1), 0.5);

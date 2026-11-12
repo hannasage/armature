@@ -84,4 +84,25 @@ describe("fitBezier", () => {
     expect(() => fitBezier([0, Number.NaN, 1])).toThrow(TypeError);
     expect(() => fitBezier(null as unknown as number[])).toThrow(TypeError);
   });
+
+  it("returns finite points for samples with huge values, and does not hang", () => {
+    for (const samples of [[0, 1e300, 1], [0, 1e308, -1e308, 1], [0, Number.MAX_VALUE, 1]]) {
+      const fit = fitBezier(samples);
+      expect(fit.points.every(Number.isFinite)).toBe(true);
+      expect(Number.isFinite(fit.error) || fit.error === Number.POSITIVE_INFINITY).toBe(true);
+    }
+  });
+
+  it("finishes a fit of 20,000 samples in a few seconds", () => {
+    const started = Date.now();
+    const fit = fitBezier(sample(easing("ease"), 20000));
+    expect(fit.error).toBeLessThan(0.001);
+    expect(Date.now() - started).toBeLessThan(5000);
+  });
+
+  it("returns a fit with finite error for constant samples", () => {
+    const fit = fitBezier([0.5, 0.5, 0.5, 0.5]);
+    expect(Number.isFinite(fit.error)).toBe(true);
+    expect(fit.points.every(Number.isFinite)).toBe(true);
+  });
 });
