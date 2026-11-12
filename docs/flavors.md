@@ -113,6 +113,13 @@ thumb.snap(0); // jumps with no travel
 thumb.destroy();
 ```
 
+A React component uses `useArmatureFollower` from `@hannasage/armature/react`. It makes the follower when the element mounts and destroys it on unmount. The handle has `setTarget`, `snap`, and `getState`, and no `destroy`. Before the element mounts, and on the server, `getState` gives the initial state. A flavor with no `followers` part logs one line and the hook skips the start.
+
+```tsx
+const thumb = useArmatureFollower(ref, { flavor: projection, name: "thumb", initial: 0 });
+thumb.setTarget(1);
+```
+
 A move can name its own spring. `thumb.setTarget(1, { springKey: "mechanical" })` switches the follower to that spring and then retargets. Position, velocity, and target stay, so a turn in flight keeps its speed. The follower keeps the chosen spring for later moves that name none. The `springKey` in the follower spec is the default. A key that is not in `springs` throws the `TypeError` of `springOf`, and the follower changes nothing. The rest limits of the follower still apply under the chosen spring. Under reduced motion the follower still snaps, whatever spring the move names.
 
 A call can replace the spring with the `spring` option. The rest limits of the flavor still apply. If the environment throws while the follower writes its variable, the follower logs one line that starts with the flavor's label, stops its frame loop, and rests on its target. It does not throw into the page. A key of the `spring` option that is `undefined` is skipped, so it does not erase a rest limit. `createFollower` throws a `TypeError` that names the follower and the flavor when the element is missing or when `initial` is not a finite number.

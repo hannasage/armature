@@ -1,0 +1,128 @@
+/**
+ * The value controller: a spring over a kind. The components spring one by one, and the shared frame scheduler steps them in
+ * fixed slices. It reads no environment. The caller hands it a scheduler, and a reduced-motion check if the value needs one.
+ */
+import type { FrameTask, Scheduler } from "../frame/scheduler";
+import type { SpringConfig } from "../engine/spring";
+import type { Kind } from "./kind";
+import { createVectorSpring, isVectorAtRest, reconfigureVector, retargetVector, stepVectorSpring } from "./vector";
+
+export interface ValueOptions<T> {
+  /** The spring the value moves on. */
+  spring: SpringConfig;
+  /** Called once per frame in which the value changed, with the value to draw. */
+  onChange?(value: T): void;
+  /** When it returns true, `to` jumps to the target with no travel. */
+  reducedMotion?(): boolean;
+}
+
+export interface ValueMove {
+  /** Replaces the spring for this move, and for the moves after it that name none. Position and velocity stay. */
+  spring?: SpringConfig;
+}
+
+export interface ValueState<T> {
+  /** The value to draw. */
+  value: T;
+  /** The velocity, in units per second, in the shape of the kind. */
+  velocity: T;
+  target: T;
+  /** True while a component is still travelling. */
+  moving: boolean;
+}
+
+export interface Value<T> {
+  /** The value to draw. */
+  get(): T;
+  /** Springs toward a target. A turn in flight keeps its speed. A target the kind cannot parse throws a TypeError and changes nothing. */
+  to(target: T, move?: ValueMove): void;
+  /** Jumps to a value with no travel and no velocity, and stops the frame. */
+  set(value: T): void;
+  getState(): ValueState<T>;
+  /** Leaves the scheduler and ignores every later call. The last value stays. Safe to call twice. */
+  destroy(): void;
+}
+
+const same = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((n, i) => n === b[i]);
+
+export function createValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kind<T>, initial: T, options: ValueOptions<T>): Value<T> {
+  const parts = (input: unknown) => kind.toArray(kind.parse(input));
+  let config = options.spring;
+  let state = createVectorSpring(config, parts(initial));
+  let emitted = state.value;
+  let remove: (() => void) | undefined;
+  let destroyed = false;
+
+  const stop = () => {
+    remove?.();
+    remove = undefined;
+  };
+
+  const emit = () => {
+    if (same(state.value, emitted)) return;
+    emitted = state.value;
+    options.onChange?.(kind.fromArray(state.value));
+  };
+
+  const task: FrameTask = {
+    step(dt) {
+      state = stepVectorSpring(state, state.target, dt);
+      const moving = !isVectorAtRest(state);
+      // The scheduler drops a task that returns false, so the handle is stale.
+      if (!moving) remove = undefined;
+      return moving;
+    },
+    frame() {
+      try {
+        emit();
+      } catch (error) {
+        // The scheduler logs the error and drops the task. The value rests where it is going.
+        remove = undefined;
+        state = createVectorSpring(config, state.target);
+        emitted = state.value;
+        throw error;
+      }
+    },
+  };
+
+  const jump = (next: number[]) => {
+    stop();
+    state = createVectorSpring(config, next);
+    emit();
+  };
+
+  return {
+    get: () => kind.fromArray(state.value),
+    to(target, move) {
+      if (destroyed) return;
+      const next = parts(target);
+      if (move?.spring) config = move.spring;
+      if (options.reducedMotion?.() === true) {
+        jump(next);
+        return;
+      }
+      state = retargetVector(move?.spring ? reconfigureVector(state, config) : state, next);
+      if (isVectorAtRest(state)) {
+        // Already there, or so close that it looks still: finish without a frame.
+        if (!same(state.value, next) || state.velocity.some((n) => n !== 0)) jump(next);
+        return;
+      }
+      remove ??= scheduler.add(task);
+    },
+    set(value) {
+      if (destroyed) return;
+      jump(parts(value));
+    },
+    getState: () => ({
+      value: kind.fromArray(state.value),
+      velocity: kind.fromArray(state.velocity),
+      target: kind.fromArray(state.target),
+      moving: !isVectorAtRest(state),
+    }),
+    destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      stop();
+    },
+  };
+}

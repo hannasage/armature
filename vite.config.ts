@@ -9,6 +9,8 @@ export default defineConfig({
     lib: {
       entry: {
         index: "src/index.ts",
+        "frame/index": "src/frame/index.ts",
+        "values/index": "src/values/index.ts",
         "dom/index": "src/dom/index.ts",
         "react/index": "src/react/index.ts",
         "glass/index": "src/glass/index.ts",

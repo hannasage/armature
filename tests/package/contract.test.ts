@@ -34,8 +34,8 @@ describe("package contract", () => {
     expect(pkg.publishConfig).toEqual({ access: "public", tag: "beta" });
   });
 
-  it("exports the five subpaths and the stylesheet, and nothing else", () => {
-    expect(Object.keys(pkg.exports).sort()).toEqual([".", "./dom", "./glass", "./glass/react", "./react", "./styles.css"]);
+  it("exports the seven subpaths and the stylesheet, and nothing else", () => {
+    expect(Object.keys(pkg.exports).sort()).toEqual([".", "./dom", "./frame", "./glass", "./glass/react", "./react", "./styles.css", "./values"]);
   });
 
   it("gives each code subpath a types file and an import file, and no require file", () => {

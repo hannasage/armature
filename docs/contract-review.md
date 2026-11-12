@@ -131,8 +131,8 @@ The semi-implicit Euler solver at 1/120 s measures a lower overshoot than the cl
 Do not mark the API stable yet. The follower part works and has tests, but three things are open.
 Each is small. Each changes a public name or a shape. Settle them before a stable mark.
 
-1. Add a follower hook to `@hannasage/armature/react`, since Milestone 3 needs it.
-2. Let a follower change its spring per move, so one follower can enter on one spring and leave on another, and `dialog` can go.
-3. Settle one shape for rest limits, and settle `follower` or `followers`.
+1. Add a follower hook to `@hannasage/armature/react`, since Milestone 3 needs it. Closed in G1 (amendment 2, item 1): `useArmatureFollower`.
+2. Let a follower change its spring per move, so one follower can enter on one spring and leave on another, and `dialog` can go. Closed in G1 (amendment 2, item 2): `setTarget(target, { springKey })`.
+3. Settle one shape for rest limits, and settle `follower` or `followers`. Closed in G1 (amendment 2, item 3): `RestLimits`, `rest`, and `followers`.
 After those three, the lens and the reveal still have only one real flavor.
 A reasonable path is to mark `follower` and the engine stable, and to leave the `lens` and `reveal` parts marked unstable until a real flavor uses them.

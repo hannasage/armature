@@ -276,3 +276,40 @@ Each item lists an estimate from the table above. No item is done. The savings o
 6. Raise the cap instead and trim nothing. The `.` cap is 4,000 bytes in `size-budget.json` today, and the measured size is 3,632. The amendment 1 proposal was 3.5 KB (3,500 bytes). No change to the cap is made here.
 
 Amendment 2 item 3 adds clear errors for the old names `pixelRest` and `follower` to `validateFlavor`. That adds a few lines to the `.` entry. The G1 build measures the real figure and reports it.
+
+## G1 build
+
+Date: 2026-11-12 (UTC).
+Source: branch `task/g1-engine-trace-and-contract`. G1 adds two entries, `/frame` and `/values`, and three changes from amendment 2: a React follower hook, one spring per follower move, and one shape for rest limits with the names `rest` and `followers`.
+Method: `node scripts/size.mjs`, the same as G0. esbuild 0.28.2, `bundle`, `minify`, `esm`, React external, then gzip. Node 24 in Docker.
+
+### New entries
+
+| Entry | Source | Minified (bytes) | Gzipped (bytes) |
+| --- | --- | ---: | ---: |
+| `@hannasage/armature/frame` | `src/frame/index.ts` | 1,165 | 683 |
+| `@hannasage/armature/values` | `src/values/index.ts` | 3,975 | 1,643 |
+
+Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The amendment 1 proposal sits beside each cap.
+
+| Entry | Measured (gzipped) | Cap | Amendment 1 proposal |
+| --- | ---: | ---: | --- |
+| `/frame` | 683 | 760 | 1.0 KB |
+| `/values` | 1,643 | 1,810 | 4.0 KB (path: about 1.5 KB, alone) |
+
+The proposals are larger because they were written for the full plan. `/values` holds only the number kind, the vector kind, and the value controller today. Color, path, and 3D transform arrive in G3 and raise the figure. `/values` carries the spring solver, because the vector spring runs it. `/frame` carries only the two step constants of `src/engine/spring.ts`, because esbuild drops the rest of that file.
+The caps of the new entries, as bullets:
+
+- `/frame`: 760.
+- `/values`: 1,810.
+
+### Changes to existing entries
+
+- `.` grew from 3,632 to 3,688 gzipped bytes (minified 10,001 to 10,211). The 56 bytes come from the clear errors for the old names `pixelRest` and `follower` in `validateFlavor` (amendment 2, item 3). The `/frame` and `/values` code adds nothing to it, and a test checks that the entry reaches no file of either one. The cap of 4,000 is unchanged.
+- `/dom` is 11,140 gzipped bytes, against 11,058 at G0 and a cap of 12,170. The cap is unchanged. The change comes from the spring switch of a follower move (amendment 2, item 2).
+- `/react` is 11,496 gzipped bytes, against 10,706 at G0 and a cap of 11,780. The cap is unchanged. The change comes from `useArmatureFollower` (amendment 2, item 1), which pulls the follower code into the entry. The room left under the cap is 284 bytes.
+- `/glass` is 7,706 gzipped bytes, against 7,655 at G0 and a cap of 8,430. `/glass/react` is 12,504, against 12,461 and a cap of 13,710.
+
+### The `"use client"` files
+
+The `"use client"` line is now on eleven files. The new one is `src/react/useArmatureFollower.ts`, the follower hook. `scripts/postbuild.mjs` lists the eleven and fails the build when the set differs.

@@ -19,6 +19,18 @@ export const API = {
     ],
     generic: true,
   },
+  "./frame": {
+    values: ["createScheduler"],
+    types: ["FrameEnvironment", "FrameTask", "Scheduler"],
+    generic: true,
+  },
+  "./values": {
+    values: [
+      "createValue", "createVectorSpring", "isVectorAtRest", "numberKind", "reconfigureVector", "retargetVector", "stepVectorSpring", "vectorKind"
+    ],
+    types: ["Kind", "Value", "ValueMove", "ValueOptions", "ValueState", "VectorSpringState"],
+    generic: true,
+  },
   "./dom": {
     values: [
       "REST_POSE", "attachSurface", "belowFold", "createFollower", "createLens", "createScrollReveal", "createSurface", "dragAttributes", "dragTarget",

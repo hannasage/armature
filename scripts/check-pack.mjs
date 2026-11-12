@@ -5,7 +5,7 @@
 //   3. The tarball may not be larger than 1.5 times the size measured in scripts/pack-rules.mjs.
 //   4. The tarball is installed into a clean temp project, with React as the peer for the react entries. There it checks:
 //        a. every subpath imports by package name under Node ESM, and exports exactly the names in scripts/public-api.mjs,
-//        b. a small consumer file type-checks against all five subpaths with `tsc --noEmit`, under nodenext and under bundler,
+//        b. a small consumer file type-checks against every subpath with `tsc --noEmit`, under nodenext and under bundler,
 //        c. the stylesheet resolves by package name and holds the glass styles.
 // The check fails with a list of every problem found. Pass `--keep` to keep the temp folder for a look.
 import { spawnSync } from "node:child_process";
@@ -39,6 +39,8 @@ const dev = pkg.devDependencies ?? {};
 const peers = [`react@${dev.react}`, `@types/react@${dev["@types/react"]}`];
 
 const CONSUMER_SOURCE = `import { createSpring, defineFlavor, retarget, stepSpring, type Flavor, type SpringState } from "@hannasage/armature";
+import { createScheduler, type Scheduler } from "@hannasage/armature/frame";
+import { createValue, numberKind, type Value } from "@hannasage/armature/values";
 import { createFollower, type Follower } from "@hannasage/armature/dom";
 import { ArmatureProvider, useArmatureSurface } from "@hannasage/armature/react";
 import { createGlassFilter, glassFlavor, type GlassFlavor } from "@hannasage/armature/glass";
@@ -50,6 +52,11 @@ let spring: SpringState = retarget(createSpring({ stiffness: 170, damping: 26 },
 spring = stepSpring(spring, 1, 1 / 60);
 const glass: GlassFlavor = glassFlavor;
 const filter = createGlassFilter({ width: 120, height: 48, radius: 24 });
+
+export function track(scheduler: Scheduler): Value<number> {
+  return createValue(scheduler, numberKind, 0, { spring: { stiffness: 170, damping: 26 } });
+}
+export const scheduler: Scheduler = createScheduler({ requestFrame: () => 0, cancelFrame: () => undefined, now: () => 0 });
 
 export function follow(element: HTMLElement): Follower {
   return createFollower(element, { flavor: demo, name: "thumb" });

@@ -18,16 +18,18 @@ npm install @hannasage/armature@beta
 React is an optional peer. The engine and the DOM controllers need no React.
 Install React 18 or later only if you use the React entries.
 
-## The five subpaths
+## The seven subpaths
 
-The package has five JavaScript entries and one stylesheet.
+The package has seven JavaScript entries and one stylesheet.
 The package is ESM only. Each entry has a `types` file and an `import` file, and there is no CommonJS build.
 Each entry loads only what it needs.
-The first three hold no glass code.
+Every entry except `glass` and `glass/react` holds no glass code.
 
 - `@hannasage/armature` is the engine. It has the spring solver, the browser environments, the scroll velocity tracker, the reduced-motion check, and the flavor contract with its types.
-- `@hannasage/armature/dom` holds the DOM controllers: surface, lens, delegation, and scroll reveal. Each one takes a flavor.
-- `@hannasage/armature/react` holds the generic React hooks and providers, such as `useArmatureSurface` and `ArmatureProvider`. Each one takes a flavor.
+- `@hannasage/armature/frame` holds the shared frame scheduler. One frame loop steps every task in fixed slices, so a 30, 60, or 144 Hz screen runs the same slices. It pauses while the tab is hidden, and a manual `advance` runs it in a test.
+- `@hannasage/armature/values` holds the value layer: the number kind and the vector kind, a spring over a vector, and `createValue`, a spring controller that runs on the scheduler.
+- `@hannasage/armature/dom` holds the DOM controllers: surface, lens, follower, delegation, and scroll reveal. Each one takes a flavor.
+- `@hannasage/armature/react` holds the generic React hooks and providers, such as `useArmatureSurface`, `useArmatureFollower`, and `ArmatureProvider`. Each one takes a flavor.
 - `@hannasage/armature/glass` holds the glass flavor, `glassFlavor`, with the refraction filter, the PNG encoder, the browser check, and the glass names.
 - `@hannasage/armature/glass/react` holds the glass React wrappers: `LqgProvider`, `LqgFilter`, `useLqgSurface`, `useLqgLens`, `useLqgReveal`, and `LqgRevealProvider`. They use the glass flavor unless you pass another.
 - `@hannasage/armature/styles.css` is the glass stylesheet.
