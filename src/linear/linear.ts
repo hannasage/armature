@@ -45,26 +45,24 @@ const MIN_TOLERANCE = 0.0005;
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
-/**
- * A spring needs a finite stiffness above 0, a finite damping of 0 or more, and a mass above 0 when it has one.
- * `restSpeed` and `restDelta` are not checked here. The solver replaces a value that is not finite and above 0 with its default of 0.01.
- */
+/** A spring needs a finite stiffness above 0, a finite damping of 0 or more, and a mass, restSpeed and restDelta above 0 when it has them. */
 function checkSpring(source: unknown): asserts source is SpringConfig {
-  const { stiffness, damping, mass } = (source ?? {}) as SpringConfig;
-  if (typeof source !== "object" || !finite(stiffness) || stiffness <= 0 || !finite(damping) || damping < 0 || (mass !== undefined && !(finite(mass) && mass > 0))) {
-    throw new TypeError("A source must be a valid spring config or a curve function.");
+  const { stiffness, damping, mass, restSpeed, restDelta } = (source ?? {}) as SpringConfig;
+  const optional = (value: unknown) => value === undefined || (finite(value) && value > 0);
+  if (typeof source !== "object" || !finite(stiffness) || stiffness <= 0 || !finite(damping) || damping < 0 || ![mass, restSpeed, restDelta].every(optional)) {
+    throw new TypeError("A source must be a spring config (stiffness, mass, restSpeed and restDelta above 0, damping 0 or more) or a curve function.");
   }
 }
 
 /** The duration of a curve in seconds: 1 when none is given. A value that is not a positive finite number throws a TypeError. */
 export function checkDuration(duration: number | undefined): number {
-  if (duration !== undefined && !(finite(duration) && duration > 0)) throw new TypeError("A duration must be above 0.");
+  if (duration !== undefined && !(finite(duration) && duration > 0)) throw new TypeError("A duration must be finite and above 0.");
   return duration ?? 1;
 }
 
 export function checkTolerance(tolerance: number | undefined): number {
   const value = tolerance ?? DEFAULT_TOLERANCE;
-  if (!Number.isFinite(value) || value < MIN_TOLERANCE) throw new RangeError("The tolerance must be 0.0005 or more.");
+  if (!Number.isFinite(value) || value < MIN_TOLERANCE) throw new RangeError(`The tolerance ${value} must be 0.0005 or more.`);
   return value;
 }
 
@@ -137,7 +135,7 @@ export function linearFrom({ ys, duration, truncated }: Samples, tolerance: numb
       return { css: `linear(${text.join(", ")})`, duration, count: stops.length, error, truncated };
     }
   }
-  throw new RangeError("The tolerance is too small.");
+  throw new RangeError(`The tolerance ${tolerance} is too small.`);
 }
 
 /**

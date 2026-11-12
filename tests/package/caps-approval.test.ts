@@ -13,7 +13,7 @@ const NOTE = "approved by the maintainer, 2026-11-12";
 describe("approved caps", () => {
   it.each([
     ["@hannasage/armature/curves", 2500],
-    ["@hannasage/armature/linear", 3300],
+    ["@hannasage/armature/linear", 3690],
     ["@hannasage/armature/react", 12650],
   ])("records the approval of the %s cap of %i in size-budget.json", (key, cap) => {
     expect(budget.caps[key].cap).toBe(cap);
