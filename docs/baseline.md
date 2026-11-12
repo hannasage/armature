@@ -287,21 +287,21 @@ Method: `node scripts/size.mjs`, the same as G0. esbuild 0.28.2, `bundle`, `mini
 
 | Entry | Source | Minified (bytes) | Gzipped (bytes) |
 | --- | --- | ---: | ---: |
-| `@hannasage/armature/frame` | `src/frame/index.ts` | 1,165 | 683 |
-| `@hannasage/armature/values` | `src/values/index.ts` | 3,975 | 1,643 |
+| `@hannasage/armature/frame` | `src/frame/index.ts` | 1,390 | 780 |
+| `@hannasage/armature/values` | `src/values/index.ts` | 4,005 | 1,658 |
 
 Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The amendment 1 proposal sits beside each cap.
 
 | Entry | Measured (gzipped) | Cap | Amendment 1 proposal |
 | --- | ---: | ---: | --- |
-| `/frame` | 683 | 760 | 1.0 KB |
-| `/values` | 1,643 | 1,810 | 4.0 KB (path: about 1.5 KB, alone) |
+| `/frame` | 780 | 860 | 1.0 KB |
+| `/values` | 1,658 | 1,830 | 4.0 KB (path: about 1.5 KB, alone) |
 
 The proposals are larger because they were written for the full plan. `/values` holds only the number kind, the vector kind, and the value controller today. Color, path, and 3D transform arrive in G3 and raise the figure. `/values` carries the spring solver, because the vector spring runs it. `/frame` carries only the two step constants of `src/engine/spring.ts`, because esbuild drops the rest of that file.
 The caps of the new entries, as bullets:
 
-- `/frame`: 760.
-- `/values`: 1,810.
+- `/frame`: 860.
+- `/values`: 1,830.
 
 ### Changes to existing entries
 
@@ -314,14 +314,6 @@ The caps of the new entries, as bullets:
 
 The `"use client"` line is now on eleven files. The new one is `src/react/useArmatureFollower.ts`, the follower hook. `scripts/postbuild.mjs` lists the eleven and fails the build when the set differs.
 
-### Sizes after review round 1
+### Review round 1
 
-The review fixes added error handling to `/frame` and `/values`. No cap changed. The caps keep the sizes of the table above as their basis.
-
-| Entry | Minified (bytes) | Gzipped (bytes) | Cap |
-| --- | ---: | ---: | ---: |
-| `.` | 10,206 | 3,686 | 4,000 |
-| `/frame` | 1,355 | 759 | 760 |
-| `/values` | 4,005 | 1,658 | 1,810 |
-
-`/frame` has 1 byte of room under its cap. The scheduler was trimmed to fit: shorter log lines, one shared once-only warning, and no support for a callback that runs inside `requestFrame`, beyond running the frame.
+The review fixes added error handling to `/frame` and `/values`, so the two sizes above are the ones after round 1. The caps of the two new entries are derived from them by the stated rule. No cap of an entry that existed at G0 changed. The sizes of the other entries after round 1 are `.` 3,686, `/dom` 11,138, `/react` 11,494, `/glass` 7,705, and `/glass/react` 12,501 gzipped bytes, all under their caps. The two new caps wait for the maintainer's approval.

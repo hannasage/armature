@@ -369,8 +369,8 @@ describe("destroy", () => {
   });
 });
 
-describe("an environment that runs the callback at once", () => {
-  it("still runs the frame, as a test environment may do", () => {
+describe("an environment with unusual frame ids", () => {
+  it("handles an id of 0 and a callback that runs before requestFrame returns, and can still cancel the next frame", () => {
     const env = new PageEnv();
     let inline = true;
     env.requestFrame = (callback) => {
@@ -389,6 +389,8 @@ describe("an environment that runs the callback at once", () => {
     scheduler.add(task);
     expect(task.steps).toBe(2);
     expect(env.pending).toBe(1);
+    scheduler.destroy();
+    expect(env.pending).toBe(0);
   });
 });
 

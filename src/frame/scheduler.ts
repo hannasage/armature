@@ -47,7 +47,7 @@ const SLACK = 1e-9;
 
 /**
  * `requestFrame` must call its callback later, as a browser does. A callback that runs before `requestFrame` returns is for test
- * environments only. The frame still runs, but the id that `requestFrame` returns is then too old to cancel the next frame.
+ * environments only, and the scheduler copes with it so that a fake can be simple.
  */
 export function createScheduler(env: FrameEnvironment): Scheduler {
   if ((env.tabHidden === undefined) !== (env.onVisibilityChange === undefined)) {
@@ -119,8 +119,14 @@ export function createScheduler(env: FrameEnvironment): Scheduler {
 
   const requestNext = () => {
     scheduled = true;
+    let inline = false;
     try {
-      frameId = env.requestFrame(tick);
+      const id = env.requestFrame((time) => {
+        inline = true;
+        tick(time);
+      });
+      // A callback that ran inside requestFrame has asked for its own next frame, and this id is stale.
+      if (!inline) frameId = id;
     } catch (error) {
       // No frame is pending, so the next add or the next visibility change starts the loop again.
       scheduled = false;
