@@ -219,6 +219,22 @@ describe("the default rest limits", () => {
     expect(byteGap(seen.at(-1)!, seen.at(-2)!)).toBeLessThanOrEqual(1);
   });
 
+  it.each([
+    ["slow", { stiffness: 20, damping: 10 }],
+    ["stiff", { stiffness: 5000, damping: 140 }],
+  ])("color on a %s spring: ends on the exact target, and the last frame is within 1 byte level of the one before", (_name, config) => {
+    const { scheduler } = setup();
+    const seen: string[] = [];
+    const value = createValue(scheduler, colorKind, "#336699", { spring: config, onChange: (v) => seen.push(v) });
+    value.to("#cc3300");
+    // The fixed step of the scheduler is 1/120 s, so a stiff spring is sampled as finely as it can be.
+    for (let i = 0; i < 4000 && value.getState().moving; i += 1) scheduler.advance(1 / 120);
+    expect(value.getState().moving).toBe(false);
+    expect(value.get()).toBe("#cc3300");
+    expect(seen.length).toBeGreaterThan(3);
+    expect(byteGap(seen.at(-1)!, seen.at(-2)!)).toBeLessThanOrEqual(1);
+  });
+
   it("3D rotation: ends on the target, and the last frame is within 0.1 degree of the one before", () => {
     const from = transform3dKind.parse({});
     const to = transform3dKind.parse({ rotate: { axis: [0, 1, 0], angle: 90 } });
