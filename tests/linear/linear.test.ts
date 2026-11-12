@@ -191,8 +191,27 @@ describe("bad input", () => {
     }
   });
 
+  it("throws a TypeError for a restSpeed or restDelta that is not finite and above 0", () => {
+    for (const field of ["restSpeed", "restDelta"]) {
+      for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, "1"]) {
+        const config = { stiffness: 100, damping: 10, [field]: bad };
+        expect(() => toLinear(config as never), `${field} ${String(bad)}`).toThrow(TypeError);
+        expect(() => fitLinear(config as never), `${field} ${String(bad)}`).toThrow(TypeError);
+      }
+    }
+  });
+
   it("accepts a restSpeed and a restDelta above 0", () => {
     expect(fitLinear({ stiffness: 100, damping: 10, restSpeed: 0.001, restDelta: 0.001 }).truncated).toBe(false);
+  });
+
+  it("names the tolerance in the error for a tolerance that is too small", () => {
+    expect(() => toLinear(presets[0][1], { tolerance: 0.0001 })).toThrow(/0\.0001/);
+    expect(() => linearFrom({ ys: [0, 0.123456789, 1], duration: 1, truncated: false }, 1e-9)).toThrow(/1e-9/);
+  });
+
+  it("says a duration must be finite and above 0", () => {
+    expect(() => toLinear(easing("ease"), { duration: 0 })).toThrow(/finite and above 0/);
   });
 
   it("accepts a spring with no damping, and a mass", () => {
