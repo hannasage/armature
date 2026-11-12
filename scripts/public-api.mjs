@@ -31,9 +31,9 @@ export const API = {
   },
   "./react": {
     values: [
-      "ArmatureProvider", "ArmatureRevealProvider", "useArmatureLens", "useArmatureReveal", "useArmatureSurface"
+      "ArmatureProvider", "ArmatureRevealProvider", "useArmatureFollower", "useArmatureLens", "useArmatureReveal", "useArmatureSurface"
     ],
-    types: ["ArmatureProviderProps", "ArmatureRevealProviderProps", "LensHandle", "UseArmatureRevealOptions"],
+    types: ["ArmatureProviderProps", "ArmatureRevealProviderProps", "FollowerHandle", "LensHandle", "UseArmatureRevealOptions"],
     generic: true,
   },
   "./glass": {
