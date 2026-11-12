@@ -198,6 +198,42 @@ describe("failure and teardown", () => {
     expect(scheduler.size).toBe(0);
   });
 
+  it("calls onChange with the target after a step fails on a curve value that is not finite", () => {
+    const { scheduler } = setup();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const seen: number[] = [];
+    const value = createTweenValue(scheduler, numberKind, 0, { duration: 1, curve: () => Number.NaN, onChange: (v) => seen.push(v) });
+    value.to(10);
+    scheduler.advance(FIXED_STEP);
+    expect(seen).toEqual([10]);
+    expect(value.get()).toBe(10);
+  });
+
+  it("calls onChange with the target after the kind throws inside a step", () => {
+    const { scheduler } = setup();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const seen: number[] = [];
+    const broken = { ...numberKind, interpolate: () => { throw new Error("blend failed"); } };
+    const value = createTweenValue(scheduler, broken, 0, { duration: 1, onChange: (v) => seen.push(v) });
+    value.to(10);
+    scheduler.advance(FIXED_STEP);
+    expect(seen).toEqual([10]);
+  });
+
+  it("still throws the step error when onChange throws during the snap", () => {
+    const { scheduler } = setup();
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const value = createTweenValue(scheduler, numberKind, 0, {
+      duration: 1,
+      curve: () => Number.NaN,
+      onChange: () => { throw new Error("draw failed"); },
+    });
+    value.to(10);
+    scheduler.advance(FIXED_STEP);
+    expect(String(logged.mock.calls[0])).toMatch(/not finite/);
+    expect(value.getState().moving).toBe(false);
+  });
+
   it("recovers on the next to() after a step throws", () => {
     const { scheduler } = setup();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
