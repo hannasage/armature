@@ -99,17 +99,15 @@ describe("H2: samples that are not finite", () => {
     expect(() => rig(keys)).toThrow(TypeError);
   });
 
-  it("never writes a value that is not a number for a spring with a huge stiffness", () => {
-    let writes: Array<string | null> = [];
-    try {
-      const { env, tl } = rig([[0, 0], [100, 100, { stiffness: 1e300, damping: 1 }]]);
-      tl.seek(tl.getState().duration);
-      tl.seek(50);
-      writes = env.writes.map((w) => w.value);
-    } catch (thrown) {
-      expect(thrown).toBeInstanceOf(TypeError);
-    }
-    for (const value of writes) expect(value).toMatch(/^-?\d+(\.\d+)?$/);
+  it("lands a spring with a huge stiffness on its target: the engine settles a step that is not finite, so every written value is a number", () => {
+    const { env, tl } = rig([[0, 0], [100, 100, { stiffness: 1e300, damping: 1 }]]);
+    const end = tl.getState().duration;
+    for (let ms = 0; ms <= end; ms += STEP_MS) tl.seek(ms);
+    tl.seek(end);
+    expect(tl.getState().failed).toBeUndefined();
+    expect(env.writes.length).toBeGreaterThan(0);
+    for (const write of env.writes) expect(write.value).toMatch(/^-?\d+(\.\d+)?$/);
+    expect(tl.getState().values[0]).toBe(100);
   });
 });
 
