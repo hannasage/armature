@@ -91,6 +91,12 @@ export function createTweenValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kin
         // The scheduler logs the error and drops the task, so the handle is stale. The value rests on its target, as it does when a frame fails.
         remove = undefined;
         rest(target);
+        // The snapped value reaches onChange, so what is drawn matches `get()`. A throw here must not hide the step error.
+        try {
+          emit();
+        } catch {
+          // The caller sees the step error below.
+        }
         throw error;
       }
     },

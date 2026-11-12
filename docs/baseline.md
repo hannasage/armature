@@ -362,9 +362,16 @@ A consumer that imports only `bezier` or only `toLinear` pays less. The build ke
 
 The engine entry `.` is 3,686 against a cap of 4,000, and a test checks that it reaches no file of `/curves` or `/linear`.
 
-### After review round 1
+### After review
 
-The review fixes added checks and flags. The sizes after round 1 are `/curves` 2,355 and `/linear` 3,283 gzipped bytes. Both are under the approved caps, with 145 and 17 bytes of room. The caps were derived from the first measures in the table above, and they did not change. The `/react` entry did not change.
+The review fixes added checks and flags. The sizes after review round 2 are in the table. Both are under the approved caps. The caps were derived from the first measures above, and they did not change. The `/react` entry did not change. `size-budget.json` keeps the figure as `measuredAfterReview`.
+
+| Entry | Measured first (gzipped) | After review (gzipped) | Cap | Room |
+| --- | ---: | ---: | ---: | ---: |
+| `/curves` | 2,270 | 2,363 | 2,500 | 137 |
+| `/linear` | 2,998 | 3,285 | 3,300 | 15 |
+
+The `/linear` room is 15 bytes. Round 2 asked for longer error messages (the tolerance, the duration, and the kind and value in the `maxError` message) and a check of `restSpeed` and `restDelta`. They did not fit under the cap, so they are not built. A `restSpeed` or `restDelta` that is not finite and above 0 falls back to the solver default of 0.01. A longer message needs a cap decision from the maintainer.
 
 ### Approval
 

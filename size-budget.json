@@ -1,54 +1,66 @@
 {
-  "description": "Gzipped size cap in bytes for each package entry. Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. npm run check:size fails when an entry is over its cap or has no cap. A proposal is the figure in the amendment 1 spec, kept for comparison. The measuredGzipped value of each row is the size its cap was derived from: the G0 baseline for the entries that existed at G0, the G1 measure after review round 1 for /frame and /values, and the G2 measure for /curves and /linear. The sizes are in docs/baseline.md, sections G1 build and G2 build. The entries under proposedForNewEntries do not exist yet and are not checked. The caps of /curves, /linear and /react carry an approval note. The /react cap was re-derived from its G2 measure of 11,494 by the same rule, and no trim was made.",
+  "description": "Gzipped size cap in bytes for each package entry. Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. npm run check:size fails when an entry is over its cap or has no cap. A proposal is the figure in the amendment 1 spec, kept for comparison. The measuredGzipped value of each row is the size its cap was derived from: the G0 baseline for the entries that existed at G0, the G1 measure after review round 1 for /frame and /values, and the G2 measure for /curves and /linear. The sizes are in docs/baseline.md, sections G1 build and G2 build. The entries under proposedForNewEntries do not exist yet and are not checked. The caps of /curves, /linear and /react carry an approval note. The /react cap was re-derived from its G2 measure of 11,494 by the same rule, and no trim was made. Each row names, in measuredIn, the docs/baseline.md section that holds its measured table row. measuredAfterReview is the size after the review fixes, and the real headroom is the cap minus that size.",
   "measuredWith": "esbuild 0.28.2, bundle, minify, esm, React external, then gzip. See docs/baseline.md, sections G0 and G1 build.",
   "caps": {
     "@hannasage/armature": {
       "cap": 4000,
       "measuredGzipped": 3632,
-      "proposal": "3.5 KB"
+      "proposal": "3.5 KB",
+      "measuredIn": "G0"
     },
     "@hannasage/armature/dom": {
       "cap": 12170,
-      "measuredGzipped": 11058
+      "measuredGzipped": 11058,
+      "measuredIn": "G0"
     },
     "@hannasage/armature/react": {
       "cap": 12650,
       "measuredGzipped": 11494,
-      "approval": "approved by the maintainer, 2026-11-12"
+      "approval": "approved by the maintainer, 2026-11-12",
+      "measuredIn": "G2 build"
     },
     "@hannasage/armature/glass": {
       "cap": 8430,
-      "measuredGzipped": 7655
+      "measuredGzipped": 7655,
+      "measuredIn": "G0"
     },
     "@hannasage/armature/glass/react": {
       "cap": 13710,
-      "measuredGzipped": 12461
+      "measuredGzipped": 12461,
+      "measuredIn": "G0"
     },
     "@hannasage/armature/styles.css": {
       "cap": 830,
-      "measuredGzipped": 749
+      "measuredGzipped": 749,
+      "measuredIn": "G0"
     },
     "@hannasage/armature/frame": {
       "cap": 890,
       "measuredGzipped": 807,
-      "proposal": "1.0 KB"
+      "proposal": "1.0 KB",
+      "measuredIn": "G1 build"
     },
     "@hannasage/armature/values": {
       "cap": 1830,
       "measuredGzipped": 1656,
-      "proposal": "4.0 KB (path: about 1.5 KB, alone)"
+      "proposal": "4.0 KB (path: about 1.5 KB, alone)",
+      "measuredIn": "G1 build"
     },
     "@hannasage/armature/curves": {
       "cap": 2500,
       "measuredGzipped": 2270,
       "proposal": "1.5 KB",
-      "approval": "approved by the maintainer, 2026-11-12"
+      "approval": "approved by the maintainer, 2026-11-12",
+      "measuredIn": "G2 build",
+      "measuredAfterReview": 2363
     },
     "@hannasage/armature/linear": {
       "cap": 3300,
       "measuredGzipped": 2998,
       "proposal": "1.0 KB",
-      "approval": "approved by the maintainer, 2026-11-12"
+      "approval": "approved by the maintainer, 2026-11-12",
+      "measuredIn": "G2 build",
+      "measuredAfterReview": 3285
     }
   },
   "proposedForNewEntries": {

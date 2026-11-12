@@ -45,11 +45,14 @@ const MIN_TOLERANCE = 0.0005;
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
-/** A spring needs a finite stiffness and mass above 0, and a finite damping of 0 or more. Mass is optional. */
+/**
+ * A spring needs a finite stiffness above 0, a finite damping of 0 or more, and a mass above 0 when it has one.
+ * `restSpeed` and `restDelta` are not checked here. The solver replaces a value that is not finite and above 0 with its default of 0.01.
+ */
 function checkSpring(source: unknown): asserts source is SpringConfig {
   const { stiffness, damping, mass } = (source ?? {}) as SpringConfig;
   if (typeof source !== "object" || !finite(stiffness) || stiffness <= 0 || !finite(damping) || damping < 0 || (mass !== undefined && !(finite(mass) && mass > 0))) {
-    throw new TypeError("A source must be a spring config (stiffness and mass above 0, damping 0 or more) or a curve function.");
+    throw new TypeError("A source must be a valid spring config or a curve function.");
   }
 }
 

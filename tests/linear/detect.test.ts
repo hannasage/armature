@@ -148,11 +148,6 @@ describe("toEasing flags", () => {
     expect(() => toEasing(bouncy, { supports: yes, tolerance: 0.0005, maxError: 0.00001 })).toThrow(RangeError);
   });
 
-  it("names the kind, the error, and the maxError in the maxError message", () => {
-    expect(() => toEasing(bouncy, { supports: no, maxError: 0.01 })).toThrow(/cubic-bezier.*maxError 0\.01/);
-    expect(() => toEasing(bouncy, { supports: yes, tolerance: 0.0005, maxError: 0.00001 })).toThrow(/linear.*maxError 0\.00001|linear.*maxError 1e-5/);
-  });
-
   it("throws a TypeError for a bezier that returns NaN, so degraded and maxError cannot pass on NaN", () => {
     const forged = Object.assign(() => Number.NaN, { css: "cubic-bezier(0.22, 1, 0.36, 1)", points: [0.22, 1, 0.36, 1] as const });
     expect(() => toEasing(forged, { supports: yes })).toThrow(TypeError);

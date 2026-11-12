@@ -40,6 +40,8 @@ const isBezier = (source: unknown): source is Easing =>
  * tolerance. Without it, it fits one cubic-bezier to the same samples and reports the error, which can be large for a spring that overshoots
  * and settles. Then `degraded` is true, and `maxError` can turn that into a throw. A curve that is already a bezier is rebuilt from its own
  * control points and returned as `cubic-bezier(...)`, because CSS reads that natively. Its error is the gap to the curve the points make.
+ * A spring that does not rest within the sampling cap is a flag here (`truncated: true`), while `toLinear` throws a RangeError for it.
+ * A result whose error is not finite throws a TypeError.
  */
 export function toEasing(source: SpringConfig | Curve, options: EasingOptions = {}): EasingResult {
   const tolerance = checkTolerance(options.tolerance);
@@ -62,6 +64,7 @@ export function toEasing(source: SpringConfig | Curve, options: EasingOptions = 
       result = { css: fit.css, duration: samples.duration, kind: "cubic-bezier", error: fit.error, degraded: fit.error > tolerance, truncated: samples.truncated };
     }
   }
+  if (!Number.isFinite(result.error)) throw new TypeError("The error is not finite.");
   if (maxError !== undefined && result.error > maxError) {
     throw new RangeError(`The error ${result.error} is above maxError.`);
   }
