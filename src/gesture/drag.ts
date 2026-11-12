@@ -8,8 +8,8 @@
  * The shown overshoot stays below `reach` in every case: under the pointer, in a decay, and on a spring.
  * A release with enough speed and distance also fires a swipe. Under reduced motion a release has no inertia: the element goes straight to its end point.
  *
- * One frame loop runs, and only while something moves. The decay steps in the engine's fixed slices and the springs use the solver's own slices,
- * so a 30, 60, or 144 Hz screen lands in the same place. Every read of the browser goes through the injected environment.
+ * One frame loop runs, and only while something moves. The decay and the band spring step in the engine's fixed slices, and the snap spring uses
+ * the solver's own slices, so a 30, 60, or 144 Hz screen lands in the same place. Every read of the browser goes through the injected environment.
  */
 import { prefersReducedMotion, type ArmatureTarget } from "../engine/env";
 import { logTag, springOf, type Flavor } from "../engine/flavor";
@@ -73,9 +73,18 @@ interface Axis {
   spring: SpringState | undefined;
   /** True while the spring is a rubber band spring, whose stiffness follows the distance. */
   band: boolean;
-  /** The position the pointer would give with no band, and the pointer coordinate, both at the press. */
+  /** The position at the press, and the pointer coordinate at the press. */
   raw0: number;
   p0: number;
+  /**
+   * A press on an element that is out of the bounds starts from the overshoot it shows. `dir` is the side (-1 or 1, 0 for none), `bound` the bound,
+   * and `s0` the overshoot at the press. The pointer then moves the element one to one inward, and against the band outward.
+   */
+  dir: number;
+  bound: number;
+  s0: number;
+  /** The slope of the band at the pointer, from 0 to 1. The release speed is scaled by it. */
+  slope: number;
 }
 
 const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
@@ -126,7 +135,7 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
 
   const env = options.env ?? createBrowserPointerEnvironment();
   const { friction, rubberBand, swipe, rest } = gesture;
-  /** The shown overshoot never reaches `reach`. Staying just under it keeps `unshown` exact. */
+  /** The shown overshoot never reaches `reach`. A hair under it keeps the band slope above 0. */
   const limit = rubberBand.reach * 0.999;
   const decayFactor = Math.exp(-friction * FIXED_STEP);
   const snapSpring: SpringConfig = { ...rest, ...springOf(flavor, gesture.springKeys.snap) };
@@ -138,7 +147,7 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
   const axes: Axis[] = [0, 1].map((i) => ({
     on: single ? axis === (i === 0 ? "x" : "y") : true,
     lo: ranges[i]?.[0] ?? -Infinity, hi: ranges[i]?.[1] ?? Infinity,
-    p: 0, v: 0, mode: "rest", spring: undefined, band: false, raw0: 0, p0: 0,
+    p: 0, v: 0, mode: "rest", spring: undefined, band: false, raw0: 0, p0: 0, dir: 0, bound: 0, s0: 0, slope: 1,
   }));
   const coord = (s: PointerSample, i: number) => (i === 0 ? s.x : s.y);
   /** The overshoot of a position past the bounds, signed. 0 inside. */
@@ -150,12 +159,10 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
     const o = over(a, raw);
     return o === 0 ? raw : raw - o + Math.sign(o) * Math.min(limit, Math.abs(o) / (1 + Math.abs(o) / rubberBand.reach));
   };
-  /** The position the pointer would give for a position shown. The inverse of `shown`. */
-  const unshown = (a: Axis, p: number) => {
-    const o = over(a, p);
-    const d = Math.min(Math.abs(o), limit);
-    return o === 0 ? p : p - o + Math.sign(o) * (d / (1 - d / rubberBand.reach));
-  };
+  /** The slope of the band at a pointer overshoot d: 1 at the bound, falling toward 0. */
+  const slopeAt = (d: number) => 1 / (1 + d / rubberBand.reach) ** 2;
+  /** The fastest a spring leaves a bound without its peak overshoot reaching `limit`: a critically damped spring peaks at v / (omega e). */
+  const bandSpeed = 0.8 * limit * Math.sqrt(rubberBand.stiffness) * Math.E;
 
   const velocity = createPointerVelocity();
   const listeners = new Set<(direction: SwipeDirection) => void>();
@@ -223,6 +230,8 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
 
   /** Starts a spring from where the axis is, with the velocity it has. */
   const launch = (a: Axis, target: number, config: SpringConfig, band: boolean) => {
+    // A flick that meets the bound is slowed by the band, so the clamp at the reach is a backstop that rarely binds.
+    if (band) a.v = Math.max(-bandSpeed, Math.min(bandSpeed, a.v));
     a.spring = { ...retarget(createSpring(config, a.p), target), velocity: a.v, settledVelocity: a.v };
     [a.band, a.mode] = [band, "spring"];
     if (isAtRest(a.spring)) [a.p, a.v, a.mode] = [target, 0, "rest"];
@@ -310,7 +319,20 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
   /** Moves the axes to where the pointer says, and feeds the velocity tracker. Returns false when the write failed. */
   const follow = (s: PointerSample) => {
     axes.forEach((a, i) => {
-      if (a.on && finite(coord(s, i))) a.p = shown(a, a.raw0 + coord(s, i) - a.p0);
+      const c = coord(s, i);
+      if (!a.on || !finite(c)) return;
+      if (a.dir === 0) {
+        const raw = a.raw0 + c - a.p0;
+        a.p = shown(a, raw);
+        a.slope = over(a, raw) === 0 ? 1 : slopeAt(Math.abs(over(a, raw)));
+        return;
+      }
+      // Pressed out of the bounds: outward the band resists from the overshoot shown at the press, inward the element follows one to one.
+      const u = a.dir * (c - a.p0);
+      const o = u > 0 ? Math.min(limit, a.s0 + u / (1 + u / rubberBand.reach)) : a.s0 + u;
+      const p = a.bound + a.dir * o;
+      a.p = over(a, p) * a.dir < 0 ? shown(a, p) : p;
+      a.slope = u > 0 ? slopeAt(u) : 1;
     });
     velocity.add(s.x, s.y, s.time);
     return write();
@@ -338,7 +360,7 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
       const o = over(a, a.p);
       a.v = i === 0 ? v.x : v.y;
       // Out of the bounds, the element is slower than the pointer by the slope of the band.
-      if (o !== 0) a.v /= (1 + Math.abs(over(a, unshown(a, a.p))) / rubberBand.reach) ** 2;
+      if (o !== 0) a.v *= a.slope;
       if (reduced) [a.p, a.v, a.mode] = [point ? point[i] : o === 0 ? a.p : edge(a, a.p), 0, "rest"];
       else if (point) launch(a, point[i], snapSpring, false);
       else if (o !== 0) launch(a, edge(a, a.p), bandSpring(Math.abs(o)), true);
@@ -372,7 +394,9 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
       active = s.id;
       velocity.reset();
       axes.forEach((a, i) => {
-        [a.mode, a.v, a.raw0, a.p0] = ["rest", 0, unshown(a, a.p), coord(s, i)];
+        const o = over(a, a.p);
+        [a.mode, a.v, a.raw0, a.p0, a.slope] = ["rest", 0, a.p, coord(s, i), 1];
+        [a.dir, a.bound, a.s0] = [Math.sign(o), o === 0 ? 0 : edge(a, a.p), Math.abs(o)];
       });
       velocity.add(s.x, s.y, s.time);
     },
@@ -386,7 +410,7 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
       if (!destroyed && s.id === active) release(null);
     },
     fault(error) {
-      if (!warned) console.warn(`${logTag(flavor)} A pointer could not be captured. A release outside the element can be missed.`, error);
+      if (!destroyed && !warned) console.warn(`${logTag(flavor)} A pointer could not be captured. A release outside the element can be missed.`, error);
       warned = true;
     },
   });
