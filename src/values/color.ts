@@ -10,7 +10,7 @@
 import { clamp } from "../engine/math";
 import { namedColors } from "./color-names";
 import type { Kind } from "./kind";
-import { gap, mix } from "./util";
+import { finite, gap, mix } from "./util";
 
 const NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/;
 const fail = (): never => {
@@ -31,7 +31,7 @@ function read(input: unknown): number[] {
   const hex = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/.exec(css);
   if (hex) {
     const digits = hex[1].length < 5 ? hex[1].replace(/./g, "$&$&") : hex[1];
-    const n = digits.match(/../g)!.map((pair) => parseInt(pair, 16));
+    const n = (digits.match(/../g) ?? fail()).map((pair) => parseInt(pair, 16));
     return [n[0], n[1], n[2], n.length > 3 ? n[3] / 255 : 1];
   }
   const named = css === "transparent" ? 0 : namedColors()[css];
@@ -79,10 +79,12 @@ const toArray = (value: string): number[] => {
 };
 
 const fromArray = (parts: readonly number[]): string => {
-  const alpha = clamp(parts[3], 0, 1);
-  if (Math.round(alpha * 255) === 0) return "#00000000";
-  const lms = apply(FROM_LAB, parts.slice(0, 3).map((n) => n / alpha)).map((n) => n ** 3);
-  return write([...apply(FROM_LMS, lms).map((c) => 255 * toGamma(clamp(c, 0, 1))), alpha]);
+  if (parts.length < 4 || !parts.slice(0, 4).every(finite)) throw new TypeError("A color needs 4 finite components: the lightness and two axes, each times the alpha, then the alpha.");
+  // The parts are premultiplied by the alpha they came with. An alpha past 1 is clamped for the output, and the parts are divided by it first.
+  const raw = parts[3];
+  if (Math.round(clamp(raw, 0, 1) * 255) === 0) return "#00000000";
+  const lms = apply(FROM_LAB, parts.slice(0, 3).map((n) => n / raw)).map((n) => n ** 3);
+  return write([...apply(FROM_LMS, lms).map((c) => 255 * toGamma(clamp(c, 0, 1))), raw]);
 };
 
 export const colorKind: Kind<string> = {
@@ -90,8 +92,12 @@ export const colorKind: Kind<string> = {
   parse: (input) => write(read(input)),
   toArray,
   fromArray,
-  // The ends are exact. A blend between them runs on the premultiplied OKLab components.
-  interpolate: (from, to, progress) => (progress <= 0 ? write(read(from)) : progress >= 1 ? write(read(to)) : fromArray(mix(toArray(from), toArray(to), progress))),
+  restDelta: 0.0002,
+  // The ends are exact. A blend between them runs on the premultiplied OKLab components. A progress outside 0 to 1 extrapolates, and the gamut clamp holds it.
+  interpolate(from, to, progress) {
+    if (!finite(progress)) throw new TypeError("A color progress must be a finite number.");
+    return progress === 0 ? write(read(from)) : progress === 1 ? write(read(to)) : fromArray(mix(toArray(from), toArray(to), progress));
+  },
   distance: (a, b) => gap(toArray(a), toArray(b)),
   serialize: (value) => write(read(value)),
 };

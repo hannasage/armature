@@ -24,8 +24,11 @@ export interface ValueMove {
 export interface ValueState<T> {
   /** The value to draw. */
   value: T;
-  /** The velocity, in units per second, in the shape of the kind. */
-  velocity: T;
+  /**
+   * The velocity, in units per second. For the number kind it is a number. For every other kind it is the raw list of numbers, in the shape
+   * of `kind.toArray`, because a velocity is not a color, a path, or a rotation.
+   */
+  velocity: T extends number ? number : number[];
   target: T;
   /** True while a component is still travelling. */
   moving: boolean;
@@ -47,7 +50,9 @@ const same = (a: readonly number[], b: readonly number[]) => a.length === b.leng
 
 export function createValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kind<T>, initial: T, options: ValueOptions<T>): Value<T> {
   const parts = (input: unknown) => kind.toArray(kind.parse(input));
-  let config = options.spring;
+  // The kind may set the rest distance of its numbers. A restDelta in the spring wins.
+  const scaled = (spring: SpringConfig): SpringConfig => (kind.restDelta !== undefined && spring.restDelta === undefined ? { ...spring, restDelta: kind.restDelta } : spring);
+  let config = scaled(options.spring);
   let state = createVectorSpring(config, parts(initial));
   let emitted = state.value;
   let remove: (() => void) | undefined;
@@ -103,7 +108,7 @@ export function createValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kind<T>,
     to(target, move) {
       if (destroyed) return;
       const next = kind.align ? kind.align(state.value, parts(target)) : parts(target);
-      if (move?.spring) config = move.spring;
+      if (move?.spring) config = scaled(move.spring);
       if (options.reducedMotion?.() === true) {
         jump(next);
         return;
@@ -124,7 +129,7 @@ export function createValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kind<T>,
     },
     getState: () => ({
       value: kind.fromArray(state.value),
-      velocity: kind.fromArray(state.velocity),
+      velocity: (kind.name === "number" ? kind.fromArray(state.velocity) : [...state.velocity]) as ValueState<T>["velocity"],
       target: kind.fromArray(state.target),
       moving: !isVectorAtRest(state),
     }),

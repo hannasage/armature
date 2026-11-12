@@ -35,6 +35,7 @@ export function namedColors(): Record<string, number> {
       const [name, hex] = entry.split(":");
       cache[name] = parseInt(hex, 16);
     }
+    Object.freeze(cache);
   }
   return cache;
 }

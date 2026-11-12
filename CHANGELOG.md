@@ -16,6 +16,9 @@ Changes for the next beta. They are not published.
   - `pathKind(template)` blends SVG path data between paths that have the same commands in the same order. A path with another structure throws a `TypeError`. There is no resampler.
   - `transform3dKind` holds a translation, a rotation, a scale, and a perspective. A rotation takes the short way. It writes only `translate`, `rotate`, and `scale`, never `transform`. `transform3dStyles` splits them from the `perspective` of the parent.
 - A kind can have an optional `align` method. `createValue` calls it before a move, so a spring picks the nearest of two equal targets.
+- A kind can have an optional `restDelta`. `createValue` uses it when the spring sets none, so each kind rests at its own scale. The color kind sets 0.0002 and the 3D transform kind 0.0005.
+- `getState().velocity` is the raw list of numbers for every kind except the number kind.
+- The kinds check their input in every method and throw a `TypeError` for a number that is not finite. The path kind keeps full precision and rounds to 6 decimals when it writes text.
 - New hook `useArmatureFollower` in `@hannasage/armature/react`.
 - A follower move can name its own spring: `follower.setTarget(1, { springKey: "settle" })`. Position, velocity, and target stay.
 

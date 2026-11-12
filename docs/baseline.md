@@ -398,13 +398,13 @@ Method: `node scripts/size.mjs`, the same as G0, G1, and G2. esbuild 0.28.2, `bu
 | --- | --- | ---: | ---: |
 | `@hannasage/armature/values` | `src/values/index.ts` | 13,594 | 6,244 |
 
-The cap is the measured size plus 10 percent, rounded up to the next 10 bytes. It is a proposal for the maintainer. It is not approved. The amendment 1 proposal sits beside it.
+The cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The maintainer approved the cap of 6,870, with all 148 color names and no subpath split (approved by the maintainer, 2026-11-12). The amendment 1 proposal sits beside it.
 
-| Entry | Measured (gzipped) | Proposed cap | Cap before G3 | Amendment 1 proposal |
+| Entry | Measured (gzipped) | Cap | Cap before G3 | Amendment 1 proposal |
 | --- | ---: | ---: | ---: | --- |
 | `/values` | 6,244 | 6,870 | 1,830 | 4.0 KB (path: about 1.5 KB, alone) |
 
-The proposed cap of `/values`, as a bullet (a proposal for the maintainer, not approved):
+The cap of `/values`, as a bullet (approved by the maintainer, 2026-11-12):
 
 - `/values`: 6,870.
 
@@ -422,6 +422,17 @@ The entry is over the 4.0 KB proposal. The path kind is part of the entry, becau
 - The path kind alone is 1,131, under the proposal of about 1.5 KB. It is its own file, so a bundler drops it from a consumer that does not use it.
 - The 148 CSS color names cost 1,332 gzipped bytes, because names do not compress. A shorter list of the 17 basic names would save about 1.1 KB. That is a choice for the maintainer.
 - A path, a color, or a 3D transform is a small step for the code and a large step for the size, because the kinds carry their own matrices and parsers.
+
+### After review round 1
+
+The review fixes added checks for finite numbers, a rest scale per kind, and full precision in the path kind. The `/values` entry is now 6,530 gzipped bytes (minified 14,505), against the cap of 6,870. The room is 340 bytes. The cap did not change.
+
+| Part | Gzipped (bytes), each file alone |
+| --- | ---: |
+| Path kind | 1,221 |
+| Color kind with its name table | 3,016 |
+| 3D transform kind | 1,421 |
+| `/values` without the path kind | 5,613 |
 
 ### Other entries
 

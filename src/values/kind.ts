@@ -16,6 +16,12 @@ export interface Kind<T> {
   /** The value that a list of components makes. */
   fromArray(parts: readonly number[]): T;
   /**
+   * Optional. The rest distance, in the numbers of this kind, that `createValue` uses when the spring sets no `restDelta`. The numbers of a
+   * kind have their own scale (a color runs from 0 to 1, a rotation is a unit quaternion, a path is in pixels), so a kind says what "close
+   * enough" means for them. A `restDelta` in the spring config wins.
+   */
+  readonly restDelta?: number;
+  /**
    * Optional. Picks, among the component lists that make one and the same target, the one nearest to `from`, so a spring travels the short way.
    * A rotation has two quaternions for one turn, and the controller asks this before it springs. It returns a new array, and a kind with
    * one list per target leaves this out.

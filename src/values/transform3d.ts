@@ -44,19 +44,24 @@ const DEGREE = Math.PI / 360;
 const Q = [3, 4, 5, 6];
 const dot = (a: readonly number[], b: readonly number[]) => Q.reduce((sum, i) => sum + a[i] * b[i], 0);
 
-const toArray = (v: Transform3D): number[] => {
+const toArray = (input: Transform3D): number[] => {
+  // Every method checks its input as parse does: finite parts, a perspective of 0 or more, and an axis that has length 1.
+  const v = transform3dKind.parse(input);
   const half = v.rotate.angle * DEGREE;
   const s = Math.sin(half);
   return [...v.translate, v.rotate.axis[0] * s, v.rotate.axis[1] * s, v.rotate.axis[2] * s, Math.cos(half), ...v.scale, v.perspective > 0 ? 1000 / v.perspective : 0];
 };
 
 const fromArray = (p: readonly number[]): Transform3D => {
+  if (p.length !== 11 || !p.every(finite)) throw new TypeError("A 3D transform needs 11 finite components: translate, a quaternion, scale, and the inverse perspective.");
   const norm = Math.hypot(p[3], p[4], p[5], p[6]);
   const [x, y, z, w] = norm < 1e-9 ? [0, 0, 0, 1] : Q.map((i) => p[i] / norm);
   const length = Math.hypot(x, y, z);
+  // A quaternion with no vector part is the identity, whether w is 1 or -1.
+  const still = length < 1e-9;
   return {
     translate: [p[0], p[1], p[2]],
-    rotate: { axis: length < 1e-9 ? [0, 0, 1] : [x / length, y / length, z / length], angle: (Math.atan2(length, w) * 360) / Math.PI },
+    rotate: { axis: still ? [0, 0, 1] : [x / length, y / length, z / length], angle: still ? 0 : (Math.atan2(length, w) * 360) / Math.PI },
     scale: [p[7], p[8], p[9]],
     perspective: p[10] > 1e-9 ? 1000 / p[10] : 0,
   };
@@ -67,7 +72,7 @@ const align = (from: readonly number[], to: readonly number[]): number[] => (dot
 
 /** The three properties for an element, and the perspective for its parent. */
 export function transform3dStyles(value: Transform3D): Transform3DStyles {
-  const { translate, rotate, scale, perspective } = value;
+  const { translate, rotate, scale, perspective } = transform3dKind.parse(value);
   return {
     element: {
       translate: translate.map((n) => `${text(n)}px`).join(" "),
@@ -99,10 +104,12 @@ export const transform3dKind: Kind<Transform3D> = {
       perspective,
     };
   },
+  restDelta: 0.0005,
   toArray,
   fromArray,
   align,
   interpolate(from, to, progress) {
+    if (!finite(progress)) throw new TypeError("A 3D transform progress must be a finite number.");
     const a = toArray(from);
     const b = align(a, toArray(to));
     const out = mix(a, b, progress);
@@ -120,6 +127,7 @@ export const transform3dKind: Kind<Transform3D> = {
     const x = toArray(a);
     return gap(x, align(x, toArray(b)));
   },
+  // The perspective is not in this text. It belongs to the parent, and `transform3dStyles` gives it.
   serialize: (value) => {
     const { element } = transform3dStyles(value);
     return `translate: ${element.translate}; rotate: ${element.rotate}; scale: ${element.scale}`;
