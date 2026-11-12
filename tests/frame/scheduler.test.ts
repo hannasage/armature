@@ -504,6 +504,23 @@ describe("destroy inside a step", () => {
   });
 });
 
+describe("add from inside a frame", () => {
+  it("does not reset the frame clock or request an extra frame", () => {
+    const run = (readd: boolean) => {
+      const env = new PageEnv();
+      env.lag = 3;
+      const scheduler = createScheduler(env);
+      const task: FrameTask & { steps: number } = { steps: 0, step: () => { task.steps += 1; }, frame: () => { if (readd) scheduler.add(task); } };
+      scheduler.add(task);
+      const before = env.requested;
+      for (let i = 0; i < 30; i += 1) env.tick(1000 / 144 + 1);
+      return { steps: task.steps, requests: env.requested - before };
+    };
+    expect(run(true)).toEqual(run(false));
+    expect(run(true).requests).toBe(30);
+  });
+});
+
 describe("a frame time that is not finite", () => {
   it("keeps the last good frame time, so the next frame is measured from it", () => {
     const env = new PageEnv();

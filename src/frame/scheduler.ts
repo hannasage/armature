@@ -156,7 +156,8 @@ export function createScheduler(env: FrameEnvironment): Scheduler {
   };
 
   const start = () => {
-    if (scheduled || destroyed || hidden()) return;
+    // Inside a run the tick asks for its own next frame, so a start here would reset `last` and add a frame.
+    if (scheduled || running || destroyed || hidden()) return;
     last = env.now();
     requestNext();
   };

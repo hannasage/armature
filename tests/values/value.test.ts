@@ -209,6 +209,35 @@ describe("a requestFrame that throws mid-move", () => {
   });
 });
 
+describe("a value that moves another value from inside a frame", () => {
+  it("keeps the slices and values of an unchained run, and asks for one frame per tick", () => {
+    const run = (chained: boolean) => {
+      const { env, scheduler } = setup();
+      // A frame callback starts late in the frame, so now() runs ahead of the frame time.
+      env.lag = 3;
+      const other = createValue(scheduler, numberKind, 0, { spring: calm });
+      const seen: number[] = [];
+      const first = createValue(scheduler, numberKind, 0, {
+        spring,
+        onChange: (next) => {
+          seen.push(next);
+          if (chained) other.to(5);
+        },
+      });
+      first.to(1);
+      const before = env.requested;
+      for (let i = 0; i < 20; i += 1) env.tick(1000 / 60);
+      return { seen, requests: env.requested - before, other: other.get() };
+    };
+    const plain = run(false);
+    const chained = run(true);
+    expect(chained.seen).toEqual(plain.seen);
+    expect(chained.requests).toBe(20);
+    expect(plain.requests).toBe(20);
+    expect(chained.other).toBeGreaterThan(0);
+  });
+});
+
 describe("a vector value", () => {
   it("springs each component and rests when every component rests", () => {
     const { env, scheduler } = setup();

@@ -287,14 +287,14 @@ Method: `node scripts/size.mjs`, the same as G0. esbuild 0.28.2, `bundle`, `mini
 
 | Entry | Source | Minified (bytes) | Gzipped (bytes) |
 | --- | --- | ---: | ---: |
-| `@hannasage/armature/frame` | `src/frame/index.ts` | 1,441 | 804 |
+| `@hannasage/armature/frame` | `src/frame/index.ts` | 1,444 | 807 |
 | `@hannasage/armature/values` | `src/values/index.ts` | 4,003 | 1,656 |
 
 Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The amendment 1 proposal sits beside each cap.
 
 | Entry | Measured (gzipped) | Cap | Amendment 1 proposal |
 | --- | ---: | ---: | --- |
-| `/frame` | 804 | 890 | 1.0 KB |
+| `/frame` | 807 | 890 | 1.0 KB |
 | `/values` | 1,656 | 1,830 | 4.0 KB (path: about 1.5 KB, alone) |
 
 The proposals are larger because they were written for the full plan. `/values` holds only the number kind, the vector kind, and the value controller today. Color, path, and 3D transform arrive in G3 and raise the figure. `/values` carries the spring solver, because the vector spring runs it. `/frame` carries only the two step constants of `src/engine/spring.ts`, because esbuild drops the rest of that file.
@@ -314,6 +314,6 @@ The caps of the new entries, as bullets:
 
 The `"use client"` line is now on eleven files. The new one is `src/react/useArmatureFollower.ts`, the follower hook. `scripts/postbuild.mjs` lists the eleven and fails the build when the set differs.
 
-### Review rounds 1 and 2
+### Review rounds 1 to 3
 
-The review fixes added error handling to `/frame` and `/values`, so the two sizes above are the ones after round 2. The caps of the two new entries are derived from them by the stated rule. No cap of an entry that existed at G0 changed. The sizes of the other entries after round 1 are `.` 3,686, `/dom` 11,138, `/react` 11,494, `/glass` 7,705, and `/glass/react` 12,501 gzipped bytes, all under their caps. The two new caps wait for the maintainer's approval.
+The review fixes added error handling to `/frame` and `/values`, so the two sizes above are the ones after round 3. The caps of the two new entries are derived from them by the stated rule. No cap of an entry that existed at G0 changed. The sizes of the other entries after round 3 are `.` 3,686, `/dom` 11,138, `/react` 11,494, `/glass` 7,705, and `/glass/react` 12,501 gzipped bytes, all under their caps. The two new caps wait for the maintainer's approval.
