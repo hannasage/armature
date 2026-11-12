@@ -26,7 +26,7 @@ export const API = {
       "revealGroupAttributes", "revealLineAttributes", "revealPose", "revealRootMargin", "revealSpring", "revealStart",
       "scrollDirection", "staggerDelayFor", "startScrollReveal", "velocityBlend"
     ],
-    types: ["SurfaceOptions", "LensOptions", "FollowerOptions", "FollowerState", "Follower", "DelegateOptions", "ScrollRevealOptions", "ScrollRevealController", "MountScrollRevealOptions", "ArmatureRevealAttributes"],
+    types: ["SurfaceOptions", "LensOptions", "FollowerOptions", "FollowerState", "FollowerMove", "Follower", "DelegateOptions", "ScrollRevealOptions", "ScrollRevealController", "MountScrollRevealOptions", "ArmatureRevealAttributes"],
     generic: true,
   },
   "./react": {
