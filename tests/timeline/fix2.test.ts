@@ -42,7 +42,7 @@ describe("a bezier that ends with x2 = 1 hands over its slope", () => {
 
   it("a flavor curve with x2 = 1 does the same", async () => {
     const { tempo } = await import("../helpers/timeline-flavor");
-    const flavor = { ...tempo, timeline: { ...tempo.timeline, curves: { late: [0.5, 0, 1, 1] as const } } };
+    const flavor = { ...tempo, timeline: { ...tempo.timeline, curves: { ...tempo.timeline?.curves, late: [0.5, 0, 1, 1] as const } } };
     const { tl } = rig([[0, 0], [1000, 100, "late"], [3000, null, DECAY]], { flavor });
     tl.seek(1000);
     const at = tl.getState().values[0];

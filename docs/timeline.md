@@ -56,7 +56,7 @@ Give a list of tracks and a `stagger` to stagger a list of elements.
 - `play()` writes the pose, then plays in the current direction. At the end of its travel it starts again from the other end.
 - `pause()` stops the frame and keeps the time.
 - `reverse()` turns the direction round and plays. At the end of the new direction it only completes.
-- `seek(ms)` moves to a time, cut to the length of the timeline, and writes the pose. A timeline that plays keeps playing. A time of `Infinity` or `-Infinity` goes to the end or the start. `NaN`, and a value that is not a number, throw a `TypeError`.
+- `seek(ms)` moves to a time, cut to the length of the timeline, and writes the pose. A timeline that plays keeps playing. A time of `Infinity` or `-Infinity` goes to the end or the start. `NaN`, and a value that is not a number, throw a `TypeError`. After `destroy`, `seek` and `scrub` ignore every call.
 - `scrub(progress)` pauses and moves to a share of the length, from 0 to 1. A share outside that range is cut. `NaN` throws a `TypeError`.
 - `on("update", fn)` calls `fn(time)` after each write. `on("complete", fn)` fires at the end of the travel of a play. Both return the function that removes the listener. A listener that throws is logged once for that listener, and the others still run. After `destroy`, `on` does nothing and returns a function that does nothing.
 - `getState()` gives `time`, `duration`, `playing`, `reversed`, `destroyed`, `values` (one per track), `capped`, `listenerErrors`, and `failed`. `capped` is true when a spring or a decay hit the cap of 10 seconds. `listenerErrors` counts every throw of a listener.
@@ -78,7 +78,7 @@ Under `prefers-reduced-motion: reduce`, `play` and `reverse` go straight to the 
 
 Three things count as a failure: a write that throws, a format function that throws, and a curve that returns a number that is not finite. The timeline then logs one line, stops, and sets `getState().failed`. It does not throw into the page. The label of the line is the label of the flavor, or `[armature]`.
 
-Bad input throws a `TypeError` before anything is written. These are bad: a time or a value that is not finite, keys that go back in time, a name with no flavor, an offset or stagger below 0, a property that is not a name, and a start or an end that is too large to be a number. A property named `transform`, with or without a vendor prefix such as `-webkit-`, is bad too. A written number is cut to 1,000,000,000 and rounded to 4 decimals, so no exponent text reaches CSS.
+Bad input throws a `TypeError` before anything is written. These are bad: a time or a value that is not finite, keys that go back in time, a name with no flavor, an offset or stagger below 0, a property that is not a name, a start or an end that is too large to be a number, and a spring or a decay that runs to a value that is not finite. This last one throws when the timeline is built. A property named `transform`, with or without a vendor prefix such as `-webkit-`, is bad too. A written number is cut to 1,000,000,000 and rounded to 4 decimals, so no exponent text reaches CSS.
 
 ## The environment
 

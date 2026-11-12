@@ -146,19 +146,19 @@ function valueAt(track: Track, t: number): number {
 /** The slope of a curve where it ends, at progress 1. A bezier knows it. Another curve gets a difference with the first error term removed. */
 function endSlope(curve: Curve): number {
   const points = (curve as { points?: readonly number[] }).points;
-  if (points?.length === 4) return points[2] < 1 ? (1 - points[3]) / (1 - points[2]) : 0;
+  if (points?.length === 4 && points[2] < 1) return (1 - points[3]) / (1 - points[2]);
   const f = (h: number) => (curve(1) - curve(1 - h)) / h;
-  const slope = 2 * f(1e-3) - f(2e-3);
+  const slope = 2 * f(1e-4) - f(2e-4);
   return Number.isFinite(slope) ? slope : 0;
 }
 
-/** The position and the speed (per second) of a track at `t`. A tween that has ended gives the speed of its curve at the end. A sample holds until the next slice. */
-function stateAt(track: Track, t: number): { p: number; v: number } {
+/** The position and the speed (per second) of a track at `t`. With `speed` set, a tween that has ended gives the speed of its curve at the end. A sample holds until the next slice. */
+function stateAt(track: Track, t: number, speed = false): { p: number; v: number } {
   const seg = pick(track, t);
   if (seg?.p) return { p: seg.p[slice(seg, t)], v: seg.w![slice(seg, t)] };
   const ended = seg !== undefined && seg.e > seg.s && t >= seg.e - EPS;
-  const speed = ended ? ((seg.b - seg.a) * endSlope(seg.c!) * 1000) / (seg.e - seg.s) : 0;
-  return { p: valueAt(track, t), v: Number.isFinite(speed) ? speed : 0 };
+  const v = speed && ended ? ((seg.b - seg.a) * endSlope(seg.c!) * 1000) / (seg.e - seg.s) : 0;
+  return { p: valueAt(track, t), v: Number.isFinite(v) ? v : 0 };
 }
 
 /** Runs a spring or a decay slice by slice from `s`, to the time `cut` or until it rests. Every step is a whole `FIXED_STEP`. */
@@ -211,7 +211,7 @@ function compile(keys: Key[], offset: number): Track {
     const s = keys[i - 1].t + offset;
     const e = keys[i].t + offset;
     const { step, v } = keys[i];
-    const from = stateAt(track, s);
+    const from = stateAt(track, s, step.kind !== 0);
     const seg: Seg = step.kind === 0 ? { s, e, a: from.p, b: v as number, c: step.curve } : simulate(step, from, s, i === keys.length - 1 ? Infinity : e, v);
     track.segs.push(seg);
     track.capped ||= seg.capped === true;
@@ -447,15 +447,17 @@ export function createTimeline(env: TimelineEnvironment, options: TimelineOption
       go(false);
     },
     seek(ms) {
+      if (destroyed) return;
       const target = asTime(ms);
-      if (destroyed || failure) return;
+      if (failure) return;
       ended = false;
       time = Math.max(0, Math.min(duration, target));
       apply();
     },
     scrub(progress) {
+      if (destroyed) return;
       const share = asTime(progress);
-      if (destroyed || failure) return;
+      if (failure) return;
       stop();
       time = Math.max(0, Math.min(1, share)) * duration;
       apply();

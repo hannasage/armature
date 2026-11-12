@@ -505,23 +505,23 @@ Method: `node scripts/size.mjs`, the same as G0 to G4. esbuild 0.28.2, `bundle`,
 
 | Entry | Source | Minified (bytes) | Gzipped (bytes) |
 | --- | --- | ---: | ---: |
-| `@hannasage/armature/timeline` | `src/timeline/index.ts` | 14,145 | 5,828 |
+| `@hannasage/armature/timeline` | `src/timeline/index.ts` | 14,184 | 5,866 |
 
 The cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The cap is not approved: the maintainer has not seen it. The amendment 1 proposal sits beside it.
 
 | Entry | Measured (gzipped) | Cap (not approved) | Amendment 1 proposal |
 | --- | ---: | ---: | --- |
-| `/timeline` | 5,828 | 6,420 | 4.0 KB |
+| `/timeline` | 5,866 | 6,460 | 4.0 KB |
 
 The cap of `/timeline`, as a bullet (not approved):
 
-- `/timeline`: 6,420.
+- `/timeline`: 6,460.
 
-The measure is the size after review round 1, which added the finite checks, the end speed of a tween, the cap flag, and the strict spring check. The entry is 1,828 bytes over the 4.0 KB proposal. Where the bytes sit, in minified bytes of the bundle:
+The measure is the size after review round 2, which added the end slope for a bezier with x2 = 1 and, in round 1, the finite checks, the end speed of a tween, the cap flag, and the strict spring check. The entry is 1,866 bytes over the 4.0 KB proposal. Where the bytes sit, in minified bytes of the bundle:
 
 | File | Minified (bytes) |
 | --- | ---: |
-| `src/timeline/timeline.ts` | 8,093 |
+| `src/timeline/timeline.ts` | 8,132 |
 | `src/timeline/flavor.ts` | 1,764 |
 | `src/timeline/util.ts` | 485 |
 | `src/engine/spring.ts` | 1,457 |
@@ -537,7 +537,7 @@ No cap moved. The measures after G5: `.` 3,853 (cap 4,000), `/frame` 807, `/valu
 
 ### The tarball
 
-`npm run check:pack` passed. The tarball is 244,245 bytes in 208 files, under the limit of 333,027 (1.5 times the approved MEASURED_SIZE of 222,018). MEASURED_SIZE did not change.
+`npm run check:pack` passed. The tarball is 244,327 bytes in 208 files, under the limit of 333,027 (1.5 times the approved MEASURED_SIZE of 222,018). MEASURED_SIZE did not change.
 
 ### Decision for the maintainer: `validateFlavor` does not check the timeline part
 
