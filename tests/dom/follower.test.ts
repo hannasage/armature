@@ -14,7 +14,7 @@ const flavor: Flavor = {
     bouncy: { stiffness: 400, damping: 12, mass: 1 },
     calm: { stiffness: 400, damping: 40, mass: 1 },
   },
-  follower: {
+  followers: {
     grow: { var: "grow", springKey: "bouncy", rest: { restDelta: 0.001, restSpeed: 0.01 } },
     fade: { var: "fade", springKey: "calm", rest: { restDelta: 0.001, restSpeed: 0.01 } },
     loose: { var: "loose", springKey: "calm", rest: { restDelta: 0.2, restSpeed: 5 } },

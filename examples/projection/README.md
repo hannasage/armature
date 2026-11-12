@@ -30,7 +30,7 @@ The numbers and the measured overshoot and settle times are in `docs/projection-
 ## Parts
 
 - `surface`: the Button press and release. Only the press scale is used. The specular glint and the glow are switched off (`specular: false`, `glow: false`), and the flex is 0. The surface writes only `--pui-press` and `--pui-flex`, and a hover asks for no frame.
-- `follower`: four named followers.
+- `followers`: four named followers.
   - `thumb`: the Toggle thumb and the Slider thumb, on `mechanical`.
   - `enter`: the Toast and the Modal backdrop coming in, on `mechanical`.
   - `exit`: anything leaving, on `settle`.

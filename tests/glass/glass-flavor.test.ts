@@ -102,7 +102,7 @@ describe("lens", () => {
     expect(springsByKey[lens.springKeys.width]).toStrictEqual(legacySpring.lensWidth);
     inLegacyAt("lens", /const xConfig = withPixelRest\(options\.springs\?\.x \?\? lensX\);/);
     inLegacyAt("lens", /const wConfig = withPixelRest\(options\.springs\?\.width \?\? lensWidth\);/);
-    expect(lens.pixelRest).toEqual({ restDelta: 0.05, restSpeed: 1 });
+    expect(lens.rest).toEqual({ restDelta: 0.05, restSpeed: 1 });
     inLegacyAt("lens", /const withPixelRest = .*\{ restDelta: 0\.05, restSpeed: 1, \.\.\.config \}/);
     expect(lens.stretchVelocity).toBe(10_000);
     inLegacy("lens", "const DEFAULT_STRETCH_VELOCITY = 10_000;");

@@ -100,10 +100,10 @@ The engine has no branch on a flavor name. A search of `src/engine`, `src/dom`, 
   Only the glass flavor and a synthetic test flavor use it. Nobody has tested it against a real second design.
 - The reveal part has the nine data attributes, the drag block, and the four-personality shape.
   The `PersonalitySpec` traits (`clips`, `scaleRotate`, `hiddenTranslate`) describe what the glass personalities needed.
-- The rest limits have three shapes: `surface.rest` for two springs, `lens.pixelRest` for two springs, and `follower[name].rest` per follower.
-  They are one idea and need one shape.
-- The part is named `follower` (singular) and holds many followers. The other parts are singular and hold one thing each.
-  A rename to `followers` is cheap now and costly later.
+- The rest limits had three shapes: `surface.rest`, `lens.pixelRest`, and `follower[name].rest`.
+  Closed in G1 (amendment 2, item 3). All three are now `rest`, and all three use the type `RestLimits`.
+- The part was named `follower` (singular) and holds many followers.
+  Closed in G1 (amendment 2, item 3). The part is now `followers`. The old names throw a clear `TypeError` in the beta window.
 
 ## What the second flavor did not test
 

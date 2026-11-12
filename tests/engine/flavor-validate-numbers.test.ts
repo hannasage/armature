@@ -7,7 +7,7 @@ import { projection } from "../../examples/projection/flavor";
 const rest = { restDelta: 0.001, restSpeed: 0.01 };
 const thumb: FollowerSpec = { var: "thumb", springKey: "tap", rest };
 const withSprings = (springs: Flavor["springs"]): Flavor => ({ ...acme, springs: { ...acme.springs, ...springs } });
-const withFollowers = (follower: Flavor["follower"]): Flavor => ({ ...acme, follower });
+const withFollowers = (followers: Flavor["followers"]): Flavor => ({ ...acme, followers });
 
 describe("validateFlavor and spring numbers", () => {
   it("still accepts the glass flavor, the Projection example, and the test flavor", () => {
@@ -72,7 +72,7 @@ describe("validateFlavor and rest limits", () => {
 
   it("rejects a lens pixel rest with a bad number", () => {
     for (const bad of badRests) {
-      const flavor: Flavor = { ...acme, lens: { ...acme.lens, pixelRest: bad as never } };
+      const flavor: Flavor = { ...acme, lens: { ...acme.lens, rest: bad as never } };
       expect(() => validateFlavor(flavor), JSON.stringify(bad)).toThrow(/The flavor "acme" has a lens pixel rest/);
     }
   });

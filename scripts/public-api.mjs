@@ -14,7 +14,7 @@ export const API = {
       "requireFollower", "requireLens", "requireReveal", "requireSurface", "retarget", "springOf", "stepSpring", "validateFlavor"
     ],
     types: [
-      "Flavor", "SurfaceFlavor", "LensFlavor", "RevealFlavor", "FollowerSpec", "FollowerFlavor", "PersonalitySpec", "RevealStart", "StartContext", "StartInput", "FeelOptions",
+      "Flavor", "SurfaceFlavor", "LensFlavor", "RevealFlavor", "FollowerSpec", "FollowerFlavor", "RestLimits", "PersonalitySpec", "RevealStart", "StartContext", "StartInput", "FeelOptions",
       "SpringConfig", "SpringState", "ArmatureEnvironment", "ArmatureTarget", "ArmatureScrollEnvironment", "Preferences",
     ],
     generic: true,

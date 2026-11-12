@@ -50,7 +50,7 @@ const rest = { restDelta: 0.001, restSpeed: 0.01 } as const;
  * `exit`: anything leaving.
  * `dialog`: the Modal dialog, in and out.
  */
-const follower: FollowerFlavor = {
+const followers: FollowerFlavor = {
   thumb: { var: "thumb", springKey: "mechanical", rest },
   enter: { var: "enter", springKey: "mechanical", rest },
   exit: { var: "exit", springKey: "settle", rest },
@@ -58,11 +58,11 @@ const follower: FollowerFlavor = {
 };
 
 /** There is no lens part and no reveal part. Projection UI has neither a travelling indicator nor a scroll reveal. */
-export const projection = defineFlavor<Flavor & { surface: SurfaceFlavor; follower: FollowerFlavor }>({
+export const projection = defineFlavor<Flavor & { surface: SurfaceFlavor; followers: FollowerFlavor }>({
   name: "projection",
   prefix: "pui",
   logLabel: "projection-ui",
   springs: { mechanical, settle },
   surface,
-  follower,
+  followers,
 });
