@@ -312,10 +312,74 @@ describe("bounds and the rubber band", () => {
     expect(peak).toBeLessThan(0.85 * 120);
   });
 
+  const outOfBounds = () => {
+    const made = setup({ axis: "x", bounds: [0, 300] });
+    made.env.press(made.el, [0, 0], [400, 0], 800, 8);
+    rest(made.env);
+    made.env.up(made.el, 400, 0); // 54.545 px past the bound, and no frame has run
+    return made;
+  };
+  it("resists an outward pull after a press out of bounds with the room that is left: smooth, never flat, and under the reach", () => {
+    const { env, el, drag } = outOfBounds();
+    const s0 = drag.getState().x - 300;
+    expect(s0).toBeCloseTo(100 / (1 + 100 / 120), 3);
+    const room = 120 * 0.999 - s0;
+    env.down(el, 1000, 0);
+    let before = drag.getState().x;
+    for (const u of [10, 50, 100, 200, 400, 800, 1600]) {
+      env.move(el, 1000 + u, 0);
+      const x = drag.getState().x;
+      expect(x - 300, `u ${u}`).toBeCloseTo(s0 + u / (1 + u / room), 6);
+      expect(x, `u ${u}`).toBeGreaterThan(before);
+      expect(x - 300).toBeLessThan(120 * 0.999);
+      before = x;
+    }
+    // The slope falls steadily from 1 and the pull is never a wall: the step per pixel is still above 0 at 1600 px.
+    env.move(el, 1000 + 1601, 0);
+    expect(drag.getState().x).toBeGreaterThan(before);
+  });
+
+  it("scales the release speed after an outward pull by the slope of that band", () => {
+    const { env, el, drag } = outOfBounds();
+    const s0 = drag.getState().x - 300;
+    const room = 120 * 0.999 - s0;
+    env.press(el, [1000, 0], [1100, 0], 100, 10); // 1000 px/s outward, 100 px
+    env.up(el, 1100, 0);
+    expect(drag.getState().vx).toBeCloseTo(1000 / (1 + 100 / room) ** 2, 1);
+  });
+
+  it("uses the slope of the far band when a press out of bounds is dragged in past the other bound", () => {
+    const { env, el, drag } = outOfBounds();
+    const s0 = drag.getState().x - 300;
+    env.press(el, [1000, 0], [500, 0], 100, 10); // 5,000 px/s inward, 500 px
+    const p = 300 + s0 - 500; // where the one to one move puts it: 145.5 px below the lower bound
+    expect(p).toBeLessThan(0);
+    expect(drag.getState().x).toBeCloseTo(-(-p / (1 + -p / 120)), 3);
+    env.up(el, 500, 0);
+    expect(drag.getState().vx).toBeCloseTo(-5000 / (1 + -p / 120) ** 2, 1);
+  });
+
+  it("holds a hard snap-spring flick to the same path at 30, 60, and 144 Hz, with the clamp applied at each fixed step", () => {
+    const at = (hz: number) => {
+      const { env, el, drag } = setup({ axis: "x", bounds: [0, 300], snap: [0, 300] });
+      env.press(el, [0, 0], [290, 0], 24, 4); // 12,000 px/s toward the bound, 10 px short of it
+      env.up(el, 290, 0);
+      const frames = Math.round(hz / 6); // 1/6 s: 5, 10, and 24 frames
+      for (let i = 0; i < frames; i++) env.tick(1000 / hz);
+      return drag.getState();
+    };
+    const slow = at(30);
+    expect(slow.x).toBeGreaterThan(300); // past the bound, so the clamp has been in play
+    for (const hz of [60, 144]) {
+      expect(at(hz).x, `${hz} Hz`).toBeCloseTo(slow.x, 2);
+      expect(at(hz).vx, `${hz} Hz`).toBeCloseTo(slow.vx, 1);
+    }
+  });
+
   it("holds a snap spring under the reach too, and still comes to rest on the snap point", () => {
     const { env, el } = setup({ axis: "x", bounds: [0, 300], snap: [0, 300] });
-    env.press(el, [0, 0], [250, 0], 20, 4); // 12,000 px/s toward the bound
-    env.up(el, 250, 0);
+    env.press(el, [0, 0], [290, 0], 24, 4); // 12,000 px/s toward the bound, 10 px short of it
+    env.up(el, 290, 0);
     env.settle();
     const xs = env.writesTo("translate").map(xOf);
     expect(Math.max(...xs)).toBeGreaterThan(300); // the spring does overshoot
@@ -475,7 +539,7 @@ describe("snap", () => {
     env.press(el, [0, 0], [140, 0], 140, 10); // 1000 px/s
     env.up(el, 140, 0);
     expect(drag.getState().vx).toBeCloseTo(1000, 3);
-    env.tick(4);
+    env.tick(1000 / 120); // one slice
     const fast = drag.getState().x;
 
     const twin = setup({ axis: "x", bounds: [0, 300], snap: SNAP });
@@ -483,10 +547,10 @@ describe("snap", () => {
     rest(twin.env);
     twin.env.up(twin.el, 140, 0);
     expect(twin.drag.getState().vx).toBeCloseTo(0, 3);
-    twin.env.tick(4);
-    // 1000 px/s for 4 ms is 4 px, less the damping of the spring over the same slice: the two runs differ by 3.5 px.
-    expect(fast - twin.drag.getState().x).toBeGreaterThan(3);
-    expect(fast - twin.drag.getState().x).toBeLessThan(4);
+    twin.env.tick(1000 / 120);
+    // One slice: the speed 1000 gives 1000 - 225 = 775 after the damping and the pull, and the twin gets 25. The positions differ by 750 / 120 = 6.25 px.
+    expect(fast).toBeCloseTo(140 + 775 / 120, 3);
+    expect(fast - twin.drag.getState().x).toBeCloseTo(6.25, 3);
     env.settle();
     expect(env.read(el)).toBe("150px 0px");
   });
