@@ -11,6 +11,15 @@ Changes for the next beta. They are not published.
 - New entry `@hannasage/armature/values`: the number kind and the vector kind, a spring over a vector that matches the scalar spring component by component, and `createValue`, a spring controller that runs on the scheduler.
 - New entry `@hannasage/armature/curves`: `bezier`, which evaluates a cubic-bezier and writes its CSS string, named `easings` as data (with the Projection UI curve), `createTween` and `stepTween` with the step interface of the spring, `createTweenValue` on the scheduler, and `fitBezier`, which fits a bezier to samples and reports the error.
 - New entry `@hannasage/armature/linear`: `toLinear` writes a spring or a curve as a CSS `linear()` string within a stated tolerance. `supportsLinear` checks browser support, and `toEasing` falls back to a fitted `cubic-bezier()` and reports `degraded` when the fit is further off than the tolerance. `fitLinear` returns the stops with the error and `truncated`. A spring that does not rest within 10 seconds or 20,000 steps makes `toLinear` throw a RangeError, and `toEasing` returns `truncated: true`.
+- New kinds in `@hannasage/armature/values`, so a spring or a tween can move more than a number:
+  - `colorKind` reads hex, `rgb()`, `hsl()`, and the CSS color names. It blends in OKLab, so the hue takes the short way, and it writes `#rrggbb` or `#rrggbbaa`.
+  - `pathKind(template)` blends SVG path data between paths that have the same commands in the same order. A path with another structure throws a `TypeError`. There is no resampler.
+  - `transform3dKind` holds a translation, a rotation, a scale, and a perspective. A rotation takes the short way. It writes only `translate`, `rotate`, and `scale`, never `transform`. `transform3dStyles` splits them from the `perspective` of the parent.
+- A kind can have an optional `align` method. `createValue` calls it before a move, so a spring picks the nearest of two equal targets.
+- A kind can have an optional `restDelta`. `createValue` uses it when the spring sets none, so each kind rests at its own scale. The color kind sets 0.0002 and the 3D transform kind 0.0005.
+- `getState().velocity` is the raw list of numbers for every kind except one that sets the `scalar` flag, which only the number kind does. `Kind` and `Value` take a second type parameter for it.
+- A move spring with no `restDelta` inherits the explicit one of the base spring, then the kind default. A `restDelta` that is not finite and above 0 counts as unset. `pathKind(template, { restDelta })` sets the rest distance of a path, for example on a unit viewBox.
+- The kinds check their input in every method and throw a `TypeError` for a number that is not finite. The path kind keeps full precision and rounds to 6 decimals when it writes text.
 - New hook `useArmatureFollower` in `@hannasage/armature/react`.
 - A follower move can name its own spring: `follower.setTarget(1, { springKey: "settle" })`. Position, velocity, and target stay.
 

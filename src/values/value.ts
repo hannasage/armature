@@ -21,33 +21,43 @@ export interface ValueMove {
   spring?: SpringConfig;
 }
 
-export interface ValueState<T> {
+export interface ValueState<T, S extends boolean = boolean> {
   /** The value to draw. */
   value: T;
-  /** The velocity, in units per second, in the shape of the kind. */
-  velocity: T;
+  /**
+   * The velocity, in units per second. For a kind with the `scalar` flag (the number kind) it is a number. For every other kind it is the
+   * raw list of numbers, in the shape of `kind.toArray`, because a velocity is not a color, a path, or a rotation.
+   */
+  velocity: S extends true ? number : number[];
   target: T;
   /** True while a component is still travelling. */
   moving: boolean;
 }
 
-export interface Value<T> {
+export interface Value<T, S extends boolean = boolean> {
   /** The value to draw. */
   get(): T;
   /** Springs toward a target. A turn in flight keeps its speed. A target the kind cannot parse throws a TypeError and changes nothing. */
   to(target: T, move?: ValueMove): void;
   /** Jumps to a value with no travel and no velocity, and stops the frame. */
   set(value: T): void;
-  getState(): ValueState<T>;
+  getState(): ValueState<T, S>;
   /** Leaves the scheduler and ignores every later call. The last value stays. Safe to call twice. */
   destroy(): void;
 }
 
 const same = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((n, i) => n === b[i]);
 
-export function createValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kind<T>, initial: T, options: ValueOptions<T>): Value<T> {
+export function createValue<T, S extends boolean = boolean>(scheduler: Pick<Scheduler, "add">, kind: Kind<T, S>, initial: T, options: ValueOptions<T>): Value<T, S> {
   const parts = (input: unknown) => kind.toArray(kind.parse(input));
-  let config = options.spring;
+  // The rest distance of a spring: its own restDelta, else the explicit one of the base spring, else the default of the kind, else the
+  // engine's. A value that is not finite and above 0 counts as unset.
+  const usable = (n: number | undefined): n is number => typeof n === "number" && Number.isFinite(n) && n > 0;
+  const scaled = (spring: SpringConfig): SpringConfig => {
+    const rest = [spring.restDelta, options.spring.restDelta, kind.restDelta].find(usable);
+    return rest === undefined ? spring : { ...spring, restDelta: rest };
+  };
+  let config = scaled(options.spring);
   let state = createVectorSpring(config, parts(initial));
   let emitted = state.value;
   let remove: (() => void) | undefined;
@@ -102,8 +112,8 @@ export function createValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kind<T>,
     get: () => kind.fromArray(state.value),
     to(target, move) {
       if (destroyed) return;
-      const next = parts(target);
-      if (move?.spring) config = move.spring;
+      const next = kind.align ? kind.align(state.value, parts(target)) : parts(target);
+      if (move?.spring) config = scaled(move.spring);
       if (options.reducedMotion?.() === true) {
         jump(next);
         return;
@@ -124,7 +134,7 @@ export function createValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kind<T>,
     },
     getState: () => ({
       value: kind.fromArray(state.value),
-      velocity: kind.fromArray(state.velocity),
+      velocity: (kind.scalar ? kind.fromArray(state.velocity) : [...state.velocity]) as ValueState<T, S>["velocity"],
       target: kind.fromArray(state.target),
       moving: !isVectorAtRest(state),
     }),

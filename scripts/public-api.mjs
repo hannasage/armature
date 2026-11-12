@@ -26,9 +26,10 @@ export const API = {
   },
   "./values": {
     values: [
-      "createValue", "createVectorSpring", "isVectorAtRest", "numberKind", "reconfigureVector", "retargetVector", "stepVectorSpring", "vectorKind"
+      "colorKind", "createValue", "createVectorSpring", "isVectorAtRest", "numberKind", "pathKind", "reconfigureVector", "retargetVector",
+      "stepVectorSpring", "transform3dKind", "transform3dStyles", "vectorKind"
     ],
-    types: ["Kind", "Value", "ValueMove", "ValueOptions", "ValueState", "VectorSpringState"],
+    types: ["Kind", "Transform3D", "Transform3DStyles", "Value", "ValueMove", "ValueOptions", "ValueState", "VectorSpringState"],
     generic: true,
   },
   "./curves": {
