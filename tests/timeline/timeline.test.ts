@@ -342,18 +342,25 @@ describe("seek, play, reverse", () => {
     expect(tl.getState().time).toBe(0);
   });
 
-  it("clamps a seek to the length of the timeline, and ignores a time that is not finite", () => {
+  it("clamps a seek to the length of the timeline, sends an infinite time to the ends, and throws for a time that is not a number", () => {
     const { env, tl } = rig([[0, 0], [1000, 100]]);
     tl.seek(-5);
     expect(tl.getState().time).toBe(0);
     tl.seek(1e9);
     expect(tl.getState().time).toBe(1000);
+    tl.seek(-Infinity);
+    expect(tl.getState().time).toBe(0);
+    tl.seek(Infinity);
+    expect(tl.getState().time).toBe(1000);
+    tl.scrub(-Infinity);
+    expect(tl.getState().time).toBe(0);
+    tl.scrub(Infinity);
+    expect(tl.getState().time).toBe(1000);
     const writes = env.writes.length;
-    for (const bad of [NaN, Infinity, -Infinity]) {
-      tl.seek(bad);
-      tl.scrub(bad);
+    for (const bad of [NaN, "12", null, undefined]) {
+      expect(() => tl.seek(bad as unknown as number)).toThrow(TypeError);
+      expect(() => tl.scrub(bad as unknown as number)).toThrow(TypeError);
     }
-    tl.seek("12" as unknown as number);
     expect(tl.getState().time).toBe(1000);
     expect(env.writes.length).toBe(writes);
   });
