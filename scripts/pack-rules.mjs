@@ -2,7 +2,7 @@
 // without packing anything.
 
 /** The packed size, in bytes, that was measured when this rule was set. See docs/baseline.md. */
-export const MEASURED_SIZE = 137293;
+export const MEASURED_SIZE = 222018;
 /** The tarball may grow to this many times the measured size. A larger one fails the check. */
 export const SIZE_FACTOR = 1.5;
 

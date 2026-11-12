@@ -50,6 +50,25 @@ export interface Flavor<P extends string = string> {
   readonly reveal?: RevealFlavor<P>;
   /** Named followers: one number that springs toward a target and is written as a CSS variable. */
   readonly followers?: FollowerFlavor;
+  /** Drag, decay, snap, and swipe: the numbers `createDrag` from `@hannasage/armature/gesture` reads. */
+  readonly gesture?: GestureFlavor;
+}
+
+/** The gesture part of a flavor. A drag writes the individual CSS property `translate`, so the part names no variable and no attribute. */
+export interface GestureFlavor {
+  /** The friction constant c of the decay v' = -c v, per second. Finite and above 0. */
+  readonly friction: number;
+  /**
+   * The band past the bounds. `stiffness` is the stiffness of the pull back at the bound. A band at distance d is `1 + d / reach` times as stiff,
+   * and `reach` is also the most overshoot a pointer can show, in pixels.
+   */
+  readonly rubberBand: { readonly stiffness: number; readonly reach: number };
+  /** A release fires a swipe when its speed (px per second) and its distance (px) both reach these. */
+  readonly swipe: { readonly velocity: number; readonly distance: number };
+  /** Keys into `Flavor.springs`. `snap` is the spring a release springs on to the nearest snap point. */
+  readonly springKeys: { readonly snap: string };
+  /** The decay stops when its speed (px per second) is below `restSpeed`. A spring uses both limits, under any it sets itself. */
+  readonly rest: RestLimits;
 }
 
 /** One follower. The name is the key in the `followers` record. */
@@ -245,7 +264,8 @@ const checked = new WeakSet<object>();
  * the prefix is lowercase letters, digits, and hyphens and starts with a letter, the log label is not empty,
  * the reveal fallback is one of the reveal personalities, every spring key names a spring in `springs`,
  * every surface switch is a boolean when it is set, and every follower has a unique variable name that no other part uses,
- * rest limits, and a spring key that names a spring in `springs`. Every spring and every rest limit holds finite numbers in range.
+ * rest limits, and a spring key that names a spring in `springs`. A gesture part has a friction, a rubber band, swipe thresholds, rest limits,
+ * and a snap spring key. Every spring and every rest limit holds finite numbers in range.
  * The require helpers call it, and a flavor that passes is not checked again.
  */
 export function validateFlavor(flavor: Flavor): void {
@@ -298,6 +318,16 @@ export function validateFlavor(flavor: Flavor): void {
       }
       if (!hasOwn(flavor.springs, spec.springKey)) missingSpring(flavor, spec.springKey);
     }
+  }
+  if (flavor.gesture !== undefined) {
+    const gesture = flavor.gesture as Partial<GestureFlavor> | null;
+    if (typeof gesture !== "object" || gesture === null) throw new TypeError(`${label} has a gesture part that is not an object.`);
+    const positive = (...numbers: unknown[]) => numbers.every((n) => isNumber(n) && n > 0);
+    if (!positive(gesture.friction)) throw new TypeError(`${label} has a gesture part with a friction that is not a finite number above 0.`);
+    if (!positive(gesture.rubberBand?.stiffness, gesture.rubberBand?.reach)) throw new TypeError(`${label} has a gesture part with a rubber band whose stiffness and reach are not both finite numbers above 0.`);
+    if (!positive(gesture.swipe?.velocity, gesture.swipe?.distance)) throw new TypeError(`${label} has a gesture part whose swipe velocity and distance are not both finite numbers above 0.`);
+    checkRest(label, "a gesture rest", gesture.rest ?? null);
+    if (!hasOwn(flavor.springs, gesture.springKeys?.snap as string)) missingSpring(flavor, gesture.springKeys?.snap as string);
   }
   checked.add(flavor);
 }

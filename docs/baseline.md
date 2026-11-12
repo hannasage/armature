@@ -157,6 +157,7 @@ This records the size of the package as npm packs it, measured with `npm pack --
 - The tarball holds `dist`, `README.md`, `LICENSE`, and `package.json`, and nothing else.
 
 `npm run check:pack` fails when the tarball is larger than 1.5 times this size, which is 205,939 bytes.
+G4 build, 2026-11-12 (UTC): `MEASURED_SIZE` is now 222,018 bytes, and it is approved by the maintainer. The limit is 333,027 bytes, still 1.5 times. The 137,293 above is the earlier baseline. The current measure after review round 4 is a tarball of 222,132 bytes, unpacked 748,454 bytes, in 196 files, measured with `npm pack --json` after `npm run build`. The measures before that were 218,694 bytes at the first build, 221,140 after round 1, 222,023 after round 2, and 222,018 after round 3. The maintainer also approved the `/gesture` cap of 5,850.
 The measured size is the constant `MEASURED_SIZE` in `scripts/pack-rules.mjs`. Change it only when a maintainer accepts a new size and records the new number here.
 The same check lists the tarball files, installs the tarball into a clean project with React as the peer, imports every subpath by package name, type-checks a consumer file under `nodenext` and `bundler`, and resolves the stylesheet.
 
@@ -442,3 +443,53 @@ The caps of the other entries did not change. The measures after G3: `.` 3,686 (
 
 `/values` adds `colorKind`, `pathKind`, `transform3dKind`, `transform3dStyles`, and the types `Transform3D` and `Transform3DStyles`.
 `transform3dStyles` is public beyond the spec. Amendment 1 says only that the output is the properties `translate`, `rotate`, and `scale`, with `perspective` on the parent. A kind turns a value into one string, and one string cannot say which property goes on the parent. So `transform3dStyles` returns the element properties and the parent property apart.
+
+## G4 build
+
+Date: 2026-11-12 (UTC).
+Source: branch `task/g4-gesture`. G4 adds the entry `@hannasage/armature/gesture`: the pointer environment, the pointer velocity tracker, and `createDrag` with the rubber band, decay, snap, and swipe. It adds the optional `gesture` part to the flavor contract.
+Method: `node scripts/size.mjs`, the same as G0 to G3. esbuild 0.28.2, `bundle`, `minify`, `esm`, React external, then gzip. Node 24 in Docker.
+
+### The `/gesture` entry
+
+| Entry | Source | Minified (bytes) | Gzipped (bytes) |
+| --- | --- | ---: | ---: |
+| `@hannasage/armature/gesture` | `src/gesture/index.ts` | 13,605 | 5,316 |
+
+The cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The maintainer approved the cap of 5,850 (approved by the maintainer, 2026-11-12). The amendment 1 proposal sits beside it. The measure above is the one the cap came from, at review round 2. After review round 4 the entry is 5,332 gzipped bytes (minified 13,677), so the room under the cap is 518 bytes.
+
+| Entry | Measured (gzipped) | Cap | Amendment 1 proposal |
+| --- | ---: | ---: | --- |
+| `/gesture` | 5,316 | 5,850 | 3.0 KB |
+
+The cap of `/gesture`, as a bullet (approved by the maintainer, 2026-11-12):
+
+- `/gesture`: 5,850.
+
+The entry is 2,316 bytes over the 3.0 KB proposal. Where the bytes sit, each file bundled alone:
+
+| Part | Gzipped (bytes) |
+| --- | ---: |
+| `src/engine/flavor.ts`, pulled in by `requireGesture` through `validateFlavor` | 1,824 |
+| `src/engine/spring.ts` | 733 |
+| `src/gesture/drag.ts`, engine external | 3,650 |
+| `src/gesture/pointer-env.ts`, engine external | 477 |
+| `src/gesture/pointer-velocity.ts`, engine external | 421 |
+
+- The gesture files add about 2.8 KB to the engine files in the bundle. That is under the 3.0 KB proposal. The engine files that `/gesture` must carry make up the rest.
+- `requireGesture` calls `validateFlavor`, as the other require helpers do. That keeps a bad `gesture` part from reaching the drag. A drag that skipped the check would save about 1.8 KB, and a bad part would then fail late.
+
+### Other entries
+
+The caps of the other entries did not change. The measures after G4: `.` 3,854 (cap 4,000), `/frame` 807, `/values` 6,615, `/curves` 2,363, `/linear` 3,351, `/dom` 11,310 (cap 12,170), `/react` 11,663 (cap 12,650), `/glass` 7,881 (cap 8,430), `/glass/react` 12,668 (cap 13,710), and `styles.css` 749 gzipped bytes.
+
+Note that the maintainer approved the `.` entry at 3,854 (the cap of 4,000 is unchanged). The check of the new `gesture` part in `validateFlavor` grew `.` from 3,686 to 3,854, `/dom` from 11,138 to 11,310, `/react` from 11,494 to 11,663, `/glass` from 7,705 to 7,881, and `/glass/react` from 12,501 to 12,668. Each stays under its cap.
+
+### Not exported from `/dom`
+
+The package layout section of amendment 1 says the new controllers are exported from `/dom`. `createDrag` is not, at G4. The drag, the pointer environment, and the tracker add about 2.8 KB to `/dom`, which has 860 bytes of room under its cap of 12,170. The cap rule forbids raising it, so `createDrag` is exported from `/gesture` only. Exporting it from `/dom` needs a decision on the `/dom` cap.
+
+### Public names
+
+`/gesture` exports `createDrag`, `createPointerVelocity`, `createBrowserPointerEnvironment`, `requireGesture`, and the types `ArmaturePointerEnvironment`, `Drag`, `DragBounds`, `DragOptions`, `DragState`, `PointerHandlers`, `PointerSample`, `PointerVelocity`, `PointerVelocityOptions`, and `SwipeDirection`. The engine entry exports the type `GestureFlavor`.
+The public names beyond the spec are `createPointerVelocity`, `createBrowserPointerEnvironment`, and `requireGesture`. The spec names the pointer environment and the tracker as parts of the milestone and gives no function names for them.

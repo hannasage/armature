@@ -28,22 +28,23 @@ The prefix is lowercase letters, digits, and hyphens, and it starts with a lette
 
 `defineFlavor(flavor)` makes this safe. It validates the flavor, freezes it at every level, and returns it. After that, a change throws a `TypeError` in strict code. A function inside the flavor, such as the `start` of a personality, is not frozen. The glass flavor is already frozen. Use `defineFlavor` for your own flavor.
 
-## A flavor has five parts
+## A flavor has six parts
 
-Only the top level is needed by every flavor. The other four parts are optional. A controller asks for the part it needs. If the part is missing, the controller throws a `TypeError` that names the flavor.
+Only the top level is needed by every flavor. The other five parts are optional. A controller asks for the part it needs. If the part is missing, the controller throws a `TypeError` that names the flavor.
 
 - Top level: `name`, `prefix`, `logLabel`, and `springs`.
 - `surface`: read by the surface and by delegation.
 - `lens`: read by the lens.
 - `reveal`: read by the scroll reveal and by the attribute builders.
 - `followers`: read by the follower. Added in Milestone 2, after the Projection flavor needed it.
+- `gesture`: read by `createDrag`. Added in G4. See "The gesture part" below.
 
 ## Top level fields
 
 - `name` is a short word for messages. `validateFlavor` and the require helpers put it in their errors. The React hooks use it in the context of a logged failure, such as `glass surface`.
 - `prefix` starts every CSS variable and data attribute. `cssVar` and `dataAttr` read it, and every controller calls those two helpers.
 - `logLabel` starts every logged error, in brackets. `logTag` reads it. The guard (`guardedSetup`) and the scroll reveal use it for their default log lines.
-- `springs` is a map of named spring presets. `springOf` reads it. The surface and the lens look up their springs here by key. `validateFlavor` checks that every key named in the `surface`, `lens`, and `followers` parts exists in this map.
+- `springs` is a map of named spring presets. `springOf` reads it. The surface and the lens look up their springs here by key. `validateFlavor` checks that every key named in the `surface`, `lens`, `followers`, and `gesture` parts exists in this map.
 
 ## The surface part
 
@@ -123,6 +124,18 @@ thumb.setTarget(1);
 A move can name its own spring. `thumb.setTarget(1, { springKey: "mechanical" })` switches the follower to that spring and then retargets. Position, velocity, and target stay, so a turn in flight keeps its speed. The follower keeps the chosen spring for later moves that name none. The `springKey` in the follower spec is the default. A key that is not in `springs` throws the `TypeError` of `springOf`, and the follower changes nothing. The rest limits of the follower still apply under the chosen spring. Under reduced motion the follower still snaps, whatever spring the move names.
 
 A call can replace the spring with the `spring` option. The rest limits of the flavor still apply. If the environment throws while the follower writes its variable, the follower logs one line that starts with the flavor's label, stops its frame loop, and rests on its target. It does not throw into the page. A key of the `spring` option that is `undefined` is skipped, so it does not erase a rest limit. `createFollower` throws a `TypeError` that names the follower and the flavor when the element is missing or when `initial` is not a finite number.
+
+## The gesture part
+
+`createDrag` from `@hannasage/armature/gesture` reads this part. `requireGesture(flavor)` returns it, or throws a `TypeError` that names the flavor. A flavor with no `gesture` part stays valid. Only a drag asks for it. The part names no CSS variable and no attribute, because a drag writes the individual property `translate`.
+
+- `friction` is the constant c in the decay `v' = -c v`, per second. A larger number stops the element sooner. It is a finite number above 0.
+- `rubberBand` has `stiffness` and `reach`, both finite numbers above 0. `stiffness` is the stiffness of the pull back at the bound. A band at distance d is `1 + d / reach` times as stiff. `reach` is also the most overshoot a pointer can show, in pixels.
+- `swipe` has `velocity` (pixels per second) and `distance` (pixels), both finite numbers above 0. A release fires a swipe when it reaches both.
+- `springKeys` has `snap`, the key of the spring a release uses to reach a snap point. `validateFlavor` checks that the key is in `springs`.
+- `rest` is required. It is a `RestLimits`. The decay stops when its speed is below `restSpeed`. A spring uses both limits, under any limit it sets itself.
+
+The part has no names, so it adds nothing to the rule that names are unique across parts.
 
 ## Personalities
 
