@@ -128,6 +128,15 @@ describe("dragging", () => {
     expect(drag.getState().dragging).toBe(true);
   });
 
+  it("does not warn about a capture failure after destroy, even when the environment keeps calling the handlers", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { env, el, drag } = setup({ axis: "x" });
+    const handlers = env.handlers.get(el)!;
+    drag.destroy();
+    handlers.fault?.(new Error("late"));
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it("logs a pointer that could not be captured once, at warn level, with the label of the flavor", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { env, el } = setup({ axis: "x" });
@@ -259,6 +268,59 @@ describe("bounds and the rubber band", () => {
     env.up(el, 100_000, 0);
     env.settle();
     for (const value of env.writesTo("translate")) expect(xOf(value)).toBeLessThan(420);
+    expect(env.read(el)).toBe("300px 0px");
+  });
+
+  it("lets a press take hold of an element that a hard flick left past the bound, with no jump, and it follows the finger at once", () => {
+    const { env, el, drag } = setup({ axis: "x", bounds: [0, 300] });
+    env.press(el, [0, 0], [250, 0], 20, 4); // 12,000 px/s
+    env.up(el, 250, 0);
+    env.tick();
+    env.tick();
+    const held = drag.getState().x;
+    expect(held).toBeGreaterThan(300);
+    env.down(el, 1000, 0);
+    expect(drag.getState().x).toBe(held);
+    env.move(el, 900, 0); // 100 px inward
+    expect(held - drag.getState().x).toBeGreaterThan(50);
+  });
+
+  it("follows the finger inward at once from an element the pointer pulled to the reach and let go", () => {
+    const { env, el, drag } = setup({ axis: "x", bounds: [0, 300] });
+    env.press(el, [0, 0], [100_000, 0], 20, 4);
+    rest(env);
+    env.up(el, 100_000, 0);
+    env.tick(1000 / 60);
+    const held = drag.getState().x;
+    env.down(el, 1000, 0);
+    expect(drag.getState().x).toBe(held);
+    env.move(el, 900, 0);
+    expect(held - drag.getState().x).toBeGreaterThan(90);
+    env.move(el, 700, 0); // 300 px inward: past the bound and into the range, one to one
+    expect(drag.getState().x).toBeCloseTo(held - 300, 3);
+    env.move(el, 1000, 0); // and back to where it was pressed
+    expect(drag.getState().x).toBeCloseTo(held, 3);
+  });
+
+  it("slows a hard flick that meets a bound before the band, so the reach clamp is not a stop: the peak is well under the reach", () => {
+    const { env, el } = setup({ axis: "x", bounds: [0, 300] });
+    env.press(el, [0, 0], [250, 0], 20, 4); // 12,000 px/s
+    env.up(el, 250, 0);
+    env.settle();
+    const peak = Math.max(...env.writesTo("translate").map(xOf)) - 300;
+    expect(peak).toBeGreaterThan(30);
+    expect(peak).toBeLessThan(0.85 * 120);
+  });
+
+  it("holds a snap spring under the reach too, and still comes to rest on the snap point", () => {
+    const { env, el } = setup({ axis: "x", bounds: [0, 300], snap: [0, 300] });
+    env.press(el, [0, 0], [250, 0], 20, 4); // 12,000 px/s toward the bound
+    env.up(el, 250, 0);
+    env.settle();
+    const xs = env.writesTo("translate").map(xOf);
+    expect(Math.max(...xs)).toBeGreaterThan(300); // the spring does overshoot
+    expect(Math.max(...xs)).toBeLessThan(300 + 120);
+    expect(Math.max(...xs)).toBeCloseTo(300 + 120 * 0.999, 2); // and the clamp is what held it
     expect(env.read(el)).toBe("300px 0px");
   });
 
@@ -818,6 +880,16 @@ describe("a stop that is not a destroy", () => {
     env.failWith = new Error("boom");
     expect(() => drag.destroy()).not.toThrow();
     expect(env.removed).toBe(1);
+  });
+
+  it("gives touch-action back even when removing the listeners throws", () => {
+    const env = new FakePointerEnv();
+    env.onPointer = () => () => { throw new Error("off"); };
+    const el = {} as Target;
+    const drag = createDrag(el, { flavor: swipey, env, axis: "x" });
+    expect(env.read(el, "touch-action")).toBe("pan-y");
+    expect(() => drag.destroy()).not.toThrow();
+    expect(env.read(el, "touch-action")).toBeUndefined();
   });
 
   it("gives back the touch-action the author had set, and not a bare removal", () => {

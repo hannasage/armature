@@ -135,7 +135,7 @@ describe("the browser pointer environment", () => {
     drag.destroy();
   });
 
-  it("removes all four listeners with the function it returns", () => {
+  it("removes all five listeners with the function it returns", () => {
     const { win, element, fire, listeners } = fakeBrowser();
     const { calls, handlers } = recorder();
     const off = createBrowserPointerEnvironment(win as never).onPointer(element, handlers);
