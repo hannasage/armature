@@ -1,5 +1,5 @@
 {
-  "description": "Gzipped size cap in bytes for each package entry. Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. npm run check:size fails when an entry is over its cap or has no cap. A proposal is the figure in the amendment 1 spec, kept for comparison. The measuredGzipped value of each row is the size its cap was derived from: the G0 baseline for the entries that existed at G0, and the G1 measure after review round 1 for /frame and /values. The sizes are in docs/baseline.md, section G1 build. The entries under proposedForNewEntries do not exist yet and are not checked.",
+  "description": "Gzipped size cap in bytes for each package entry. Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. npm run check:size fails when an entry is over its cap or has no cap. A proposal is the figure in the amendment 1 spec, kept for comparison. The measuredGzipped value of each row is the size its cap was derived from: the G0 baseline for the entries that existed at G0, the G1 measure after review round 1 for /frame and /values, and the G2 measure for /curves and /linear. The sizes are in docs/baseline.md, sections G1 build and G2 build. The entries under proposedForNewEntries do not exist yet and are not checked.",
   "measuredWith": "esbuild 0.28.2, bundle, minify, esm, React external, then gzip. See docs/baseline.md, sections G0 and G1 build.",
   "caps": {
     "@hannasage/armature": {
@@ -36,11 +36,19 @@
       "cap": 1830,
       "measuredGzipped": 1656,
       "proposal": "4.0 KB (path: about 1.5 KB, alone)"
+    },
+    "@hannasage/armature/curves": {
+      "cap": 2500,
+      "measuredGzipped": 2270,
+      "proposal": "1.5 KB"
+    },
+    "@hannasage/armature/linear": {
+      "cap": 3300,
+      "measuredGzipped": 2998,
+      "proposal": "1.0 KB"
     }
   },
   "proposedForNewEntries": {
-    "@hannasage/armature/curves": "1.5 KB",
-    "@hannasage/armature/linear": "1.0 KB",
     "@hannasage/armature/gesture": "3.0 KB",
     "@hannasage/armature/timeline": "4.0 KB",
     "@hannasage/armature/layout": "4.0 KB",

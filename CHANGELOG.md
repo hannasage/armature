@@ -9,6 +9,8 @@ Changes for the next beta. They are not published.
 
 - New entry `@hannasage/armature/frame`: a shared frame scheduler. It steps tasks in fixed slices of 1/120 s, clamps a long frame to `MAX_FRAME`, pauses while the tab is hidden, and has a manual `advance` for tests.
 - New entry `@hannasage/armature/values`: the number kind and the vector kind, a spring over a vector that matches the scalar spring component by component, and `createValue`, a spring controller that runs on the scheduler.
+- New entry `@hannasage/armature/curves`: `bezier`, which evaluates a cubic-bezier and writes its CSS string, named `easings` as data (with the Projection UI curve), `createTween` and `stepTween` with the step interface of the spring, `createTweenValue` on the scheduler, and `fitBezier`, which fits a bezier to samples and reports the error.
+- New entry `@hannasage/armature/linear`: `toLinear` writes a spring or a curve as a CSS `linear()` string within a stated tolerance. `supportsLinear` checks browser support, and `toEasing` falls back to a fitted `cubic-bezier()`.
 - New hook `useArmatureFollower` in `@hannasage/armature/react`.
 - A follower move can name its own spring: `follower.setTarget(1, { springKey: "settle" })`. Position, velocity, and target stay.
 
