@@ -11,9 +11,12 @@ export interface FrameEnvironment {
   cancelFrame(id: number): void;
   /** Milliseconds, on the same clock as the time `requestFrame` passes to its callback. */
   now(): number;
-  /** Optional. Without it the scheduler never pauses. */
+  /**
+   * Optional, and it pairs with `onVisibilityChange`: give both or neither, or `createScheduler` throws a TypeError.
+   * Without the pair the scheduler never pauses.
+   */
   tabHidden?(): boolean;
-  /** Optional. Returns the function that removes the listener. */
+  /** Optional, and it pairs with `tabHidden`. Returns the function that removes the listener. */
   onVisibilityChange?(listener: (hidden: boolean) => void): () => void;
 }
 
@@ -28,7 +31,10 @@ export interface FrameTask {
 export interface Scheduler {
   /** Adds a task and starts the frame loop if it is idle. Returns the function that removes the task. Adding the same task twice adds it once. */
   add(task: FrameTask): () => void;
-  /** Runs `seconds` of time by hand, clamped to `MAX_FRAME`. Zero, negative, and non-finite time does nothing. For tests. */
+  /**
+   * Runs `seconds` of time by hand, clamped to `MAX_FRAME`. Zero, negative, and non-finite time does nothing. For tests.
+   * A call from inside a task step or frame hook is ignored and logged once, because the outer run is still going.
+   */
   advance(seconds: number): void;
   /** The number of tasks waiting. */
   readonly size: number;
@@ -39,61 +45,69 @@ export interface Scheduler {
 /** Float sums of frame times can fall a hair short of a whole slice. This many seconds of slack count as a whole slice. */
 const SLACK = 1e-9;
 
+/**
+ * `requestFrame` must call its callback later, as a browser does. A callback that runs before `requestFrame` returns is for test
+ * environments only. The frame still runs, but the id that `requestFrame` returns is then too old to cancel the next frame.
+ */
 export function createScheduler(env: FrameEnvironment): Scheduler {
+  if ((env.tabHidden === undefined) !== (env.onVisibilityChange === undefined)) {
+    throw new TypeError("tabHidden pairs with onVisibilityChange.");
+  }
   const tasks = new Set<FrameTask>();
   let carry = 0;
   let last = 0;
   let frameId = 0;
   let scheduled = false;
   let destroyed = false;
+  let running = false;
+  let warned = false;
+  /** Logs the first environment failure of this scheduler, and no more. */
+  const warn = (text: string, error?: unknown) => {
+    if (!warned) console.error(`[armature] ${text}`, error);
+    warned = true;
+  };
   let unwatch: (() => void) | undefined;
   /** The tasks that get a frame call at the end of the run that is going on. */
-  let due: Set<FrameTask> | null = null;
+  let waiting = new Set<FrameTask>();
 
   const hidden = () => {
     try {
       return env.tabHidden?.() === true;
-    } catch {
+    } catch (error) {
+      warn("tabHidden threw", error);
       return false;
     }
   };
 
   const drop = (task: FrameTask) => {
     tasks.delete(task);
-    due?.delete(task);
+    waiting.delete(task);
   };
 
-  const fail = (task: FrameTask, error: unknown) => {
-    console.error("[armature] A frame task threw and was removed.", error);
-    drop(task);
+  /** Runs one call of a task. A throw is logged, and the task is removed. */
+  const call = (task: FrameTask, fn: () => unknown) => {
+    try {
+      fn();
+    } catch (error) {
+      console.error("[armature] A task threw.", error);
+      drop(task);
+    }
   };
 
   const run = (seconds: number) => {
+    running = true;
     carry += Math.min(MAX_FRAME, seconds);
-    const waiting = new Set(tasks);
-    due = waiting;
+    waiting = new Set(tasks);
     while (carry >= FIXED_STEP - SLACK && tasks.size > 0) {
       carry -= FIXED_STEP;
       for (const task of [...tasks]) {
         if (!tasks.has(task)) continue;
         waiting.add(task);
-        try {
-          if (task.step(FIXED_STEP) === false) tasks.delete(task);
-        } catch (error) {
-          fail(task, error);
-        }
+        call(task, () => task.step(FIXED_STEP) === false && tasks.delete(task));
       }
     }
-    carry = tasks.size === 0 ? 0 : Math.max(0, carry);
-    for (const task of [...waiting]) {
-      if (!waiting.has(task)) continue;
-      try {
-        task.frame?.();
-      } catch (error) {
-        fail(task, error);
-      }
-    }
-    due = null;
+    for (const task of [...waiting]) if (waiting.has(task)) call(task, () => task.frame?.());
+    running = false;
   };
 
   const stopFrame = () => {
@@ -105,21 +119,24 @@ export function createScheduler(env: FrameEnvironment): Scheduler {
 
   const requestNext = () => {
     scheduled = true;
-    let inline = false;
-    const id = env.requestFrame((time) => {
-      inline = true;
-      tick(time);
-    });
-    // A callback that ran inside requestFrame has asked for its own next frame, and this id is stale.
-    if (!inline) frameId = id;
+    try {
+      frameId = env.requestFrame(tick);
+    } catch (error) {
+      // No frame is pending, so the next add or the next visibility change starts the loop again.
+      scheduled = false;
+      warn("requestFrame threw", error);
+    }
   };
 
   const tick = (time: number) => {
     scheduled = false;
     if (destroyed) return;
-    const seconds = Math.max(0, (time - last) / 1000);
-    last = time;
-    run(Number.isFinite(seconds) ? seconds : 0);
+    let seconds = 0;
+    if (Number.isFinite(time)) {
+      seconds = Math.max(0, (time - last) / 1000);
+      last = time;
+    }
+    run(seconds);
     if (tasks.size === 0) stopAll();
     else if (!scheduled && !hidden()) requestNext();
   };
@@ -146,8 +163,9 @@ export function createScheduler(env: FrameEnvironment): Scheduler {
     add(task) {
       if (destroyed) return () => undefined;
       if (!tasks.has(task)) {
+        // Subscribe before the task joins. A throw from onVisibilityChange reaches the caller and leaves no task behind.
+        if (tasks.size === 0 && unwatch === undefined) unwatch = env.onVisibilityChange?.(onVisibility);
         tasks.add(task);
-        if (tasks.size === 1 && unwatch === undefined) unwatch = env.onVisibilityChange?.(onVisibility) ?? (() => undefined);
       }
       start();
       return () => {
@@ -156,7 +174,11 @@ export function createScheduler(env: FrameEnvironment): Scheduler {
       };
     },
     advance(seconds) {
-      if (destroyed || !(seconds > 0) || !Number.isFinite(seconds)) return;
+      if (destroyed || !(seconds > 0 && seconds < Infinity)) return;
+      if (running) {
+        warn("advance inside a task ignored");
+        return;
+      }
       run(seconds);
       if (tasks.size === 0) stopAll();
     },
@@ -167,7 +189,6 @@ export function createScheduler(env: FrameEnvironment): Scheduler {
       if (destroyed) return;
       destroyed = true;
       tasks.clear();
-      due = null;
       stopAll();
     },
   };

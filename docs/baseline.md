@@ -313,3 +313,15 @@ The caps of the new entries, as bullets:
 ### The `"use client"` files
 
 The `"use client"` line is now on eleven files. The new one is `src/react/useArmatureFollower.ts`, the follower hook. `scripts/postbuild.mjs` lists the eleven and fails the build when the set differs.
+
+### Sizes after review round 1
+
+The review fixes added error handling to `/frame` and `/values`. No cap changed. The caps keep the sizes of the table above as their basis.
+
+| Entry | Minified (bytes) | Gzipped (bytes) | Cap |
+| --- | ---: | ---: | ---: |
+| `.` | 10,206 | 3,686 | 4,000 |
+| `/frame` | 1,355 | 759 | 760 |
+| `/values` | 4,005 | 1,658 | 1,810 |
+
+`/frame` has 1 byte of room under its cap. The scheduler was trimmed to fit: shorter log lines, one shared once-only warning, and no support for a callback that runs inside `requestFrame`, beyond running the frame.

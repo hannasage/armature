@@ -60,17 +60,25 @@ export function createValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kind<T>,
 
   const emit = () => {
     if (same(state.value, emitted)) return;
-    emitted = state.value;
-    options.onChange?.(kind.fromArray(state.value));
+    const shown = state.value;
+    options.onChange?.(kind.fromArray(shown));
+    // A throw above leaves `emitted` as it was, so the next emit tries again.
+    emitted = shown;
   };
 
   const task: FrameTask = {
     step(dt) {
-      state = stepVectorSpring(state, state.target, dt);
-      const moving = !isVectorAtRest(state);
-      // The scheduler drops a task that returns false, so the handle is stale.
-      if (!moving) remove = undefined;
-      return moving;
+      try {
+        state = stepVectorSpring(state, state.target, dt);
+        const moving = !isVectorAtRest(state);
+        // The scheduler drops a task that returns false, so the handle is stale.
+        if (!moving) remove = undefined;
+        return moving;
+      } catch (error) {
+        // The scheduler logs the error and drops the task, so the handle is stale here too.
+        remove = undefined;
+        throw error;
+      }
     },
     frame() {
       try {
@@ -79,7 +87,6 @@ export function createValue<T>(scheduler: Pick<Scheduler, "add">, kind: Kind<T>,
         // The scheduler logs the error and drops the task. The value rests where it is going.
         remove = undefined;
         state = createVectorSpring(config, state.target);
-        emitted = state.value;
         throw error;
       }
     },

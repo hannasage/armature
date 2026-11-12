@@ -35,7 +35,7 @@ describe("the new names", () => {
 
   it("checks a lens rest with a bad number under the new name", () => {
     const flavor: Flavor = { ...acme, lens: { ...acme.lens!, rest: { restDelta: 0, restSpeed: 1 } } };
-    expect(() => validateFlavor(flavor)).toThrow(/The flavor "acme" has a lens pixel rest/);
+    expect(() => validateFlavor(flavor)).toThrow(/The flavor "acme" has a lens rest/);
   });
 });
 

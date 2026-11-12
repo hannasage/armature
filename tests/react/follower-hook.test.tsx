@@ -130,4 +130,34 @@ describe("useArmatureFollower", () => {
     expect(() => commit()).not.toThrow();
     expect(handle.getState()).toMatchObject({ value: 0, target: 0 });
   });
+
+  it("survives StrictMode: commit, clean up, commit again leaves one live follower", () => {
+    const env = new FakeEnv();
+    const element = {};
+    const thumb = useArmatureFollower({ current: element as unknown as HTMLElement }, { flavor, name: "thumb", env });
+    const first = commit();
+    for (const cleanup of first) cleanup();
+    expect(env.pending).toBe(0);
+    const second = commit();
+    thumb.setTarget(1);
+    expect(env.pending).toBe(1);
+    env.settle();
+    expect(thumb.getState()).toMatchObject({ value: 1, moving: false });
+    expect(env.read(element, "--acme-thumb")).toBe("1");
+    thumb.setTarget(0);
+    for (const cleanup of second) cleanup();
+    expect(env.pending).toBe(0);
+  });
+
+  it("snaps under reduced motion, whatever spring the move names", () => {
+    const env = new FakeEnv();
+    env.reduced = true;
+    const element = {};
+    const thumb = useArmatureFollower({ current: element as unknown as HTMLElement }, { flavor, name: "thumb", env });
+    commit();
+    thumb.setTarget(1, { springKey: "settle" });
+    expect(thumb.getState()).toMatchObject({ value: 1, velocity: 0, moving: false });
+    expect(env.read(element, "--acme-thumb")).toBe("1");
+    expect(env.pending).toBe(0);
+  });
 });

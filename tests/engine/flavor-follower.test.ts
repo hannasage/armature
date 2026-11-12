@@ -45,10 +45,10 @@ describe("requireFollower", () => {
     expect(requireFollower(flavor, "thumb")).toBe(thumb);
   });
 
-  it("throws a clear TypeError when the flavor has no follower part", () => {
-    expect(() => requireFollower(acme, "thumb")).toThrow('The flavor "acme" has no follower part.');
+  it("throws a clear TypeError when the flavor has no followers part", () => {
+    expect(() => requireFollower(acme, "thumb")).toThrow('The flavor "acme" has no followers part.');
     expect(() => requireFollower(acme, "thumb")).toThrow(TypeError);
-    expect(() => requireFollower(glassFlavor, "thumb")).toThrow('The flavor "glass" has no follower part.');
+    expect(() => requireFollower(glassFlavor, "thumb")).toThrow('The flavor "glass" has no followers part.');
   });
 
   it("throws a clear TypeError for a name the flavor does not have, including names Object has", () => {

@@ -167,6 +167,28 @@ describe("a number value", () => {
   });
 });
 
+describe("a throwing onChange", () => {
+  it("leaves the last emitted value unchanged, so the next emit retries", () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { env, scheduler } = setup();
+    let fail = true;
+    const seen: number[] = [];
+    const value = createValue(scheduler, numberKind, 0, {
+      spring,
+      onChange: (next) => {
+        if (fail) throw new Error("boom");
+        seen.push(next);
+      },
+    });
+    value.to(1);
+    env.tick(1000 / 60);
+    expect(scheduler.size).toBe(0);
+    fail = false;
+    value.set(1);
+    expect(seen).toEqual([1]);
+  });
+});
+
 describe("a vector value", () => {
   it("springs each component and rests when every component rests", () => {
     const { env, scheduler } = setup();

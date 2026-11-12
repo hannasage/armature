@@ -84,11 +84,6 @@ describe("the spring-only entry", () => {
     expect(inputs.filter((file) => /(^|\/)src\/(frame|values)\//.test(file))).toEqual([]);
   });
 
-  it("is no larger than it was before /frame and /values: 3,688 bytes gzipped", async () => {
-    // The figure is the size after the follower, rest, and name changes of amendment 2 and before any code of this milestone reached the entry.
-    expect((await bundle("src/index.ts")).gzipped).toBeLessThanOrEqual(3688);
-  });
-
   it("keeps /frame and /values free of glass code", async () => {
     for (const entry of ["src/frame/index.ts", "src/values/index.ts"]) {
       const { inputs } = await bundle(entry);

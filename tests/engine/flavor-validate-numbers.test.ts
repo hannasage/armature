@@ -70,10 +70,10 @@ describe("validateFlavor and rest limits", () => {
     }
   });
 
-  it("rejects a lens pixel rest with a bad number", () => {
+  it("rejects a lens rest with a bad number", () => {
     for (const bad of badRests) {
       const flavor: Flavor = { ...acme, lens: { ...acme.lens, rest: bad as never } };
-      expect(() => validateFlavor(flavor), JSON.stringify(bad)).toThrow(/The flavor "acme" has a lens pixel rest/);
+      expect(() => validateFlavor(flavor), JSON.stringify(bad)).toThrow(/The flavor "acme" has a lens rest/);
     }
   });
 });

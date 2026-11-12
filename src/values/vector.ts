@@ -40,7 +40,7 @@ export function stepVectorSpring(state: VectorSpringState, target: readonly numb
   return pack(state.parts.map((part, i) => stepSpring(part, target[i], dt)));
 }
 
-/** Points every component at a new target. Position and velocity stay. */
+/** Points every component at a new target. Position and velocity stay. A component target that is not finite is ignored, as in the scalar spring. */
 export function retargetVector(state: VectorSpringState, target: readonly number[]): VectorSpringState {
   fit(state, target);
   return pack(state.parts.map((part, i) => retarget(part, target[i])));

@@ -23,7 +23,9 @@ const idle = (options: Partial<FollowerOptions>): FollowerState => {
 /**
  * A follower for the element `ref` points at: one number that springs toward a target and is written as a CSS variable.
  * It makes the follower when the element mounts and destroys it on unmount. The handle is stable and does nothing until the element mounts.
- * The latest options are read from a ref, so a render does not make a second follower. The options must name a flavor with a `followers` part.
+ * The options are read once, when the element mounts, so a render does not make a second follower. To change the flavor or the name,
+ * remount the component with a new `key`. The options must name a flavor with a `followers` part.
+ * After unmount the handle does nothing, and `getState` gives the idle state: at rest on `initial` (default 0).
  */
 export function useArmatureFollower(ref: RefObject<HTMLElement | null>, options: FollowerOptions): FollowerHandle {
   const follower = useRef<Follower | null>(null);

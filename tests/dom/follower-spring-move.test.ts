@@ -145,6 +145,20 @@ describe("a follower move with a spring key that does not exist", () => {
   });
 });
 
+describe("a move with a target that is not finite", () => {
+  it("does not switch the spring, even with a valid key", () => {
+    const { env, element, follower } = make();
+    follower.setTarget(NaN, { springKey: "settle" });
+    follower.setTarget(1);
+    const seen: number[] = [];
+    for (let i = 0; i < 30; i += 1) {
+      env.tick();
+      seen.push(Number(env.read(element, "--acme-thumb")));
+    }
+    expect(seen).toEqual(model([{ frames: 30, target: 1, spring: mechanical }]).map((state) => Number(state.value.toFixed(4))));
+  });
+});
+
 describe("a follower move with its own spring, and the rest limits", () => {
   it("still merges the rest limits of the follower under the chosen spring", () => {
     const tight = make("thumb");

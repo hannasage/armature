@@ -262,7 +262,7 @@ export function validateFlavor(flavor: Flavor): void {
   if (typeof flavor.springs !== "object" || flavor.springs === null) throw new TypeError(`${label} has no springs object.`);
   for (const [key, spring] of Object.entries(flavor.springs)) checkSpring(label, key, spring);
   checkRest(label, "a surface rest", flavor.surface?.rest);
-  checkRest(label, "a lens pixel rest", flavor.lens?.rest);
+  checkRest(label, "a lens rest", flavor.lens?.rest);
   const reveal = flavor.reveal;
   if (reveal && !hasOwn(reveal.personalities, reveal.fallback)) {
     throw new TypeError(`${label} has the reveal fallback "${reveal.fallback}", which is not one of its personalities.`);
@@ -366,10 +366,10 @@ export function requireReveal<P extends string>(flavor: Flavor<P>): RevealFlavor
   return flavor.reveal ?? missing(flavor, "reveal");
 }
 
-/** One named follower of a flavor. Throws a clear error when the flavor has no follower part, no follower with that name, or does not hold together. */
+/** One named follower of a flavor. Throws a clear error when the flavor has no followers part, no follower with that name, or does not hold together. */
 export function requireFollower(flavor: Flavor, name: string): FollowerSpec {
   validateFlavor(flavor);
-  if (flavor.followers === undefined) missing(flavor, "follower");
+  if (flavor.followers === undefined) missing(flavor, "followers");
   if (!hasOwn(flavor.followers, name)) throw new TypeError(`The flavor "${flavor.name}" has no follower named "${name}".`);
   return flavor.followers[name];
 }

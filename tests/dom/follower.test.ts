@@ -560,8 +560,8 @@ describe("a follower with a flavor that cannot serve it", () => {
   it("throws a clear TypeError when the flavor is missing", () => {
     expect(() => createFollower(element, { name: "grow", env: new FakeEnv() } as never)).toThrow(/Expected a flavor object, got undefined/);
   });
-  it("throws a clear TypeError when the flavor has no follower part", () => {
-    expect(() => createFollower(element, { flavor: glassFlavor, name: "grow", env: new FakeEnv() })).toThrow('The flavor "glass" has no follower part.');
+  it("throws a clear TypeError when the flavor has no followers part", () => {
+    expect(() => createFollower(element, { flavor: glassFlavor, name: "grow", env: new FakeEnv() })).toThrow('The flavor "glass" has no followers part.');
     expect(() => createFollower(element, { flavor: acme, name: "grow", env: new FakeEnv() })).toThrow(TypeError);
   });
   it("throws a clear TypeError for a follower name the flavor does not have", () => {

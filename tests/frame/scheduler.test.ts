@@ -222,7 +222,7 @@ describe("tasks", () => {
     scheduler.add(good);
     env.tick(1000 / 30);
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(String(spy.mock.calls[0]?.[0])).toBe("[armature] A frame task threw and was removed.");
+    expect(String(spy.mock.calls[0]?.[0])).toBe("[armature] A task threw.");
     expect(good.steps).toBe(4);
     expect(scheduler.size).toBe(1);
   });
@@ -369,8 +369,8 @@ describe("destroy", () => {
   });
 });
 
-describe("an environment with unusual frame ids", () => {
-  it("handles an id of 0 and a callback that runs before requestFrame returns", () => {
+describe("an environment that runs the callback at once", () => {
+  it("still runs the frame, as a test environment may do", () => {
     const env = new PageEnv();
     let inline = true;
     env.requestFrame = (callback) => {
@@ -389,8 +389,110 @@ describe("an environment with unusual frame ids", () => {
     scheduler.add(task);
     expect(task.steps).toBe(2);
     expect(env.pending).toBe(1);
-    scheduler.destroy();
+  });
+});
+
+describe("a requestFrame that throws", () => {
+  it("logs once, does not wedge the loop, and starts again on the next add", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const env = new PageEnv();
+    const real = env.requestFrame;
+    let throws = 1;
+    env.requestFrame = (callback) => {
+      if (throws-- > 0) throw new Error("no frames");
+      return real(callback);
+    };
+    const scheduler = createScheduler(env);
+    const first = counter();
+    expect(() => scheduler.add(first)).not.toThrow();
+    expect(spy).toHaveBeenCalledTimes(1);
     expect(env.pending).toBe(0);
+    const second = counter();
+    scheduler.add(second);
+    expect(env.pending).toBe(1);
+    env.tick(1000 / 60);
+    expect(first.steps).toBe(2);
+    expect(second.steps).toBe(2);
+  });
+
+  it("recovers when it throws inside a frame", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const env = new PageEnv();
+    const real = env.requestFrame;
+    const scheduler = createScheduler(env);
+    const task = counter();
+    scheduler.add(task);
+    env.requestFrame = () => { throw new Error("no frames"); };
+    env.tick(1000 / 60);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(env.pending).toBe(0);
+    env.requestFrame = real;
+    scheduler.add(counter());
+    expect(env.pending).toBe(1);
+    env.tick(1000 / 60);
+    expect(task.steps).toBe(4);
+  });
+});
+
+describe("the visibility pair", () => {
+  it("throws a TypeError when only one of tabHidden and onVisibilityChange is given", () => {
+    const base = new FakeEnv();
+    expect(() => createScheduler({ requestFrame: base.requestFrame, cancelFrame: base.cancelFrame, now: base.now, tabHidden: () => false })).toThrow(TypeError);
+    expect(() => createScheduler({ requestFrame: base.requestFrame, cancelFrame: base.cancelFrame, now: base.now, tabHidden: () => false })).toThrow(
+      "tabHidden pairs with onVisibilityChange.",
+    );
+    expect(() => createScheduler({ requestFrame: base.requestFrame, cancelFrame: base.cancelFrame, now: base.now, onVisibilityChange: () => () => undefined })).toThrow(TypeError);
+    expect(() => createScheduler(new PageEnv())).not.toThrow();
+    expect(() => createScheduler(new FakeEnv())).not.toThrow();
+  });
+
+  it("lets a throw from onVisibilityChange reach the caller, and leaves no orphan task", () => {
+    const env = new PageEnv();
+    env.onVisibilityChange = () => { throw new Error("no events"); };
+    const scheduler = createScheduler(env);
+    expect(() => scheduler.add(counter())).toThrow("no events");
+    expect(scheduler.size).toBe(0);
+    expect(env.pending).toBe(0);
+  });
+
+  it("logs once and treats the tab as visible when tabHidden throws", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const env = new PageEnv();
+    env.tabHidden = () => { throw new Error("no state"); };
+    const scheduler = createScheduler(env);
+    const task = counter();
+    scheduler.add(task);
+    env.tick(1000 / 60);
+    env.tick(1000 / 60);
+    expect(task.steps).toBe(4);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("a frame time that is not finite", () => {
+  it("keeps the last good frame time, so the next frame is measured from it", () => {
+    const env = new PageEnv();
+    const scheduler = createScheduler(env);
+    const task = counter();
+    scheduler.add(task);
+    [...env.frames.values()][0](NaN);
+    expect(task.steps).toBe(0);
+    env.tick(1000 / 60);
+    expect(task.steps).toBe(2);
+  });
+});
+
+describe("a re-entrant advance", () => {
+  it("is ignored and logged once, and the outer run goes on", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const env = new PageEnv();
+    const scheduler = createScheduler(env);
+    const task = { steps: 0, step: () => { task.steps += 1; scheduler.advance(1); scheduler.advance(1); } };
+    scheduler.add(task);
+    scheduler.advance(1 / 30);
+    expect(task.steps).toBe(4);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(String(spy.mock.calls[0]?.[0])).toBe("[armature] advance inside a task ignored");
   });
 });
 
