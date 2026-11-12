@@ -66,7 +66,7 @@ export function toEasing(source: SpringConfig | Curve, options: EasingOptions = 
   }
   if (!Number.isFinite(result.error)) throw new TypeError("The error is not finite.");
   if (maxError !== undefined && result.error > maxError) {
-    throw new RangeError(`The error ${result.error} is above maxError.`);
+    throw new RangeError(`The ${result.kind} error ${result.error} is above maxError ${maxError}.`);
   }
   return result;
 }

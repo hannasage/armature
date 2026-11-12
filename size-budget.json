@@ -55,12 +55,12 @@
       "measuredAfterReview": 2363
     },
     "@hannasage/armature/linear": {
-      "cap": 3300,
-      "measuredGzipped": 2998,
+      "cap": 3690,
+      "measuredGzipped": 3351,
       "proposal": "1.0 KB",
       "approval": "approved by the maintainer, 2026-11-12",
       "measuredIn": "G2 build",
-      "measuredAfterReview": 3285
+      "measuredAfterReview": 3351
     }
   },
   "proposedForNewEntries": {

@@ -329,19 +329,19 @@ Method: `node scripts/size.mjs`, the same as G0 and G1. esbuild 0.28.2, `bundle`
 | Entry | Source | Minified (bytes) | Gzipped (bytes) |
 | --- | --- | ---: | ---: |
 | `@hannasage/armature/curves` | `src/curves/index.ts` | 4,634 | 2,270 |
-| `@hannasage/armature/linear` | `src/linear/index.ts` | 6,650 | 2,998 |
+| `@hannasage/armature/linear` | `src/linear/index.ts` | 7,790 | 3,351 |
 
-Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The amendment 1 proposal sits beside each cap.
+Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The amendment 1 proposal sits beside each cap. The `/curves` figure is the first G2 measure. The `/linear` figure is the measure after the round 2 follow-up, which built the longer error messages and the `restSpeed` and `restDelta` check. The first `/linear` measure was 2,998 with a cap of 3,300.
 
 | Entry | Measured (gzipped) | Cap | Amendment 1 proposal |
 | --- | ---: | ---: | --- |
 | `/curves` | 2,270 | 2,500 | 1.5 KB |
-| `/linear` | 2,998 | 3,300 | 1.0 KB |
+| `/linear` | 3,351 | 3,690 | 1.0 KB |
 
 The caps of the new entries, as bullets (approved by the maintainer, 2026-11-12):
 
 - `/curves`: 2,500.
-- `/linear`: 3,300.
+- `/linear`: 3,690.
 - `/react`: 12,650.
 
 Both entries are over their proposals. The proposals were written before the code. Three parts cost the most:
@@ -364,18 +364,18 @@ The engine entry `.` is 3,686 against a cap of 4,000, and a test checks that it 
 
 ### After review
 
-The review fixes added checks and flags. The sizes after review round 2 are in the table. Both are under the approved caps. The caps were derived from the first measures above, and they did not change. The `/react` entry did not change. `size-budget.json` keeps the figure as `measuredAfterReview`.
+The review fixes added checks and flags. `size-budget.json` keeps the size after review as `measuredAfterReview`. The `/react` entry did not change.
 
-| Entry | Measured first (gzipped) | After review (gzipped) | Cap | Room |
-| --- | ---: | ---: | ---: | ---: |
-| `/curves` | 2,270 | 2,363 | 2,500 | 137 |
-| `/linear` | 2,998 | 3,285 | 3,300 | 15 |
+| Entry | First measure (gzipped) | First cap | After review (gzipped) | Cap now | Room |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `/curves` | 2,270 | 2,500 | 2,363 | 2,500 | 137 |
+| `/linear` | 2,998 | 3,300 | 3,351 | 3,690 | 339 |
 
-The `/linear` room is 15 bytes. Round 2 asked for longer error messages (the tolerance, the duration, and the kind and value in the `maxError` message) and a check of `restSpeed` and `restDelta`. They did not fit under the cap, so they are not built. A `restSpeed` or `restDelta` that is not finite and above 0 falls back to the solver default of 0.01. A longer message needs a cap decision from the maintainer.
+Round 2 asked for four more items on `/linear`: the `maxError` message names the kind and the value, the "tolerance is too small" message names the tolerance, the duration message says "finite and above 0", and `restSpeed` and `restDelta` are checked as finite and above 0, with a TypeError. They did not fit under the cap of 3,300. The maintainer chose option B on 2026-11-12: build them and re-derive the cap. The condition was a measure of 3,362 or less, and the measure is 3,351. The rule gives a cap of 3,690, which is under the 3,700 the maintainer named, so 3,690 is the cap.
 
 ### Approval
 
-The maintainer approved the `/curves` cap of 2,500, the `/linear` cap of 3,300, and the `/react` cap of 12,650. The approval is "approved by the maintainer, 2026-11-12". `size-budget.json` records it on each of the three entries.
+The maintainer approved the `/curves` cap of 2,500, the `/linear` cap of 3,700 at most (set to 3,690 by the rule), and the `/react` cap of 12,650. The approval is "approved by the maintainer, 2026-11-12". `size-budget.json` records it on each of the three entries.
 
 ### Public names beyond the spec
 
