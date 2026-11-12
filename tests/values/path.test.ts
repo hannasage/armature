@@ -114,8 +114,37 @@ describe("the path kind: round trips, interpolate, and distance", () => {
     expect(kind.parse(kind.serialize(a))).toBe(a);
   });
 
-  it("writes at most 4 decimals", () => {
-    expect(kind.fromArray([1 / 3, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0])).toContain("M 0.3333 0");
+  it("writes at most 6 decimals", () => {
+    expect(kind.fromArray([1 / 3, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0])).toContain("M 0.333333 0");
+    expect(kind.serialize(a.replace("M 0 0", "M 0.1234567891 0"))).toContain("M 0.123457 0");
+  });
+
+  it("keeps full precision in parse and toArray, and rounds only in serialize", () => {
+    const small = pathKind("M0 0 C 0 0 0 0 0 0");
+    const text = "M 0.123456789 0.987654321 C 0.111111111 0.222222222 0.333333333 0.444444444 0.555555555 0.666666666";
+    const parsed = small.parse(text);
+    expect(parsed).toBe(text);
+    expect(small.toArray(parsed)[0]).toBe(0.123456789);
+    expect(small.serialize(parsed)).toBe("M 0.123457 0.987654 C 0.111111 0.222222 0.333333 0.444444 0.555556 0.666667");
+  });
+
+  it("round trips a path on a 0 to 1 viewBox to within 1e-5, through a spring-sized tween", () => {
+    const unit = pathKind("M0 0 C 0 0 0 0 0 0 L 0 0 Z");
+    const x = "M 0.0123456 0.9876543 C 0.1111119 0.2222228 0.3333337 0.4444446 0.5555555 0.6666664 L 0.7777773 0.8888882 Z";
+    const y = "M 0.9123456 0.1876543 C 0.5111119 0.7222228 0.1333337 0.9444446 0.0555555 0.0666664 L 0.2777773 0.3888882 Z";
+    const numbers = (d: string) => d.match(/[\d.]+/g)!.map(Number);
+    numbers(unit.fromArray(unit.toArray(x))).forEach((n, i) => expect(Math.abs(n - numbers(x)[i])).toBeLessThan(1e-5));
+    numbers(unit.serialize(x)).forEach((n, i) => expect(Math.abs(n - numbers(x)[i])).toBeLessThan(1e-5));
+    numbers(unit.interpolate(x, y, 0.37)).forEach((n, i) => expect(Math.abs(n - (numbers(x)[i] + (numbers(y)[i] - numbers(x)[i]) * 0.37))).toBeLessThan(1e-5));
+  });
+
+  it("throws a named TypeError from fromArray for a wrong length or a part that is not finite", () => {
+    const all = kind.toArray(a);
+    expect(() => kind.fromArray(all.slice(1))).toThrow(TypeError);
+    expect(() => kind.fromArray([...all, 1])).toThrow(/path/);
+    expect(() => kind.fromArray(all.map((n, i) => (i === 3 ? NaN : n)))).toThrow(/path.*finite/);
+    expect(() => kind.fromArray(all.map((n, i) => (i === 3 ? Infinity : n)))).toThrow(TypeError);
+    expect(() => kind.interpolate(a, b, NaN)).toThrow(TypeError);
   });
 
   it("lands exactly on both ends, and blends in a straight line between them", () => {

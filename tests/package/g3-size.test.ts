@@ -3,7 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// G3 grows /values. The new cap of an existing entry is a proposal for the maintainer, and the budget file says so.
+// G3 grows /values. The maintainer approved the new cap of 6,870 on 2026-11-12, and the budget file and the baseline page say so.
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const lib = (await import(pathToFileURL(join(root, "scripts/size-lib.mjs")).href)) as {
@@ -12,24 +12,26 @@ const lib = (await import(pathToFileURL(join(root, "scripts/size-lib.mjs")).href
   capFor: (gzipped: number) => number;
 };
 const budget = JSON.parse(readFileSync(join(root, "size-budget.json"), "utf8")) as {
-  caps: Record<string, { cap: number; measuredGzipped: number; measuredIn: string; proposal?: string; capStatus?: string; pathAlone?: number }>;
+  caps: Record<string, { cap: number; measuredGzipped: number; measuredAfterReview?: number; measuredIn: string; proposal?: string; approval?: string; capStatus?: string; pathAlone?: number }>;
 };
 const baseline = readFileSync(join(root, "docs/baseline.md"), "utf8");
 const values = budget.caps["@hannasage/armature/values"];
 
 describe("the /values size after G3", () => {
-  it("is the size the cap was derived from, measured in the G3 section", async () => {
+  it("has the cap derived from the G3 measure, and the size after review is the current size, under the cap", async () => {
     const rows = await lib.measureAll();
-    expect(rows.find((row) => row.key === "@hannasage/armature/values")!.gzipped).toBe(values.measuredGzipped);
     expect(values.cap).toBe(lib.capFor(values.measuredGzipped));
+    expect(rows.find((row) => row.key === "@hannasage/armature/values")!.gzipped).toBe(values.measuredAfterReview);
+    expect(values.measuredAfterReview!).toBeLessThanOrEqual(values.cap);
     expect(values.measuredIn).toBe("G3 build");
     expect(values.measuredGzipped).toBeLessThanOrEqual(values.cap);
   });
 
-  it("keeps the amendment proposal beside the cap, and marks the new cap as a proposal for the maintainer", () => {
+  it("keeps the amendment proposal beside the cap, and records the approval of the cap", () => {
     expect(values.proposal).toContain("4.0 KB");
-    expect(values.capStatus).toBe("proposed for the maintainer, not approved");
-    expect(values.cap).toBeGreaterThan(1830);
+    expect(values.cap).toBe(6870);
+    expect(values.approval).toBe("approved by the maintainer, 2026-11-12");
+    expect(values.capStatus).toBeUndefined();
   });
 
   it("records the size of the path kind alone, and it is the current size", async () => {
@@ -40,7 +42,7 @@ describe("the /values size after G3", () => {
   it("writes the proposal and the figures in docs/baseline.md", () => {
     expect(baseline).toContain("## G3 build");
     expect(baseline).toContain(`- \`/values\`: ${values.cap.toLocaleString("en-US")}.`);
-    expect(baseline).toContain("proposal for the maintainer");
+    expect(baseline).toContain("approved by the maintainer, 2026-11-12");
   });
 
   it("leaves the caps of the other entries as they were", () => {

@@ -51,7 +51,7 @@ describe.each(cases)("the $name kind", ({ kind, from, to }) => {
     expect(scheduler.size).toBe(0);
   });
 
-  it("reports a state with a value, a velocity, and a target", () => {
+  it("reports a state with a value, a velocity, and a target, and the velocity is the raw numbers", () => {
     const { scheduler } = setup();
     const value = createValue(scheduler, kind, start, { spring });
     value.to(target);
@@ -59,8 +59,11 @@ describe.each(cases)("the $name kind", ({ kind, from, to }) => {
     const state = value.getState();
     expect(state.moving).toBe(true);
     expect(() => kind.serialize(state.value)).not.toThrow();
-    expect(() => kind.toArray(state.velocity)).not.toThrow();
-    expect(JSON.stringify(kind.toArray(state.velocity))).not.toMatch(/null/);
+    const velocity = (kind.name === "number" ? [state.velocity] : state.velocity) as number[];
+    expect(Array.isArray(velocity)).toBe(true);
+    expect(velocity).toHaveLength(kind.toArray(start).length);
+    expect(velocity.every((n) => Number.isFinite(n))).toBe(true);
+    expect(velocity.some((n) => n !== 0)).toBe(true);
     close(state.target, target);
   });
 
@@ -192,5 +195,69 @@ describe("a 3D transform value", () => {
     for (let i = 0; i < 200; i += 1) scheduler.advance(1 / 60);
     expect(written.length).toBeGreaterThan(3);
     for (const line of written) expect(line).toMatch(/^translate: [^;]+; rotate: [^;]+; scale: [^;]+$/);
+  });
+});
+
+describe("the default rest limits", () => {
+  // No restDelta and no restSpeed: the kind sets its own scale. Each kind lands on the exact target with no visible snap.
+  const plain: SpringConfig = { stiffness: 170, damping: 26 };
+  function run<T>(kind: Kind<T>, from: T, to: T) {
+    const { scheduler } = setup();
+    const seen: T[] = [];
+    const value = createValue(scheduler, kind, from, { spring: plain, onChange: (v) => seen.push(v) });
+    value.to(to);
+    for (let i = 0; i < 1200 && value.getState().moving; i += 1) scheduler.advance(1 / 60);
+    expect(value.getState().moving).toBe(false);
+    expect(seen.length).toBeGreaterThan(5);
+    return { value, seen };
+  }
+  const byteGap = (a: string, b: string) => Math.max(...[1, 3, 5].map((i) => Math.abs(parseInt(a.slice(i, i + 2), 16) - parseInt(b.slice(i, i + 2), 16))));
+
+  it("color: ends on the exact target, and the last frame is within 1 byte level of the one before", () => {
+    const { value, seen } = run(colorKind, "#336699", "#cc3300");
+    expect(value.get()).toBe("#cc3300");
+    expect(byteGap(seen.at(-1)!, seen.at(-2)!)).toBeLessThanOrEqual(1);
+  });
+
+  it("3D rotation: ends on the target, and the last frame is within 0.1 degree of the one before", () => {
+    const from = transform3dKind.parse({});
+    const to = transform3dKind.parse({ rotate: { axis: [0, 1, 0], angle: 90 } });
+    const { value, seen } = run(transform3dKind, from, to);
+    expect(transform3dKind.distance(value.get(), to)).toBeLessThan(1e-9);
+    expect(Math.abs(seen.at(-1)!.rotate.angle - seen.at(-2)!.rotate.angle)).toBeLessThan(0.1);
+  });
+
+  it("3D perspective: the last frame is within 1 px of the one before, at 1000 px", () => {
+    const { value, seen } = run(transform3dKind, transform3dKind.parse({ perspective: 500 }), transform3dKind.parse({ perspective: 1000 }));
+    expect(value.get().perspective).toBeCloseTo(1000, 6);
+    expect(Math.abs(seen.at(-1)!.perspective - seen.at(-2)!.perspective)).toBeLessThanOrEqual(1);
+  });
+
+  it("path: ends on the exact target", () => {
+    const { value } = run(trianglePath, "M 0 0 L 10 0 L 5 10 Z", "M 5 5 L 20 0 L 5 30 Z");
+    expect(value.get()).toBe("M 5 5 L 20 0 L 5 30 Z");
+  });
+
+  it("uses the restDelta of the kind when the spring has none, and the spring's own when it has one", () => {
+    const coarse: Kind<number> = { ...numberKind, restDelta: 0.4 };
+    const frames = (kind: Kind<number>, config: SpringConfig) => {
+      const { scheduler } = setup();
+      const value = createValue(scheduler, kind, 0, { spring: config });
+      value.to(1);
+      let n = 0;
+      while (value.getState().moving && n < 2000) {
+        scheduler.advance(1 / 120);
+        n += 1;
+      }
+      return n;
+    };
+    const loose = { stiffness: 170, damping: 26, restSpeed: 1000 };
+    expect(frames(coarse, loose)).toBeLessThan(frames(numberKind, loose));
+    expect(frames(coarse, { ...loose, restDelta: 0.01 })).toBe(frames(numberKind, loose));
+    const { scheduler } = setup();
+    const value = createValue(scheduler, coarse, 0, { spring: loose });
+    value.to(1, { spring: { ...loose, restDelta: 0.01 } });
+    for (let i = 0; i < 2000 && value.getState().moving; i += 1) scheduler.advance(1 / 120);
+    expect(value.get()).toBe(1);
   });
 });
