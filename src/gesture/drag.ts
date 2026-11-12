@@ -5,6 +5,7 @@
  * the options. With snap points, a spring carries the element to the nearest one, and the release velocity goes into the spring. Without them
  * the element keeps its velocity and slows by friction, v' = -c v, and the decay stops when its speed is below the rest speed. An element
  * out of the bounds, or one that decay carries past a bound, springs back to the bound on a band spring that is stiffer the farther it is.
+ * The shown overshoot stays below `reach` in every case: under the pointer, in a decay, and on a spring.
  * A release with enough speed and distance also fires a swipe. Under reduced motion a release has no inertia: the element goes straight to its end point.
  *
  * One frame loop runs, and only while something moves. The decay steps in the engine's fixed slices and the springs use the solver's own slices,
@@ -46,6 +47,8 @@ export interface DragState {
   /** True while the element still travels after a release. */
   moving: boolean;
   destroyed: boolean;
+  /** Set when the drag stopped because a write failed, and not because of `destroy`. It holds the error of the write. */
+  failed?: Error;
 }
 
 export interface Drag {
@@ -77,7 +80,9 @@ interface Axis {
 
 const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
 const pair = (value: unknown): value is [number, number] => Array.isArray(value) && value.length === 2 && finite(value[0]) && finite(value[1]);
-const text = (n: number) => String(Number(n.toFixed(3)));
+/** The largest position written, in pixels. A larger number is cut to it, so no number is ever written as exponent text. */
+const MAX_PX = 1e9;
+const text = (n: number) => String(Number(Math.max(-MAX_PX, Math.min(MAX_PX, n)).toFixed(3)));
 /** Float sums of frame times can fall a hair short of a whole slice. This many seconds of slack count as a whole slice. */
 const SLACK = 1e-9;
 
@@ -110,12 +115,19 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
     if (!Array.isArray(options.snap)) throw bad;
     for (const item of options.snap as unknown[]) {
       if (single ? !finite(item) : !pair(item)) throw bad;
-      points.push(single ? (axis === "x" ? [item as number, 0] : [0, item as number]) : (item as number[]));
+      const point = single ? (axis === "x" ? [item as number, 0] : [0, item as number]) : [...(item as number[])];
+      // A snap point outside the bounds would send the element to rest outside them.
+      if (point.some((n, i) => (single ? i === (axis === "x" ? 0 : 1) : true) && ranges[i] !== undefined && (n < ranges[i]![0] || n > ranges[i]![1]))) {
+        throw new TypeError("A drag snap point lies outside the bounds.");
+      }
+      points.push(point);
     }
   }
 
   const env = options.env ?? createBrowserPointerEnvironment();
   const { friction, rubberBand, swipe, rest } = gesture;
+  /** The shown overshoot never reaches `reach`. Staying just under it keeps `unshown` exact. */
+  const limit = rubberBand.reach * 0.999;
   const decayFactor = Math.exp(-friction * FIXED_STEP);
   const snapSpring: SpringConfig = { ...rest, ...springOf(flavor, gesture.springKeys.snap) };
   const bandSpring = (distance: number): SpringConfig => {
@@ -136,12 +148,12 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
   /** The position shown for a position the pointer would give. */
   const shown = (a: Axis, raw: number) => {
     const o = over(a, raw);
-    return o === 0 ? raw : raw - o + Math.sign(o) * (Math.abs(o) / (1 + Math.abs(o) / rubberBand.reach));
+    return o === 0 ? raw : raw - o + Math.sign(o) * Math.min(limit, Math.abs(o) / (1 + Math.abs(o) / rubberBand.reach));
   };
   /** The position the pointer would give for a position shown. The inverse of `shown`. */
   const unshown = (a: Axis, p: number) => {
     const o = over(a, p);
-    const d = Math.min(Math.abs(o), rubberBand.reach * 0.99);
+    const d = Math.min(Math.abs(o), limit);
     return o === 0 ? p : p - o + Math.sign(o) * (d / (1 - d / rubberBand.reach));
   };
 
@@ -154,8 +166,16 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
   let last = 0;
   let carry = 0;
   let written = "";
+  const threw = new WeakSet<object>();
   let warned = false;
   let off: () => void = () => undefined;
+  let failure: Error | undefined;
+  let before: string | null = null;
+  try {
+    before = env.getStyle?.(element, "touch-action") ?? null;
+  } catch {
+    // An environment that cannot read a style leaves the property to be removed.
+  }
 
   const translate = () => `${text(axes[0].p)}px ${text(axes[1].p)}px`;
   const stopFrame = () => {
@@ -164,11 +184,25 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
       env.cancelFrame(frameId);
     }
   };
+  /** Removes the listeners, and gives touch-action back. Each step stands alone, so one that throws does not stop the other. */
+  const cleanup = () => {
+    try {
+      off();
+    } catch {
+      // The listeners are dropped with the element.
+    }
+    off = () => undefined;
+    try {
+      env.setStyle(element, "touch-action", before);
+    } catch {
+      // Best effort: the page keeps the value it has.
+    }
+  };
   const shutdown = () => {
     destroyed = true;
     active = null;
     stopFrame();
-    off();
+    cleanup();
     for (const a of axes) [a.mode, a.v] = ["rest", 0];
   };
   /** Writes the position. A write that throws is logged once, and the drag stops. */
@@ -179,6 +213,7 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
       env.setStyle(element, "translate", next);
     } catch (error) {
       console.error(`${logTag(flavor)} The drag could not write translate and stopped.`, error);
+      failure = error instanceof Error ? error : new Error(String(error));
       shutdown();
       return false;
     }
@@ -192,10 +227,25 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
     [a.band, a.mode] = [band, "spring"];
     if (isAtRest(a.spring)) [a.p, a.v, a.mode] = [target, 0, "rest"];
   };
-  const advance = (a: Axis, dt: number) => {
+  /**
+   * Steps a spring. A band spring steps in whole slices of `FIXED_STEP` and takes its stiffness again at each one, so the pace does not
+   * depend on the frame rate. A snap spring has a fixed stiffness, and the solver slices it itself. A spring never shows more than `limit` past a bound.
+   */
+  const advance = (a: Axis, steps: number, dt: number) => {
     let spring = a.spring!;
-    if (a.band) spring = reconfigure(spring, bandSpring(Math.abs(spring.value - spring.target)));
-    spring = stepSpring(spring, spring.target, dt);
+    if (a.band) {
+      for (let i = 0; i < steps && !isAtRest(spring); i++) {
+        spring = reconfigure(spring, bandSpring(Math.abs(spring.value - spring.target)));
+        spring = stepSpring(spring, spring.target, FIXED_STEP);
+      }
+    } else {
+      spring = stepSpring(spring, spring.target, dt);
+    }
+    const o = over(a, spring.value);
+    if (Math.abs(o) > limit) {
+      const value = edge(a, spring.value) + Math.sign(o) * limit;
+      spring = { ...spring, value, settledValue: value, velocity: 0, settledVelocity: 0, carry: 0 };
+    }
     [a.spring, a.p, a.v] = [spring, spring.value, spring.velocity];
     if (isAtRest(spring)) a.mode = "rest";
   };
@@ -206,7 +256,7 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
       if (over(a, a.p) !== 0) {
         // The element crossed a bound: the band takes it, with the rest of this frame.
         launch(a, edge(a, a.p), bandSpring(Math.abs(over(a, a.p))), true);
-        if (a.mode === "spring") advance(a, (steps - i - 1) * FIXED_STEP + carry);
+        if (a.mode === "spring") advance(a, steps - i - 1, 0);
         return;
       }
       if (Math.abs(a.v) < rest.restSpeed) {
@@ -241,7 +291,7 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
     }
     for (const a of axes) {
       if (a.mode === "decay") decay(a, steps);
-      else if (a.mode === "spring") advance(a, dt);
+      else if (a.mode === "spring") advance(a, steps, dt);
     }
     if (write() && moving()) requestNext();
   }
@@ -306,8 +356,8 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
         try {
           listener(direction);
         } catch (error) {
-          if (!warned) console.error(`${logTag(flavor)} A swipe listener threw.`, error);
-          warned = true;
+          if (!threw.has(listener)) console.error(`${logTag(flavor)} A swipe listener threw.`, error);
+          threw.add(listener);
         }
       }
     }
@@ -316,7 +366,8 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
   env.setStyle(element, "touch-action", axis === "x" ? "pan-y" : axis === "y" ? "pan-x" : "none");
   off = env.onPointer(element, {
     down(s) {
-      if (destroyed || active !== null) return;
+      if (destroyed || s.id === active || !finite(s.x) || !finite(s.y)) return;
+      // A press of another pointer while one is held means the end of the first never arrived. The new press takes over from where the element is.
       stopFrame();
       active = s.id;
       velocity.reset();
@@ -334,6 +385,10 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
     cancel(s) {
       if (!destroyed && s.id === active) release(null);
     },
+    fault(error) {
+      if (!warned) console.warn(`${logTag(flavor)} A pointer could not be captured. A release outside the element can be missed.`, error);
+      warned = true;
+    },
   });
 
   return {
@@ -344,7 +399,7 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
     },
     getState: () => ({
       x: axes[0].p, y: axes[1].p, vx: axes[0].v, vy: axes[1].v,
-      dragging: active !== null, moving: moving(), destroyed,
+      dragging: active !== null, moving: moving(), destroyed, failed: failure,
     }),
     destroy() {
       if (destroyed) return;
@@ -353,9 +408,8 @@ export function createDrag(element: ArmatureTarget, options: DragOptions): Drag 
       try {
         const next = translate();
         if (next !== written) env.setStyle(element, "translate", next);
-        env.setStyle(element, "touch-action", null);
       } catch {
-        // A destroy logs nothing.
+        // A destroy logs nothing. touch-action is already given back.
       }
     },
   };
