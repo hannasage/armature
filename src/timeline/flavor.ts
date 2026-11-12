@@ -1,9 +1,7 @@
 import type { Flavor, TimelineFlavor } from "../engine/flavor";
+import { finite, has as own, mapKeys, plain } from "./util";
 
 const NAME = /^[a-z][a-z0-9-]*$/;
-const own = (object: unknown, key: string) => typeof object === "object" && object !== null && Object.prototype.hasOwnProperty.call(object, key);
-const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
-const plain = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**
  * Checks the timeline part of a flavor, and throws a TypeError that names the flavor when it does not hold together. A flavor with no part passes.
@@ -38,20 +36,13 @@ export function checkTimelineFlavor(flavor: Flavor, label: string): void {
     const bad = (problem: string): never => {
       throw new TypeError(`${label} has the timeline sequence ${JSON.stringify(name)} with ${problem}.`);
     };
-    const keys = plain(sequence) ? sequence.keys : undefined;
-    if (!Array.isArray(keys) || keys.length === 0) bad("no keys");
-    let last = 0;
-    for (const key of keys as unknown[]) {
-      if (!Array.isArray(key) || key.length < 2 || key.length > 3) bad("a key that is not [time, value, step]");
-      const [time, value, step] = key as unknown[];
-      if (!finite(time) || time < last) bad("a key time that is not finite, or goes back in time");
+    mapKeys(plain(sequence) ? sequence.keys : undefined, bad, (value, step) => {
       if (!finite(value)) bad("a key value that is not a finite number");
       if (step !== undefined) {
         if (typeof step !== "string") bad("a step that is not text");
         if (!own(curves, step as string) && !own(flavor.springs, step as string)) bad(`a step named ${JSON.stringify(step)}, which is no curve and no spring`);
       }
-      last = time as number;
-    }
+    });
   }
 }
 

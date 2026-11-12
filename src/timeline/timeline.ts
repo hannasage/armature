@@ -18,6 +18,7 @@ import type { Flavor, RestLimits } from "../engine/flavor";
 import { createSpring, FIXED_STEP, isAtRest, retarget, stepSpring, type SpringConfig } from "../engine/spring";
 import { createScheduler, type FrameEnvironment, type FrameTask, type Scheduler } from "../frame/scheduler";
 import { checkTimelineFlavor } from "./flavor";
+import { finite, has, mapKeys } from "./util";
 
 /** What a timeline takes from the browser: the frame loop of the scheduler, the reduced-motion query, and one style write. */
 export interface TimelineEnvironment extends FrameEnvironment {
@@ -75,6 +76,10 @@ export interface TimelineState {
   destroyed: boolean;
   /** The value of each track at `time`, in the order of the tracks. A copy. */
   values: number[];
+  /** True when a spring or a decay was cut at 10 seconds without resting: a spring snapped to its target, and a decay stopped where it was. */
+  capped: boolean;
+  /** How many times a listener threw. Each listener is logged once. */
+  listenerErrors: number;
   /** Set when the timeline stopped because a write failed, and not because of `destroy`. It holds the error. */
   failed?: Error;
 }
@@ -85,9 +90,9 @@ export interface Timeline {
   pause(): void;
   /** Turns the direction round and plays. At the end of the new direction it only completes. */
   reverse(): void;
-  /** Moves to a time in milliseconds, cut to the length of the timeline, and writes the pose. It keeps playing when it was playing. A time that is not finite is ignored. */
+  /** Moves to a time in milliseconds, cut to the length of the timeline, and writes the pose. It keeps playing when it was playing. A time of Infinity or -Infinity goes to the end or the start. NaN, and a value that is not a number, throw a TypeError. */
   seek(ms: number): void;
-  /** Pauses, and moves to a share of the length from 0 to 1. For a slider or a scroll. */
+  /** Pauses, and moves to a share of the length from 0 to 1. For a slider or a scroll. A share outside 0 to 1 is cut, and NaN throws a TypeError. */
   scrub(progress: number): void;
   /** `update` gets the time after each write. `complete` fires when a play reaches the end of its travel. Returns the unsubscribe. */
   on(event: "update" | "complete", listener: (time: number) => void): () => void;
@@ -105,11 +110,10 @@ const LIMIT = 1200;
 const MAX = 1e9;
 const PROPERTY = /^(--[\w-]+|-?[a-zA-Z][\w-]*)$/;
 
-const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const bad = (message: string): never => {
   throw new TypeError(message);
 };
-const has = (object: unknown, key: string) => typeof object === "object" && object !== null && Object.prototype.hasOwnProperty.call(object, key);
+const asTime = (value: unknown): number => (typeof value === "number" && !Number.isNaN(value) ? value : bad("A time is a number, and not NaN."));
 
 /** A step with its kind settled: 0 a tween, 1 a spring, 2 a decay. */
 interface Step {
@@ -120,8 +124,8 @@ interface Step {
 }
 interface Key { t: number; v: number | null; step: Step }
 /** A piece of a track from `s` to `e`: a tween from `a` to `b`, or the samples `p` and `w` (position and speed) of a spring or a decay, one per slice from `s`. */
-interface Seg { s: number; e: number; a: number; b: number; c?: Curve; p?: number[]; w?: number[] }
-interface Track { segs: Seg[]; first: number; end: number }
+interface Seg { s: number; e: number; a: number; b: number; c?: Curve; p?: number[]; w?: number[]; capped?: boolean }
+interface Track { segs: Seg[]; first: number; end: number; capped: boolean }
 
 const slice = (seg: Seg, t: number) => Math.min(seg.p!.length - 1, Math.max(0, Math.floor((t - seg.s) / STEP_MS + EPS)));
 
@@ -134,17 +138,27 @@ function pick(track: Track, t: number): Seg | undefined {
 function valueAt(track: Track, t: number): number {
   const seg = pick(track, t);
   if (!seg) return track.first;
-  if (seg.p) return seg.p[slice(seg, t)];
-  const value = t >= seg.e - EPS ? seg.b : seg.a + (seg.b - seg.a) * seg.c!((t - seg.s) / (seg.e - seg.s));
-  if (!Number.isFinite(value)) throw new TypeError("A timeline curve returned a value that is not finite.");
+  const value = seg.p ? seg.p[slice(seg, t)] : t >= seg.e - EPS ? seg.b : seg.a + (seg.b - seg.a) * seg.c!((t - seg.s) / (seg.e - seg.s));
+  if (!Number.isFinite(value)) throw new TypeError("A timeline value is not finite.");
   return value;
 }
 
-/** The position and the speed of a track at `t`. A tween has no speed once it ends, and a sample holds until the next slice. */
+/** The slope of a curve where it ends, at progress 1. A bezier knows it. Another curve gets a difference with the first error term removed. */
+function endSlope(curve: Curve): number {
+  const points = (curve as { points?: readonly number[] }).points;
+  if (points?.length === 4) return points[2] < 1 ? (1 - points[3]) / (1 - points[2]) : 0;
+  const f = (h: number) => (curve(1) - curve(1 - h)) / h;
+  const slope = 2 * f(1e-3) - f(2e-3);
+  return Number.isFinite(slope) ? slope : 0;
+}
+
+/** The position and the speed (per second) of a track at `t`. A tween that has ended gives the speed of its curve at the end. A sample holds until the next slice. */
 function stateAt(track: Track, t: number): { p: number; v: number } {
   const seg = pick(track, t);
   if (seg?.p) return { p: seg.p[slice(seg, t)], v: seg.w![slice(seg, t)] };
-  return { p: valueAt(track, t), v: 0 };
+  const ended = seg !== undefined && seg.e > seg.s && t >= seg.e - EPS;
+  const speed = ended ? ((seg.b - seg.a) * endSlope(seg.c!) * 1000) / (seg.e - seg.s) : 0;
+  return { p: valueAt(track, t), v: Number.isFinite(speed) ? speed : 0 };
 }
 
 /** Runs a spring or a decay slice by slice from `s`, to the time `cut` or until it rests. Every step is a whole `FIXED_STEP`. */
@@ -152,7 +166,11 @@ function simulate(step: Step, from: { p: number; v: number }, s: number, cut: nu
   const room = Math.floor((cut - s) / STEP_MS + EPS);
   const p = [from.p];
   const w = [from.v];
-  const push = (position: number, speed: number) => (p.push(position), w.push(speed));
+  const push = (position: number, speed: number) => {
+    if (!Number.isFinite(position) || !Number.isFinite(speed)) throw new TypeError("A spring or decay step ran to a value that is not finite.");
+    p.push(position);
+    w.push(speed);
+  };
   let rested: boolean;
   if (step.kind === 1) {
     const goal = target as number;
@@ -178,16 +196,17 @@ function simulate(step: Step, from: { p: number; v: number }, s: number, cut: nu
       push(position, rested ? 0 : speed);
     }
   }
-  // Not at rest after the limit, with the next key further off: it stops there.
-  if (!rested && room > LIMIT) {
+  // Not at rest after the limit, with the next key further off: a spring snaps to its target, and a decay stops where it is.
+  const capped = !rested && room > LIMIT;
+  if (capped) {
     if (step.kind === 1) push(target as number, 0);
     else w[w.length - 1] = 0;
   }
-  return { s, e: s + (p.length - 1) * STEP_MS, a: from.p, b: p[p.length - 1], p, w };
+  return { s, e: s + (p.length - 1) * STEP_MS, a: from.p, b: p[p.length - 1], p, w, capped };
 }
 
 function compile(keys: Key[], offset: number): Track {
-  const track: Track = { segs: [], first: keys[0].v as number, end: keys[0].t + offset };
+  const track: Track = { segs: [], first: keys[0].v as number, end: keys[0].t + offset, capped: false };
   for (let i = 1; i < keys.length; i++) {
     const s = keys[i - 1].t + offset;
     const e = keys[i].t + offset;
@@ -195,6 +214,7 @@ function compile(keys: Key[], offset: number): Track {
     const from = stateAt(track, s);
     const seg: Seg = step.kind === 0 ? { s, e, a: from.p, b: v as number, c: step.curve } : simulate(step, from, s, i === keys.length - 1 ? Infinity : e, v);
     track.segs.push(seg);
+    track.capped ||= seg.capped === true;
     track.end = Math.max(track.end, e, seg.p ? seg.e : 0);
   }
   return track;
@@ -221,13 +241,20 @@ export function createTimeline(env: TimelineEnvironment, options: TimelineOption
   }
   const part = flavor?.timeline;
   const straight: Curve = (progress) => progress;
+  const positive = (n: unknown) => finite(n) && n > 0;
+  const springStep = (spring: SpringConfig): Step => {
+    if (!positive(spring?.stiffness) || !finite(spring.damping) || spring.damping < 0 || [spring.mass, spring.restSpeed, spring.restDelta].some((n) => n !== undefined && !positive(n))) {
+      bad("A spring step needs a stiffness above 0 and a damping of 0 or more, finite, and a mass, rest speed, and rest delta above 0 when it has them.");
+    }
+    return { kind: 1, spring: { ...spring } };
+  };
   const named = new Map<string, Step>();
   const lookup = (name: string): Step => {
     let step = named.get(name);
     if (step === undefined) {
       if (!flavor) bad("A step that is a name needs a flavor.");
       if (has(part?.curves, name)) step = { kind: 0, curve: bezier(...part!.curves![name]) };
-      else if (has(flavor!.springs, name)) step = { kind: 1, spring: flavor!.springs[name] };
+      else if (has(flavor!.springs, name)) step = springStep(flavor!.springs[name]);
       else bad(`${label} has no curve or spring named ${JSON.stringify(name)}.`);
       named.set(name, step!);
     }
@@ -235,7 +262,6 @@ export function createTimeline(env: TimelineEnvironment, options: TimelineOption
   };
   const fallback: Step = { kind: 0, curve: part?.defaultCurve === undefined ? straight : lookup(part.defaultCurve).curve };
 
-  const positive = (n: unknown) => finite(n) && n > 0;
   const stepOf = (step: unknown): Step => {
     if (step === undefined) return fallback;
     if (typeof step === "function") return { kind: 0, curve: step as Curve };
@@ -248,11 +274,7 @@ export function createTimeline(env: TimelineEnvironment, options: TimelineOption
       }
       return { kind: 2, decay: d };
     }
-    const spring = step as SpringConfig;
-    if (!positive(spring.stiffness) || !finite(spring.damping) || spring.damping < 0 || [spring.mass, spring.restSpeed, spring.restDelta].some((n) => n !== undefined && !positive(n))) {
-      bad("A spring step needs a stiffness above 0 and a damping of 0 or more, finite, and a mass, rest speed, and rest delta above 0 when it has them.");
-    }
-    return { kind: 1, spring: { ...spring } };
+    return springStep(step as SpringConfig);
   };
 
   const specs = (tracks as unknown[]).map((raw): { spec: TrackSpec; keys: Key[] } => {
@@ -260,7 +282,7 @@ export function createTimeline(env: TimelineEnvironment, options: TimelineOption
     const spec = raw as TrackSpec;
     if ((typeof spec.target !== "object" && typeof spec.target !== "function") || spec.target === null) bad("A track needs a target to write to.");
     if (typeof spec.value !== "string" || !PROPERTY.test(spec.value)) bad("A track needs the name of a CSS property to write.");
-    if (/^transform$/i.test(spec.value)) bad("A timeline writes individual properties, such as translate, scale, and rotate, and never transform.");
+    if (/^(-[a-z]+-)?transform$/i.test(spec.value)) bad("A timeline writes individual properties, such as translate, scale, and rotate, and never transform.");
     if (spec.offset !== undefined && (!finite(spec.offset) || spec.offset < 0)) bad("The offset of a track is a finite number of milliseconds, 0 or more.");
     if (spec.unit !== undefined && typeof spec.unit !== "string") bad("The unit of a track is text.");
     if (spec.format !== undefined && typeof spec.format !== "function") bad("The format of a track is a function.");
@@ -272,19 +294,13 @@ export function createTimeline(env: TimelineEnvironment, options: TimelineOption
       if (!has(part!.sequences, spec.sequence)) bad(`${label} has no sequence named ${JSON.stringify(spec.sequence)}.`);
       source = part!.sequences![spec.sequence].keys;
     }
-    if (!Array.isArray(source) || source.length === 0) bad("A track needs a list of keys, or the name of a sequence.");
-    let last = 0;
-    const keys = (source as unknown[]).map((raw, i): Key => {
-      if (!Array.isArray(raw) || raw.length < 2 || raw.length > 3) return bad("A key is [time, value, step?].");
-      const [t, v, given] = raw as unknown[];
-      if (!finite(t) || t < last) bad("The times of the keys are finite numbers of milliseconds, 0 or more, and never go back.");
-      last = t as number;
+    const keys = mapKeys(source, (problem) => bad(`A track has ${problem}.`), (v, given, i, t): Key => {
       const step = stepOf(given);
       // The step of the first key has nothing to run from, so its value is a number whatever the step is.
       if (i > 0 && step.kind === 2 ? v !== null : !finite(v)) {
         bad(i > 0 && step.kind === 2 ? "A decay key holds null in place of the value." : "The value of a key is a finite number.");
       }
-      return { t: t as number, v: v as number | null, step };
+      return { t, v: v as number | null, step };
     });
     return { spec, keys };
   });
@@ -292,11 +308,15 @@ export function createTimeline(env: TimelineEnvironment, options: TimelineOption
   // Place the tracks. The start of a track is added to every key time of it.
   const compiled: Track[] = [];
   specs.forEach(({ spec, keys }, i) => {
-    const start = i === 0 ? 0 : place === "sequence" ? compiled[i - 1].end + stagger : i * stagger;
-    compiled.push(compile(keys, start + (spec.offset ?? 0)));
+    const start = (i === 0 ? 0 : place === "sequence" ? compiled[i - 1].end + stagger : i * stagger) + (spec.offset ?? 0);
+    if (!Number.isFinite(start + keys[keys.length - 1].t)) bad("The start of a track, or the end of its keys, is too large to be a number.");
+    compiled.push(compile(keys, start));
+    if (!Number.isFinite(compiled[i].end)) bad("The end of a track is too large to be a number.");
   });
   const duration = compiled.reduce((most, track) => Math.max(most, track.end), 0);
-  const writers = specs.map(({ spec }) => spec);
+  // Read once, so a change of the caller's track objects after this call does nothing.
+  const writers = specs.map(({ spec }) => ({ target: spec.target, property: spec.value, unit: spec.unit ?? "", format: spec.format }));
+  const capped = compiled.some((track) => track.capped);
   const written: Array<string | undefined> = writers.map(() => undefined);
   const values = compiled.map((track) => track.first);
   const tag = `[${flavor?.logLabel ?? "armature"}]`;
@@ -306,6 +326,7 @@ export function createTimeline(env: TimelineEnvironment, options: TimelineOption
   const listeners = { update: new Set<(time: number) => void>(), complete: new Set<(time: number) => void>() };
   const threw = new WeakSet<object>();
   let time = 0;
+  let listenerErrors = 0;
   let direction: 1 | -1 = 1;
   let playing = false;
   let destroyed = false;
@@ -316,6 +337,7 @@ export function createTimeline(env: TimelineEnvironment, options: TimelineOption
 
   const stop = () => {
     playing = false;
+    ended = false;
     remove?.();
     remove = undefined;
   };
@@ -330,6 +352,7 @@ export function createTimeline(env: TimelineEnvironment, options: TimelineOption
       try {
         listener(time);
       } catch (error) {
+        listenerErrors += 1;
         if (!threw.has(listener)) console.error(`${tag} A timeline listener threw.`, error);
         threw.add(listener);
       }
@@ -342,7 +365,7 @@ export function createTimeline(env: TimelineEnvironment, options: TimelineOption
       compiled.forEach((track, i) => {
         const value = valueAt(track, time);
         values[i] = value;
-        const { unit = "", format, target, value: property } = writers[i];
+        const { unit, format, target, property } = writers[i];
         const next = format ? String(format(clamp(value))) : text(value) + unit;
         if (next !== written[i]) {
           env.setStyle(target, property, next);
@@ -368,6 +391,7 @@ export function createTimeline(env: TimelineEnvironment, options: TimelineOption
 
   const task: FrameTask = {
     step() {
+      if (destroyed || !playing) return false;
       const next = time + direction * STEP_MS;
       dirty = true;
       if (direction > 0 ? next >= duration - EPS : next <= EPS) {
@@ -405,8 +429,11 @@ export function createTimeline(env: TimelineEnvironment, options: TimelineOption
       return;
     }
     playing = true;
+    ended = false;
     apply();
-    if (!failure) remove = scheduler.add(task);
+    // A listener can pause or destroy during the write. Then nothing is added, so no frame loop is left.
+    if (destroyed || !playing || failure) return;
+    remove = scheduler.add(task);
   };
 
   return {
@@ -420,25 +447,29 @@ export function createTimeline(env: TimelineEnvironment, options: TimelineOption
       go(false);
     },
     seek(ms) {
-      if (destroyed || failure || !finite(ms)) return;
-      time = Math.max(0, Math.min(duration, ms));
+      const target = asTime(ms);
+      if (destroyed || failure) return;
+      ended = false;
+      time = Math.max(0, Math.min(duration, target));
       apply();
     },
     scrub(progress) {
-      if (destroyed || failure || !finite(progress)) return;
+      const share = asTime(progress);
+      if (destroyed || failure) return;
       stop();
-      time = Math.max(0, Math.min(1, progress)) * duration;
+      time = Math.max(0, Math.min(1, share)) * duration;
       apply();
     },
     on(event, listener) {
       if (event !== "update" && event !== "complete") bad('A timeline event is "update" or "complete".');
       if (typeof listener !== "function") bad("A timeline listener is a function.");
+      if (destroyed) return () => undefined;
       listeners[event].add(listener);
       return () => {
         listeners[event].delete(listener);
       };
     },
-    getState: () => ({ time, duration, playing, reversed: direction < 0, destroyed, values: [...values], failed: failure }),
+    getState: () => ({ time, duration, playing, reversed: direction < 0, destroyed, values: [...values], capped, listenerErrors, failed: failure }),
     destroy() {
       if (destroyed) return;
       destroyed = true;

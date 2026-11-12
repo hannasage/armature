@@ -38,8 +38,8 @@ A key is `[time, value, step?]`. The time is in milliseconds. Times are finite, 
 A key describes the segment that ends at it. The step says how the track gets there.
 
 - No step, or a curve: a tween. It runs from the previous key to this key and ends on this key at this time. A curve is any function from progress to a number, such as `easing("ease-out")` from `/curves`. With a flavor, a key with no step takes the default curve of the flavor.
-- A spring, such as `{ stiffness: 170, damping: 26 }`: the spring starts at the time of the previous key. It starts from where the track is, with the speed the track has, and aims at the value. This is a retarget at a time. A key after it cuts the spring at that key's time. The next step then takes over with the position and the speed of the spring. As the last key, the spring runs until it rests, and the timeline lasts that long. A spring that has not rested after 10 seconds stops there.
-- A decay, `{ decay: { velocity, friction, rest: { restSpeed } } }`: the value slot holds `null`, because the decay decides where it stops. The track keeps its speed and slows by friction, `v' = -c v`, until its speed is under `restSpeed`. This is the decay of `/gesture`. Without `velocity` the decay takes the speed of the step before it.
+- A spring, such as `{ stiffness: 170, damping: 26 }`: the spring starts at the time of the previous key. It starts from where the track is and aims at the value. It starts with the speed the track has. A spring or a decay gives its own speed. A tween gives the speed of its curve at its end, so a linear tween from 0 to 100 over one second hands over 100 units per second, and a curve that ends flat hands over none. This is a retarget at a time. A key after it cuts the spring at that key's time. The next step then takes over with the position and the speed of the spring. As the last key, the spring runs until it rests, and the timeline lasts that long. A spring that has not rested after 10 seconds is cut, and it snaps to its target. A spring that a key cuts more than 10 seconds after it started snaps the same way.
+- A decay, `{ decay: { velocity, friction, rest: { restSpeed } } }`: the value slot holds `null`, because the decay decides where it stops. The track keeps its speed and slows by friction, `v' = -c v`, until its speed is under `restSpeed`. This is the decay of `/gesture`. Without `velocity` the decay takes the speed of the step before it. A decay that has not stopped after 10 seconds is cut, and it stops where it is.
 - A name: with a flavor, the name of a curve in its `timeline` part or of a spring in its `springs`.
 
 Two keys at one time make a jump.
@@ -56,10 +56,10 @@ Give a list of tracks and a `stagger` to stagger a list of elements.
 - `play()` writes the pose, then plays in the current direction. At the end of its travel it starts again from the other end.
 - `pause()` stops the frame and keeps the time.
 - `reverse()` turns the direction round and plays. At the end of the new direction it only completes.
-- `seek(ms)` moves to a time, cut to the length of the timeline, and writes the pose. A timeline that plays keeps playing. A time that is not finite is ignored.
-- `scrub(progress)` pauses and moves to a share of the length, from 0 to 1.
-- `on("update", fn)` calls `fn(time)` after each write. `on("complete", fn)` fires at the end of the travel of a play. Both return the function that removes the listener. A listener that throws is logged once for that listener, and the others still run.
-- `getState()` gives `time`, `duration`, `playing`, `reversed`, `destroyed`, `values` (one per track), and `failed`.
+- `seek(ms)` moves to a time, cut to the length of the timeline, and writes the pose. A timeline that plays keeps playing. A time of `Infinity` or `-Infinity` goes to the end or the start. `NaN`, and a value that is not a number, throw a `TypeError`.
+- `scrub(progress)` pauses and moves to a share of the length, from 0 to 1. A share outside that range is cut. `NaN` throws a `TypeError`.
+- `on("update", fn)` calls `fn(time)` after each write. `on("complete", fn)` fires at the end of the travel of a play. Both return the function that removes the listener. A listener that throws is logged once for that listener, and the others still run. After `destroy`, `on` does nothing and returns a function that does nothing.
+- `getState()` gives `time`, `duration`, `playing`, `reversed`, `destroyed`, `values` (one per track), `capped`, `listenerErrors`, and `failed`. `capped` is true when a spring or a decay hit the cap of 10 seconds. `listenerErrors` counts every throw of a listener.
 - `destroy()` stops the frame and ignores every later call. The values stay where they are, and it logs nothing. Safe to call twice.
 
 A new timeline writes nothing. It writes at `play`, `seek`, and `scrub`, and on each frame.
@@ -68,7 +68,7 @@ A new timeline writes nothing. It writes at `play`, `seek`, and `scrub`, and on 
 
 The timeline runs on the shared frame scheduler in `/frame`, in whole slices of 1/120 s. A 30, 60, or 144 Hz screen gives the same values. Pass `scheduler` to run several timelines on one scheduler. They do not change each other's frames. Without it, a timeline makes its own scheduler and destroys it with `destroy`.
 
-Seek to a time gives the value that playing to it gives, to within one slice. A reverse gives back the values of the forward run, slice by slice.
+Seek to a time gives the value that playing to it gives, to within one slice. A reverse gives back the values of the forward run, slice by slice. The match is within one slice, and it is exact when the length of the timeline is a whole number of slices.
 
 ## Reduced motion
 
@@ -78,7 +78,7 @@ Under `prefers-reduced-motion: reduce`, `play` and `reverse` go straight to the 
 
 Three things count as a failure: a write that throws, a format function that throws, and a curve that returns a number that is not finite. The timeline then logs one line, stops, and sets `getState().failed`. It does not throw into the page. The label of the line is the label of the flavor, or `[armature]`.
 
-Bad input throws a `TypeError` before anything is written. These are bad: a time or a value that is not finite, keys that go back in time, a name with no flavor, an offset or stagger below 0, and a property that is not a name. A written number is cut to 1,000,000,000 and rounded to 4 decimals, so no exponent text reaches CSS.
+Bad input throws a `TypeError` before anything is written. These are bad: a time or a value that is not finite, keys that go back in time, a name with no flavor, an offset or stagger below 0, a property that is not a name, and a start or an end that is too large to be a number. A property named `transform`, with or without a vendor prefix such as `-webkit-`, is bad too. A written number is cut to 1,000,000,000 and rounded to 4 decimals, so no exponent text reaches CSS.
 
 ## The environment
 
@@ -90,4 +90,4 @@ A flavor can add named curves, a default curve, and named sequences. See "The ti
 
 ## Size
 
-See `docs/baseline.md`, section "G5 build". The cap of `/timeline` there is a proposal. The maintainer has not approved it.
+See `docs/baseline.md`, section "G5 build". The cap of `/timeline` there is a proposal, and it is not approved.

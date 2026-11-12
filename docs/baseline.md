@@ -505,26 +505,27 @@ Method: `node scripts/size.mjs`, the same as G0 to G4. esbuild 0.28.2, `bundle`,
 
 | Entry | Source | Minified (bytes) | Gzipped (bytes) |
 | --- | --- | ---: | ---: |
-| `@hannasage/armature/timeline` | `src/timeline/index.ts` | 13,611 | 5,562 |
+| `@hannasage/armature/timeline` | `src/timeline/index.ts` | 14,145 | 5,828 |
 
 The cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The cap is not approved: the maintainer has not seen it. The amendment 1 proposal sits beside it.
 
 | Entry | Measured (gzipped) | Cap (not approved) | Amendment 1 proposal |
 | --- | ---: | ---: | --- |
-| `/timeline` | 5,562 | 6,120 | 4.0 KB |
+| `/timeline` | 5,828 | 6,420 | 4.0 KB |
 
 The cap of `/timeline`, as a bullet (not approved):
 
-- `/timeline`: 6,120.
+- `/timeline`: 6,420.
 
-The entry is 1,562 bytes over the 4.0 KB proposal. Where the bytes sit, in minified bytes of the bundle:
+The measure is the size after review round 1, which added the finite checks, the end speed of a tween, the cap flag, and the strict spring check. The entry is 1,828 bytes over the 4.0 KB proposal. Where the bytes sit, in minified bytes of the bundle:
 
 | File | Minified (bytes) |
 | --- | ---: |
-| `src/timeline/timeline.ts` | 7,633 |
-| `src/timeline/flavor.ts` | 2,191 |
+| `src/timeline/timeline.ts` | 8,093 |
+| `src/timeline/flavor.ts` | 1,764 |
+| `src/timeline/util.ts` | 485 |
 | `src/engine/spring.ts` | 1,457 |
-| `src/frame/scheduler.ts` | 1,381 |
+| `src/frame/scheduler.ts` | 1,379 |
 | `src/curves/bezier.ts` | 759 |
 | `src/engine/env.ts` | 117 |
 
@@ -532,11 +533,11 @@ The engine files are the spring solver, the scheduler, and the bezier evaluator.
 
 ### Other entries
 
-No cap moved. The measures after G5: `.` 3,853 (cap 4,000), `/frame` 807, `/values` 6,615, `/curves` 2,363, `/linear` 3,351, `/gesture` 5,346 (cap 5,850), `/dom` 11,325, `/react` 11,678, `/glass` 7,892, `/glass/react` 12,677, and `styles.css` 749 gzipped bytes. The entry `.` did not grow: G5 adds only types to `src/engine/flavor.ts`.
+No cap moved. The measures after G5: `.` 3,853 (cap 4,000), `/frame` 807, `/values` 6,615, `/curves` 2,363, `/linear` 3,351, `/gesture` 5,346 (cap 5,850), `/dom` 11,325, `/react` 11,678, `/glass` 7,892, `/glass/react` 12,677, and `styles.css` 749 gzipped bytes. The entry `.` is 3,853, one byte under G4 (3,854). G5 adds only types to `src/engine/flavor.ts`.
 
 ### The tarball
 
-`npm run check:pack` passed. The tarball is 241,927 bytes in 205 files, under the limit of 333,027 (1.5 times the approved MEASURED_SIZE of 222,018). MEASURED_SIZE did not change.
+`npm run check:pack` passed. The tarball is 244,245 bytes in 208 files, under the limit of 333,027 (1.5 times the approved MEASURED_SIZE of 222,018). MEASURED_SIZE did not change.
 
 ### Decision for the maintainer: `validateFlavor` does not check the timeline part
 

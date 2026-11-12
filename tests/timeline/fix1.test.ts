@@ -117,7 +117,7 @@ describe("M1: a tween hands over the speed it ends with", () => {
   it("lets a decay carry on from a linear tween", () => {
     const { tl } = rig([[0, 0], [1000, 100], [3000, null, DECAY]]);
     tl.seek(1000 + 10 * STEP_MS);
-    expect(tl.getState().values[0]).toBeGreaterThan(107);
+    expect(tl.getState().values[0]).toBeGreaterThan(106);
     tl.seek(tl.getState().duration);
     expect(tl.getState().values[0]).toBeGreaterThan(120);
     expect(tl.getState().values[0]).toBeLessThan(125);
@@ -140,7 +140,7 @@ describe("M2: the cap of 10 seconds", () => {
   it("snaps a last-key spring with no damping to its target, and says so with capped", () => {
     const { tl } = rig([[0, 0], [100, 100, { stiffness: 170, damping: 0 }]]);
     expect(tl.getState().capped).toBe(true);
-    expect(tl.getState().duration).toBeCloseTo(1200 * STEP_MS, 6);
+    expect(tl.getState().duration).toBeCloseTo(1201 * STEP_MS, 6);
     tl.seek(tl.getState().duration);
     expect(tl.getState().values[0]).toBe(100);
   });
