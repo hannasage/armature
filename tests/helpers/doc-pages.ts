@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 // - the marker of an ordered list, and a date such as 2026-11-13.
 // - the "3" of "3D".
 // - the bare numbers 0 and 1, which on these pages are bounds and counts ("0 or more", "from 0 to 1", "1 number").
+// - a number written as a word, such as "three heights" or "six curves". The scan reads numerals only, so the rule covers every numeral.
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -26,15 +27,25 @@ export interface Figure {
 }
 
 /**
- * A number: digits, with groups of three after a comma, and decimals, and a sign when a minus comes before it. Not part of a word, a name
- * such as G4, or a hex color. The second number of a range such as 10-20 is a number of its own.
+ * A numeral: digits, with groups of three after a comma, and decimals, and a sign when a minus comes before it. A decimal with no leading
+ * digit, such as .5, counts too. Not part of a word, a name such as G4, or a hex color. The second number of a range such as 10-20 is a
+ * number of its own.
  */
-const NUMBER = /(?<![\w.#])-?\d+(?:,\d{3})*(?:\.\d+)?/g;
+export const NUMBER = /(?<![\w.#])-?(?:\d+(?:,\d{3})*(?:\.\d+)?|\.\d+)/g;
+
+/**
+ * A fenced block, as Markdown reads one: ``` or ~~~ after 0 to 3 spaces, an info string, the body, and the same fence to close it.
+ * Group 1 is the fence, group 2 the info string, and group 3 the body. Every check of fences on the pages uses this one pattern.
+ */
+export const FENCE = /^ {0,3}(```|~~~)([^\n]*)\n([\s\S]*?)^ {0,3}\1[ \t]*$/gm;
 
 /** The ranges of a text that are fenced blocks. */
 function codeRanges(text: string): Array<[number, number]> {
-  return [...text.matchAll(/^ {0,3}(```|~~~)[^\n]*\n[\s\S]*?^ {0,3}\1[^\n]*$/gm)].map((match) => [match.index, match.index + match[0].length]);
+  return [...text.matchAll(FENCE)].map((match) => [match.index, match.index + match[0].length]);
 }
+
+/** The info string of every fenced block, in order: "ts", "css", "text", or "" for a block with no label. */
+export const fenceLabels = (text: string): string[] => [...text.matchAll(FENCE)].map((match) => match[2].trim());
 
 /** The ranges a rule leaves out: list markers, dates, and the "3" of "3D". */
 function ruleRanges(text: string): Array<[number, number]> {
@@ -91,7 +102,7 @@ export function sectionOf(text: string, title: string): string {
 
 /** The fenced code blocks of a text with the given language. */
 export function blocksOf(text: string, language: string): string[] {
-  return [...text.matchAll(new RegExp(`^\`\`\`${language}\\n([\\s\\S]*?)^\`\`\`$`, "gm"))].map((match) => match[1]);
+  return [...text.matchAll(FENCE)].filter((match) => match[2].trim() === language).map((match) => match[3]);
 }
 
 /** A number written the way the pages write it: groups of three with commas. */

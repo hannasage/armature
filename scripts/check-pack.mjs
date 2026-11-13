@@ -11,7 +11,8 @@
 //      Node ESM and type-check, and Vue and Svelte are not installed. That proves the two peers stay optional.
 //   6. The declaration file of the engine in dist carries the same `@experimental` parts of `Flavor` as the source, and at least one.
 // The check fails with a list of every problem found. Pass `--keep` to keep the temp folder for a look.
-// Pass `--out <file>` to save the size and the file count of the tarball as JSON, to a new file inside the repository.
+//   7. When tests/package/results/g8-pack.json exists, the size and the file count of the tarball must match it. Pass `--update` to write
+//      the live measure to that file in place of the check, after a change to the tarball that is meant.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,24 +20,14 @@ import { dirname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { API } from "./public-api.mjs";
-import { childEnv, disallowedFiles, experimentalParts, missingExportTargets, packRecord, sizeLimit, withinSizeBudget } from "./pack-rules.mjs";
-import { resolveOut } from "./size-lib.mjs";
+import { childEnv, disallowedFiles, experimentalParts, missingExportTargets, PACK_RECORD, packRecord, sizeLimit, staleRecord, withinSizeBudget } from "./pack-rules.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const keep = process.argv.includes("--keep");
 const problems = [];
 const problem = (text) => problems.push(text);
-let outFile = null;
-const outIndex = process.argv.indexOf("--out");
-if (outIndex !== -1) {
-  try {
-    outFile = resolveOut(process.argv[outIndex + 1]);
-  } catch (error) {
-    console.error(error.message);
-    process.exit(1);
-  }
-}
+const update = process.argv.includes("--update");
 
 // ---- 6: the @experimental marks reach the declaration file ----
 {
@@ -259,7 +250,15 @@ try {
     if (missing.length > 0) problem(`the tarball lacks ${missing.length} export target${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}`);
     if (!withinSizeBudget(tarballSize)) problem(`the tarball is ${tarballSize} bytes, above the limit of ${sizeLimit()} bytes (1.5 times the measured size)`);
     console.log(`Packed ${paths.length} files, ${tarballSize} bytes (limit ${sizeLimit()}).`);
-    if (outFile) writeFileSync(outFile, `${JSON.stringify(packRecord(tarballSize, paths.length), null, 2)}\n`);
+    // ---- 7: the saved record of the pack ----
+    const recordFile = join(root, PACK_RECORD);
+    if (update) {
+      writeFileSync(recordFile, `${JSON.stringify(packRecord(tarballSize, paths.length), null, 2)}\n`);
+      console.log(`Wrote ${PACK_RECORD}: ${tarballSize} bytes in ${paths.length} files. Update the tarball line of docs/baseline.md to match.`);
+    } else if (existsSync(recordFile)) {
+      const stale = staleRecord(JSON.parse(readFileSync(recordFile, "utf8")), tarballSize, paths.length);
+      if (stale) problem(stale);
+    }
   }
 
   // ---- 4: install into a clean consumer ----

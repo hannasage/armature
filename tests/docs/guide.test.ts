@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { cssFlavor } from "../../src/css";
 import { criticalDamping, type SpringConfig } from "../../src/engine/spring";
 import { tide } from "../../examples/tide/flavor";
-import { blocksOf, checkPage, isCutFrom, readDoc, root, sectionOf } from "../helpers/doc-pages";
+import { blocksOf, checkPage, fenceLabels, isCutFrom, readDoc, root, sectionOf } from "../helpers/doc-pages";
 import { figure, sampleSpring } from "../helpers/doc-svg";
 import { analyticOvershoot, analyticSettle, dampingRatio, measureSpring, SETTLE_BAND } from "../helpers/measure-spring";
 
@@ -57,10 +57,11 @@ checkPage("flavor-authoring.md", [
 
 describe("the guide to writing a flavor", () => {
   it("labels every fenced block as ts, css, or text, so no block escapes the checks", () => {
-    const fences = [...page.matchAll(/^```(.*)$/gm)].map((match) => match[1]);
-    const opening = fences.filter((_, i) => i % 2 === 0);
-    expect(opening.length).toBeGreaterThan(0);
-    for (const label of opening) expect(["ts", "css", "text"], `a block labelled "${label}"`).toContain(label);
+    const labels = fenceLabels(page);
+    expect(labels.length).toBeGreaterThan(0);
+    for (const label of labels) expect(["ts", "css", "text"], `a block labelled "${label}"`).toContain(label);
+    // Every fence line of the page belongs to a block the pattern found, so no block hides from the checks.
+    expect(page.match(/^ {0,3}(```|~~~)/gm)).toHaveLength(labels.length * 2);
   });
 
   it("cuts every ts block from the files of the Tide flavor, as whole consecutive lines", () => {

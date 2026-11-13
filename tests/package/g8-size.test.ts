@@ -65,13 +65,13 @@ describe("the size table after G8", () => {
   });
 
   it("records the tarball that check:pack measured, under the limit of 1.5 times the approved MEASURED_SIZE, which did not change", () => {
-    // tests/package/results/g8-pack.json is the output of `npm run check:pack -- --out` on the build of this branch, in the gate container.
+    // tests/package/results/g8-pack.json is written by `npm run check:pack -- --update`, and check:pack fails when it differs from the live pack.
     const record = JSON.parse(readFileSync(join(root, "tests/package/results/g8-pack.json"), "utf8")) as { bytes: number; files: number; limit: number; measuredSize: number; withinLimit: boolean };
     expect(rules.MEASURED_SIZE).toBe(222018);
     expect(rules.SIZE_FACTOR).toBe(1.5);
     expect(record.measuredSize).toBe(rules.MEASURED_SIZE);
     expect(record.limit).toBe(rules.sizeLimit());
-    expect(record.withinLimit).toBe(true);
+    expect(record.bytes).toBeLessThanOrEqual(rules.sizeLimit());
     const match = /The tarball is ([\d,]+) bytes in ([\d,]+) files, under the limit of ([\d,]+)/.exec(section());
     expect(match, "a tarball line").not.toBeNull();
     const [bytes, files, limit] = match!.slice(1).map((text) => Number(text.replaceAll(",", "")));

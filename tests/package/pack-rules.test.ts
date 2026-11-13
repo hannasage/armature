@@ -18,6 +18,8 @@ interface PackRules {
   childEnv(env: Record<string, string | undefined>): Record<string, string | undefined>;
   experimentalParts(text: string): string[];
   packRecord(bytes: number, files: number, measured?: number): { bytes: number; files: number; limit: number; measuredSize: number; withinLimit: boolean };
+  staleRecord(record: unknown, bytes: number, files: number): string | null;
+  PACK_RECORD: string;
 }
 
 const rules = (await import(pathToFileURL(join(root, "scripts/pack-rules.mjs")).href)) as PackRules;
@@ -146,6 +148,27 @@ describe("packRecord", () => {
   });
   it("refuses a size or a count that is not a whole number above 0", () => {
     for (const [bytes, files] of [[0, 1], [1, 0], [1.5, 1], [Number.NaN, 1]]) expect(() => rules.packRecord(bytes, files)).toThrow(TypeError);
+  });
+});
+
+describe("staleRecord", () => {
+  it("passes a record that matches the live pack", () => {
+    expect(rules.staleRecord({ bytes: 295924, files: 259 }, 295924, 259)).toBeNull();
+  });
+  it("fails a record whose bytes or file count differ, and says how to refresh it", () => {
+    for (const [bytes, files] of [[295925, 259], [295924, 260]]) {
+      const problem = rules.staleRecord({ bytes: 295924, files: 259 }, bytes, files);
+      expect(problem).toContain(`the tarball is ${bytes} bytes in ${files} files`);
+      expect(problem).toContain("records 295924 bytes in 259 files");
+      expect(problem).toContain("npm run check:pack -- --update");
+      expect(problem).toContain(rules.PACK_RECORD);
+    }
+  });
+  it("fails a record that is not a record of bytes and files", () => {
+    for (const record of [null, "x", {}, { bytes: 1.5, files: 2 }]) expect(rules.staleRecord(record, 1, 2)).toMatch(/not a record/);
+  });
+  it("names the record that the baseline test reads", () => {
+    expect(rules.PACK_RECORD).toBe("tests/package/results/g8-pack.json");
   });
 });
 

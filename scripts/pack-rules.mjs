@@ -78,7 +78,21 @@ export function experimentalParts(text) {
   return parts;
 }
 
-/** A record of one pack, to save with --out: the bytes and the files of the tarball, and the limit it was checked against. */
+/** The saved record of the pack, relative to the repository. `npm run check:pack -- --update` writes it, and `docs/baseline.md` quotes it. */
+export const PACK_RECORD = "tests/package/results/g8-pack.json";
+
+/**
+ * A problem text when the saved record differs from the live pack in its bytes or its file count, and null when it matches. The text says how to
+ * refresh the record. A record that is not an object with whole numbers counts as stale too.
+ */
+export function staleRecord(record, bytes, files) {
+  const fix = `If the change is meant, run \`npm run build && npm run check:pack -- --update\`, and update the tarball line of docs/baseline.md.`;
+  if (record === null || typeof record !== "object" || !Number.isInteger(record.bytes) || !Number.isInteger(record.files)) return `${PACK_RECORD} is not a record of bytes and files. ${fix}`;
+  if (record.bytes === bytes && record.files === files) return null;
+  return `the tarball is ${bytes} bytes in ${files} files, and ${PACK_RECORD} records ${record.bytes} bytes in ${record.files} files. ${fix}`;
+}
+
+/** A record of one pack, to save with --update: the bytes and the files of the tarball, and the limit it was checked against. */
 export function packRecord(bytes, files, measured = MEASURED_SIZE) {
   if (!Number.isInteger(bytes) || bytes <= 0 || !Number.isInteger(files) || files <= 0) throw new TypeError("A pack record needs a size and a file count above 0.");
   return { bytes, files, limit: sizeLimit(measured), measuredSize: measured, withinLimit: withinSizeBudget(bytes, measured) };

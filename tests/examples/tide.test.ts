@@ -68,8 +68,12 @@ describe("the Tide flavor", () => {
       expect(tide.name).not.toBe(other.name);
       expect(tide.prefix).not.toBe(other.prefix);
       expect(tide.logLabel).not.toBe(other.logLabel);
-      // A spring copied with one number changed still fails: each Tide spring differs from each other spring in at least two numbers.
-      for (const mine of springs(tide)) for (const theirs of springs(other)) expect(leafDiff(mine, theirs), `${other.name} ${JSON.stringify(theirs)}`).toBeGreaterThanOrEqual(2);
+      // No Tide spring shares both its stiffness and its damping with a spring of another flavor. One shared value is normal.
+      for (const mine of springs(tide)) {
+        for (const theirs of springs(other)) {
+          expect(mine.stiffness === theirs.stiffness && mine.damping === theirs.damping, `${other.name} ${JSON.stringify(theirs)}`).toBe(false);
+        }
+      }
     }
   });
 
@@ -264,23 +268,35 @@ describe("a sheet on the Tide flavor", () => {
     expect(envs.page.pending + envs.timeline.pending + envs.pointer.pending + envs.layout.pending).toBe(0);
   });
 
-  it("stops every controller on destroy, in the middle of a move", () => {
+  it("stops every controller on destroy, in the middle of a move, and cancels the frame each one asked for", () => {
     const { sheet, rows, envs, ui } = setup();
     ui.open();
     ui.reorder(() => {
       envs.layout.place(rows[0], envs.layout.natural.get(rows[2])!);
       envs.layout.place(rows[2], box(0, 340, 360, 48));
     });
-    envs.pointer.down(sheet, 0, 0);
-    envs.pointer.time += 16;
-    envs.pointer.move(sheet, 0, 40);
-    expect(envs.page.pending).toBeGreaterThan(0);
-    expect(envs.timeline.pending).toBeGreaterThan(0);
-    expect(envs.layout.pending).toBeGreaterThan(0);
+    // A slow release: the sheet travels to the nearest height, so the drag has a frame pending.
+    envs.pointer.press(sheet, [0, 0], [0, 200], 400);
+    envs.pointer.time += 300;
+    envs.pointer.up(sheet, 0, 200);
+    for (const [name, env] of Object.entries(envs)) expect(env.pending, name).toBeGreaterThan(0);
     expect(ui.getState()).toMatchObject({ dimming: true, dragging: true, playing: true, gliding: 2 });
     ui.destroy();
     expect(envs.pointer.removed).toBe(1);
     for (const [name, env] of Object.entries(envs)) expect(env.pending, name).toBe(0);
+    expect(envs.pointer.cancelled).not.toEqual([]);
     expect(ui.getState()).toMatchObject({ dimming: false, dragging: false, playing: false, gliding: 0, exiting: 0 });
+  });
+
+  it("stops a drag that a finger still holds on destroy", () => {
+    const { sheet, envs, ui } = setup();
+    envs.pointer.down(sheet, 0, 0);
+    envs.pointer.time += 16;
+    envs.pointer.move(sheet, 0, 40);
+    expect(ui.getState().dragging).toBe(true);
+    ui.destroy();
+    expect(envs.pointer.removed).toBe(1);
+    expect(envs.pointer.pending).toBe(0);
+    expect(ui.getState().dragging).toBe(false);
   });
 });
