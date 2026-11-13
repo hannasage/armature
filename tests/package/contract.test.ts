@@ -34,8 +34,8 @@ describe("package contract", () => {
     expect(pkg.publishConfig).toEqual({ access: "public", tag: "beta" });
   });
 
-  it("exports the twelve subpaths and the stylesheet, and nothing else", () => {
-    expect(Object.keys(pkg.exports).sort()).toEqual([".", "./curves", "./dom", "./frame", "./gesture", "./glass", "./glass/react", "./layout", "./linear", "./react", "./styles.css", "./timeline", "./values"]);
+  it("exports the fifteen subpaths and the stylesheet, and nothing else", () => {
+    expect(Object.keys(pkg.exports).sort()).toEqual([".", "./css", "./curves", "./dom", "./frame", "./gesture", "./glass", "./glass/react", "./layout", "./linear", "./react", "./styles.css", "./svelte", "./timeline", "./values", "./vue"]);
   });
 
   it("gives each code subpath a types file and an import file, and no require file", () => {
@@ -60,9 +60,9 @@ describe("package contract", () => {
     expect(pkg).not.toHaveProperty("dependencies");
   });
 
-  it("keeps React an optional peer", () => {
-    expect(pkg.peerDependencies).toEqual({ react: ">=18" });
-    expect(pkg.peerDependenciesMeta).toEqual({ react: { optional: true } });
+  it("keeps React, Vue, and Svelte optional peers", () => {
+    expect(pkg.peerDependencies).toEqual({ react: ">=18", vue: "^3.5.0", svelte: "^5.0.0" });
+    expect(pkg.peerDependenciesMeta).toEqual({ react: { optional: true }, vue: { optional: true }, svelte: { optional: true } });
   });
 
   it("runs the pack check, after the other gates, before every publish", () => {

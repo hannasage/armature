@@ -12,7 +12,10 @@
     "liquid-glass",
     "react",
     "esm",
-    "typescript"
+    "typescript",
+    "vue",
+    "svelte",
+    "css"
   ],
   "type": "module",
   "sideEffects": [
@@ -76,6 +79,18 @@
       "types": "./dist/glass/react/index.d.ts",
       "import": "./dist/glass/react/index.js"
     },
+    "./css": {
+      "types": "./dist/css/index.d.ts",
+      "import": "./dist/css/index.js"
+    },
+    "./vue": {
+      "types": "./dist/vue/index.d.ts",
+      "import": "./dist/vue/index.js"
+    },
+    "./svelte": {
+      "types": "./dist/svelte/index.d.ts",
+      "import": "./dist/svelte/index.js"
+    },
     "./styles.css": "./dist/styles.css"
   },
   "scripts": {
@@ -94,10 +109,18 @@
     "check:size": "node scripts/check-size.mjs"
   },
   "peerDependencies": {
-    "react": ">=18"
+    "react": ">=18",
+    "vue": "^3.5.0",
+    "svelte": "^5.0.0"
   },
   "peerDependenciesMeta": {
     "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    },
+    "svelte": {
       "optional": true
     }
   },
@@ -111,9 +134,11 @@
     "eslint": "10.14.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "svelte": "5.57.3",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.1",
     "vite": "8.3.6",
-    "vitest": "5.0.5"
+    "vitest": "5.0.5",
+    "vue": "3.5.45"
   }
 }

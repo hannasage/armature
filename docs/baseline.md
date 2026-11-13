@@ -654,3 +654,137 @@ The gate container has no browser. `tests/browser/layout.pw.mjs` ran once on the
 `/layout` exports `createLayout`, `createPresence`, `createShared`, `createBrowserLayoutEnvironment`, `requireLayout`, and the types `Box`, `ExitPose`, `Layout`, `LayoutEnvironment`, `LayoutFlavor`, `LayoutOptions`, `LayoutState`, `Presence`, `PresenceOptions`, `PresenceState`, `Shared`, `SharedOptions`, and `SharedState`. The names beyond the spec are `createShared`, `requireLayout`, `createBrowserLayoutEnvironment`, the option `children`, the optional arguments of `snapshot(first, velocity)`, `release()`, the options `ttl` of a shared object and `unmount` and `from` of a presence, the state `leftMounted` and `layouts`, and the optional environment methods `getStyle` and `after`.
 
 The spec says the environment gains an optional `measure(target)`. The type `ArmatureEnvironment` in the engine has it, and that costs no byte. The implementation for the browser is in `createBrowserLayoutEnvironment`, in `/layout`, and not in `createBrowserEnvironment`, because the spring-only entry has no room for it.
+
+## G7 build
+
+Date: 2026-11-13 (UTC).
+Source: branch `task/g7-adapters`, from `e363bbd` (the merge of G6). G7 adds three entries: `@hannasage/armature/css` (functions that return CSS text), `@hannasage/armature/vue` (composables over the DOM controllers), and `@hannasage/armature/svelte` (actions over the same controllers).
+Method: `node scripts/size.mjs`, the same as G0 to G6. esbuild 0.28.2, `bundle`, `minify`, `esm`, then gzip. React, Vue, and Svelte are external, so the size of an adapter does not include Vue or Svelte. Node 24 in Docker.
+
+### The new entries
+
+| Entry | Source | Minified (bytes) | Gzipped (bytes) |
+| --- | --- | ---: | ---: |
+| `@hannasage/armature/css` | `src/css/index.ts` | 25,282 | 9,563 |
+| `@hannasage/armature/vue` | `src/vue/index.ts` | 29,202 | 10,954 |
+| `@hannasage/armature/svelte` | `src/svelte/index.ts` | 29,040 | 10,883 |
+
+| Entry | Measured (gzipped) | Cap (approved) | Amendment 1 proposal |
+| --- | ---: | ---: | --- |
+| `/css` | 9,563 | 10,520 | 2.0 KB |
+| `/vue` | 10,954 | 12,050 | 1.0 KB |
+| `/svelte` | 10,883 | 11,980 | 1.0 KB |
+
+Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes, and the tech lead approved each cap (approved by the tech lead, 2026-11-13), as the rule since that date says. The caps, as bullets:
+
+- `/css`: 10,520.
+- `/vue`: 12,050.
+- `/svelte`: 11,980.
+
+After the fix rounds the three entries measure 9,677 (`/css`), 11,018 (`/vue`), and 10,966 (`/svelte`) gzipped bytes. Each is under its cap, and no cap moved. The first measures, 9,563, 10,954, and 10,883, are the ones the caps were derived from. The growth is the checks and fixes of the round.
+
+The three measures are far above the proposals. The amendment says a cap is "counted alone with its own imports", and the proposals were set from judgment before the code existed. The measures count what each entry imports:
+
+| Part | Minified (bytes) | Gzipped (bytes) | What is left out |
+| --- | ---: | ---: | --- |
+| `/vue` code alone | 1,179 | 587 | the files of `dom`, `gesture`, and `layout` |
+| `/svelte` code alone | 1,024 | 510 | the files of `dom`, `gesture`, and `layout` |
+| `/css` code alone | 4,727 | 2,274 | the files of `linear`, `timeline`, `curves`, `frame`, and `engine` |
+| `/css` code and the engine files it uses | 9,281 | 3,540 | the files of `linear`, `timeline`, `curves`, and `frame` |
+
+The code of each adapter alone is under its proposal of 1.0 KB. The code of `/css` alone is 2,274 gzipped bytes, which is above its proposal of 2.0 KB; the engine files it uses, mostly `validateFlavor`, add 1,266 more. The rest of an adapter entry is the four controllers: the surface (3.2 KB gzipped in `dist`), the follower, the drag (5.0 KB), and the layout, with the engine files they share. An adapter entry holds all four, because it exports four functions. A bundler that tree-shakes keeps only the controllers a page imports, because the package has no side effects except `styles.css`. The measure here is the most a page can pay.
+
+The `/css` entry is large for the same reason. It reuses `/linear` (3,351 gzipped) and `/timeline` (5,893), so that its keyframes hold the values of a real timeline and it holds no motion logic of its own. Its own code is 2,274, and the engine files add 1,266 more, mostly `validateFlavor`, which `cssFlavor` calls so that a flavor that does not hold together is refused. A copy of the timeline math inside `/css` would be smaller, and it would be a second copy of the motion logic. That choice is for the tech lead, and it is listed in "Choices".
+
+### Own-code caps
+
+The tech lead decided on 2026-11-13 to keep the entry caps as the most a page pays, and to add a second cap for the code of the entry alone. The own code is measured with the files of the wrapped layers (`engine`, `dom`, `gesture`, `layout`, `timeline`, `linear`, `curves`, and `frame`) marked external. `scripts/size-lib.mjs` does this (`measureOwn`), and `npm run check:size` checks it (approved by the tech lead, 2026-11-13).
+
+| Entry | Own code (gzipped) | Own-code cap |
+| --- | ---: | ---: |
+| `/vue` | 573 | 1,000 |
+| `/svelte` | 528 | 1,000 |
+| `/css` | 2,382 | 2,510 |
+
+The own-code measure does not depend on where the repository is checked out.
+The first version wrote the absolute path of each left-out file as the import specifier.
+A checkout at `/w` measured 571, 527, and 2,377 bytes.
+A checkout at `/home/runner/work/armature/armature` measured 589, 542, and 2,397 bytes.
+The specifier is now `armature-layer:` and the path inside `src`.
+Both checkouts now measure 573, 528, and 2,382 bytes.
+
+### One import
+
+The entry sizes count all four controllers, because each adapter exports four functions. A page that imports one function pays for one controller. `tests/package/g7-treeshake.test.ts` bundles a page that imports only `useArmatureFollower` from `/vue`, and only `follow` from `/svelte`, with esbuild and tree-shaking on. The result: the bundle holds `src/dom/follower.ts` and none of `src/dom/surface.ts`, `src/gesture/drag.ts`, `src/layout/layout.ts`, or `src/layout/motion.ts`. The page costs 3,392 gzipped bytes from `/vue` and 3,339 from `/svelte`, against about 11,000 for the whole entry. Tree-shaking holds, so the subpaths are not split.
+
+### Other entries
+
+No cap moved, and no entry is over its cap. The stop function of `guardedSetup` now takes its cleanup into a local, clears it, and then runs it, so a throwing reporter or a re-entrant stop cannot run it twice. That added 12 bytes to `.`, 13 to `/react`, and 14 to `/glass/react`. After G7 fix round 2: `.` 3,865 (cap 4,000; it was 3,853), `/frame` 807, `/values` 6,615, `/curves` 2,363, `/linear` 3,351, `/gesture` 5,332, `/timeline` 5,893, `/layout` 5,832, `/dom` 11,310, `/react` 11,674 (it was 11,661), `/glass` 7,882, `/glass/react` 12,682 (it was 12,668), and `styles.css` 749 gzipped bytes. The spring-only entry reaches no file of `/css`, `/vue`, or `/svelte`, and a boundary test checks it. The tests that pinned `.` at 3,853 or 3,854 now pin 3,865.
+
+### The tarball
+
+`npm run check:pack` passed. The tarball is 295,441 bytes in 259 files, under the limit of 333,027 (1.5 times the approved MEASURED_SIZE of 222,018). It was 275,938 bytes in 230 files after G6. MEASURED_SIZE did not change. The room left under the limit is 37,586 bytes. It was 293,764 bytes before the fix rounds.
+
+The pack check installs Vue and Svelte beside React in the clean consumer project, and type-checks a consumer file that imports the three new entries under `nodenext` and `bundler`. It also installs the tarball a second time into a lean project with React only, imports `.`, `/dom`, and `/css` there, type-checks them, and checks that Vue and Svelte are not installed, which proves the two peers stay optional. The whole check ran in 8 seconds in the gate container.
+
+### Peer ranges
+
+The ranges are chosen from `npm view`, run in the gate container on 2026-11-13:
+
+```
+$ npm view vue versions --json          (last lines)
+  "3.6.0-rc.13", "3.6.0-rc.14", "3.6.0-rc.15"
+$ npm view vue dist-tags
+{ csp: '1.0.28-csp', legacy: '2.7.16', 'v2-latest': '2.7.16', alpha: '3.6.0-alpha.7', beta: '3.6.0-beta.17', rc: '3.6.0-rc.15', latest: '3.5.45' }
+$ npm view vue version peerDependencies
+version = '3.5.45'
+peerDependencies = { typescript: '*' }
+$ npm view svelte versions --json       (last lines)
+  "5.56.9", "5.57.0", "5.57.1", "5.57.2", "5.57.3"
+$ npm view svelte dist-tags
+{ next: '5.0.0-next.272', latest: '5.57.3' }
+$ npm view svelte version engines peerDependencies
+version = '5.57.3'
+engines = { node: '>=18' }
+```
+
+The same lists show `3.0.0`, `3.4.0`, `3.5.0`, `3.5.1`, `4.2.20`, and `5.0.0`. `npm view vue time` gives `3.5.0` on 2024-09-03, and `npm view svelte time` gives `5.0.0` on 2024-10-19.
+
+- Vue: the latest major is 3 (`latest` is 3.5.45). Version 2.7.16 is the `legacy` tag. The 3.6 line is still `alpha`, `beta`, and `rc`, so it is not the latest. The range is `^3.5.0`.
+- Svelte: the latest major is 5 (`latest` is 5.57.3). The range is `^5.0.0`.
+
+The floors were tested and not guessed. `vue@3.5.0` and `svelte@5.0.0` were installed with `npm install --no-save` in the gate container, and the Vue tests, the Svelte tests, and the boundary test passed on them (48 of 48). The ceiling is the next major. The tests also pass on the pinned dev dependencies, `vue@3.5.45` and `svelte@5.57.3`.
+
+Both are optional peers, as React is, and both are dev dependencies only, pinned with `--save-exact`. `npm install` ran without `--force` and without `--legacy-peer-deps`.
+
+### The Svelte test path
+
+The Svelte docs describe two server steps: `compile` from `svelte/compiler` with `generate: "server"`, and `render` from `svelte/server`. The test uses both. A component that uses every action is compiled for the server, written to a temporary file, loaded, and rendered with `render`. It must give the markup, run no action, and touch no environment. A second compile with `generate: "client"` checks that each `use:` directive calls the action. The action functions themselves are called by hand, with fake environments, as Svelte calls them, for the mount and destroy tests. No Svelte plugin for the build tool is needed.
+
+The Vue test path uses `vue/server-renderer` for the server render, and Vue's own `createRenderer` with nodes that need no DOM for mount and unmount, so the real `onMounted` and `onBeforeUnmount` hooks run.
+
+### Choices
+
+- The inherit flag of each `@property` rule follows where the controller writes and where the stylesheet reads: the surface variables do not inherit, and the lens and follower variables do. The lens controller writes on the row and the stylesheet reads on a `.lqg-lens` child.
+- `format` gets the value rounded to 4 places, a keyframes name cannot be a CSS keyword, and `cssKeyframesFit` returns `capped`.
+- A Vue composable with an empty ref at the mount warns once and sets `failed`.
+- A Svelte action destroys its controller when `onReady` throws, and reports an error of `onReady(null)` through the same reporter.
+
+The spec was silent on these points:
+
+- The CSS functions are `cssLinear`, `cssKeyframes`, `cssKeyframesFit`, and `cssFlavor`. `cssKeyframesFit` also returns the duration, because an animation needs it.
+- `cssFlavor` writes `@property` rules for the surface, lens, and follower variables, and one `:where` rule for the surface at rest. The spec says "a flavor's variables and attributes become a stylesheet" and gives no shape.
+- `cssKeyframes` builds a real timeline on an environment that does nothing, and reads it at evenly spaced times. It reuses the timeline, so it holds no motion logic, at the cost of the size above.
+- Every flavor-supplied name is escaped with the rule of `CSS.escape`, and `<` is written as a hex escape. A unit is letters only. The text of a `format` function is checked against a list of characters and functions.
+- The Vue composables return `{ controller, failed }`, two refs. The options are read once, at the mount, as the React hooks read them. A failed start is logged once and shows in `failed`.
+- The Svelte actions are `surface`, `follow`, `drag`, and `layout`, and they take `onReady` and `onError` beside the options of the controller. `onReady` gives a component the controller, because a Svelte action can return only `update` and `destroy`. An action has no `update`: the options are read once.
+- The adapters wrap four controllers: the surface, the follower, the drag, and the layout. The lens and the scroll reveal are not wrapped.
+- `/vue` and `/svelte` reach the controllers by their own files (`dom/surface`, `dom/follower`, `gesture/drag`, `layout/layout`), and never by the index of a layer.
+- The Vue and Svelte entries are measured with Vue and Svelte external. `/svelte` imports nothing from Svelte, so its types are plain structural types.
+- The README heading check knew number words up to twelve. It now knows them up to twenty, because the package has fifteen entries.
+
+### Public names
+
+`/css` exports `cssFlavor`, `cssKeyframes`, `cssKeyframesFit`, `cssLinear`, and the types `CssTrack`, `KeyframesFit`, and `KeyframesOptions`.
+`/vue` exports `useArmatureDrag`, `useArmatureFollower`, `useArmatureLayout`, `useArmatureSurface`, and the types `ControllerHandle`, `ElementRef`, and the controller types and options it wraps.
+`/svelte` exports `drag`, `follow`, `layout`, `surface`, and the types `ActionHooks`, `ActionResult`, and the same controller types and options.

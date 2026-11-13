@@ -20,11 +20,14 @@ export default defineConfig({
         "react/index": "src/react/index.ts",
         "glass/index": "src/glass/index.ts",
         "glass/react/index": "src/glass/react/index.ts",
+        "css/index": "src/css/index.ts",
+        "vue/index": "src/vue/index.ts",
+        "svelte/index": "src/svelte/index.ts",
       },
       formats: ["es"],
     },
     rolldownOptions: {
-      external: ["react", "react/jsx-runtime", "react-dom"],
+      external: ["react", "react/jsx-runtime", "react-dom", "vue", "svelte"],
       output: {
         preserveModules: true,
         preserveModulesRoot: "src",

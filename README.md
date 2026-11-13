@@ -15,12 +15,12 @@ The first flavor is liquid glass. It is in this package. The second flavor will 
 npm install @hannasage/armature@beta
 ```
 
-React is an optional peer. The engine and the DOM controllers need no React.
-Install React 18 or later only if you use the React entries.
+React, Vue, and Svelte are optional peers. The engine and the DOM controllers need none of them.
+Install React 18 or later only if you use the React entries. Install Vue 3.5 or later within 3.x only if you use `@hannasage/armature/vue`, and Svelte 5 or later only if you use `@hannasage/armature/svelte`.
 
-## The twelve subpaths
+## The fifteen subpaths
 
-The package has twelve JavaScript entries and one stylesheet.
+The package has fifteen JavaScript entries and one stylesheet.
 The package is ESM only. Each entry has a `types` file and an `import` file, and there is no CommonJS build.
 Each entry loads only what it needs.
 Every entry except `glass` and `glass/react` holds no glass code.
@@ -35,6 +35,9 @@ Every entry except `glass` and `glass/react` holds no glass code.
 - `@hannasage/armature/layout` holds layout animation (FLIP), shared elements, and presence. An element is measured before and after a change, put back where it was with `translate` and `scale`, and sprung to zero. A change in flight keeps its speed. Two elements with one key move as one, and an exiting element stays until it rests. `createLayout`, `createShared`, and `createPresence` take a flavor with a `layout` part. See `docs/layout.md`.
 - `@hannasage/armature/dom` holds the DOM controllers: surface, lens, follower, delegation, and scroll reveal. Each one takes a flavor.
 - `@hannasage/armature/react` holds the generic React hooks and providers, such as `useArmatureSurface`, `useArmatureFollower`, and `ArmatureProvider`. Each one takes a flavor.
+- `@hannasage/armature/css` returns CSS as strings, with no DOM and no environment. `cssLinear` writes a spring or a curve as `linear()`. `cssKeyframes` writes a timeline as `@keyframes` text. `cssFlavor` writes the variables and attributes of a flavor as a stylesheet. It runs on a server, in a build step, or in a test. See `docs/css.md`.
+- `@hannasage/armature/vue` holds one Vue composable for each DOM controller: `useArmatureSurface`, `useArmatureFollower`, `useArmatureDrag`, and `useArmatureLayout`. Each makes the controller when the component mounts and destroys it when the component unmounts. See `docs/adapters.md`.
+- `@hannasage/armature/svelte` holds one Svelte action for each of the same controllers: `surface`, `follow`, `drag`, and `layout`. They work with the `use:` directive. See `docs/adapters.md`.
 - `@hannasage/armature/glass` holds the glass flavor, `glassFlavor`, with the refraction filter, the PNG encoder, the browser check, and the glass names.
 - `@hannasage/armature/glass/react` holds the glass React wrappers: `LqgProvider`, `LqgFilter`, `useLqgSurface`, `useLqgLens`, `useLqgReveal`, and `LqgRevealProvider`. They use the glass flavor unless you pass another.
 - `@hannasage/armature/styles.css` is the glass stylesheet.
