@@ -17,6 +17,11 @@ export interface ArmatureEnvironment {
   setAttribute(target: ArmatureTarget, name: string, value: string | null): void;
   /** Calls back when the target changes size. Optional; without it the controller refits only on `refit()`. */
   observeResize?(target: ArmatureTarget, callback: () => void): { disconnect(): void };
+  /**
+   * The box of the target as it shows now, in pixels from the top left of the viewport, with any `translate` and `scale` applied.
+   * Optional. The layout entry, `@hannasage/armature/layout`, needs it, and its own browser environment has it.
+   */
+  measure?(target: ArmatureTarget): { x: number; y: number; width: number; height: number };
 }
 
 /** The real browser. Safe to import on the server: nothing runs until a method is called. */

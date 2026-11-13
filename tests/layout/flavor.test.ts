@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { defineFlavor, validateFlavor, type Flavor, type LayoutFlavor } from "../../src/engine/flavor";
+import { defineFlavor, validateFlavor, type Flavor } from "../../src/engine/flavor";
 import { glassFlavor } from "../../src/glass/flavor";
-import { createLayout, createPresence, createShared, requireLayout } from "../../src/layout";
+import { createLayout, createPresence, createShared, requireLayout, type LayoutFlavor } from "../../src/layout";
 import { projection } from "../../examples/projection/flavor";
 import { swipey } from "../helpers/gesture-flavor";
 import { FakeLayoutEnv } from "../helpers/fake-layout-env";
@@ -42,7 +42,7 @@ describe("the layout part of a flavor", () => {
     ["a part that is null", null, /layout part that is not an object/],
     ["a part that is a string", "x", /layout part that is not an object/],
     ["a part that is a list", [], /layout part that is not an object/],
-    ["no spring keys", { rest: part.rest }, /layout part with no spring keys/],
+    ["no spring keys", { springKeys: undefined }, /layout part with no spring keys/],
     ["spring keys that are null", { springKeys: null }, /layout part with no spring keys/],
     ["no move key", { springKeys: {} }, /layout spring key "move"/],
     ["a move key that is not text", { springKeys: { move: 5 } }, /layout spring key "move"/],
@@ -50,7 +50,7 @@ describe("the layout part of a flavor", () => {
     ["an exit key that is not a spring", { springKeys: { move: "move", exit: "nope" } }, /no spring named "nope"/],
     ["an exit key that is not text", { springKeys: { move: "move", exit: 3 } }, /layout spring key "exit"/],
     ["an inherited spring key", { springKeys: { move: "toString" } }, /no spring named "toString"/],
-    ["no rest limits", { springKeys: part.springKeys }, /layout part with no rest limits/],
+    ["no rest limits", { rest: undefined }, /layout part with no rest limits/],
     ["rest limits that are null", { rest: null }, /layout part with no rest limits/],
     ["a restDelta of 0", { rest: { restDelta: 0, restSpeed: 1 } }, /rest limit "restDelta"/],
     ["a negative restDelta", { rest: { restDelta: -1, restSpeed: 1 } }, /rest limit "restDelta"/],
@@ -82,7 +82,7 @@ describe("the layout part of a flavor", () => {
 
   it("is required by every controller, and the error says so", () => {
     const env = new FakeLayoutEnv();
-    expect(() => requireLayout(glassFlavor)).toThrow(/The flavor "liquid-glass" has no layout part/);
+    expect(() => requireLayout(glassFlavor)).toThrow(/The flavor "glass" has no layout part/);
     expect(() => createLayout({}, { flavor: tempo, env })).toThrow(/The flavor "tempo" has no layout part/);
     expect(() => createPresence({}, { flavor: tempo, env })).toThrow(/has no layout part/);
     expect(() => createShared({ flavor: tempo, env })).toThrow(/has no layout part/);

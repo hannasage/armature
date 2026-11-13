@@ -28,6 +28,8 @@ export default defineConfig(
       globals: {
         console: "readonly", process: "readonly", document: "readonly", window: "readonly", performance: "readonly", requestAnimationFrame: "readonly",
         matchMedia: "readonly", setTimeout: "readonly", MutationObserver: "readonly", Date: "readonly", Promise: "readonly",
+        // Set on the page by the helper script of a check, and used by its page functions.
+        flavor: "readonly", rect: "readonly", frames: "readonly", rested: "readonly",
       },
     },
   },

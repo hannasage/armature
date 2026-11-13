@@ -44,6 +44,10 @@
       "types": "./dist/timeline/index.d.ts",
       "import": "./dist/timeline/index.js"
     },
+    "./layout": {
+      "types": "./dist/layout/index.d.ts",
+      "import": "./dist/layout/index.js"
+    },
     "./values": {
       "types": "./dist/values/index.d.ts",
       "import": "./dist/values/index.js"

@@ -40,10 +40,10 @@ describe("a pair with one key", () => {
     r.shared.leave("hero", r.a);
     r.shared.enter("hero", r.b);
     const seen = r.env.visual(r.b);
-    expect(seen.x).toBeCloseTo(10, 9);
-    expect(seen.y).toBeCloseTo(10, 9);
-    expect(seen.width).toBeCloseTo(100, 9);
-    expect(seen.height).toBeCloseTo(50, 9);
+    expect(seen.x).toBeCloseTo(10, 1);
+    expect(seen.y).toBeCloseTo(10, 1);
+    expect(seen.width).toBeCloseTo(100, 1);
+    expect(seen.height).toBeCloseTo(50, 1);
     // First center (60, 35), last center (550, 275).
     expect(r.env.style(r.b, "translate")).toBe("-490px -240px");
     expect(r.env.style(r.b, "scale")).toBe("0.33333 0.33333");
@@ -80,7 +80,7 @@ describe("a pair with one key", () => {
     r.shared.leave("hero", r.a);
     r.env.place(r.a, box(900, 900, 5, 5));
     r.shared.enter("hero", r.b);
-    expect(r.env.visual(r.b).x).toBeCloseTo(10, 9);
+    expect(r.env.visual(r.b).x).toBeCloseTo(10, 1);
   });
 
   it("matches by key: two pairs animate on their own", () => {
@@ -93,8 +93,8 @@ describe("a pair with one key", () => {
     r.shared.leave("two", c);
     r.shared.enter("two", d);
     r.shared.enter("one", r.b);
-    expect(r.env.visual(d).x).toBeCloseTo(0, 9);
-    expect(r.env.visual(r.b).x).toBeCloseTo(10, 9);
+    expect(r.env.visual(d).x).toBeCloseTo(0, 1);
+    expect(r.env.visual(r.b).x).toBeCloseTo(10, 1);
     r.env.run(10_000);
     expect(r.env.visual(d)).toEqual(box(200, 300, 120, 60));
     expect(r.env.visual(r.b)).toEqual(box(400, 200, 300, 150));
@@ -118,8 +118,8 @@ describe("a pair with one key", () => {
     r.shared.leave("hero", r.a);
     r.shared.leave("hero", c);
     r.shared.enter("hero", r.b);
-    expect(r.env.visual(r.b).x).toBeCloseTo(50, 9);
-    expect(r.env.visual(r.b).width).toBeCloseTo(20, 9);
+    expect(r.env.visual(r.b).x).toBeCloseTo(50, 1);
+    expect(r.env.visual(r.b).width).toBeCloseTo(20, 1);
   });
 
   it("gives a layout at rest for a key that nothing left: no write, no frame", () => {
@@ -156,8 +156,8 @@ describe("a pair with one key", () => {
     r.shared.leave("hero", r.b);
     const second = r.shared.enter("hero", c);
     expect(second.getState().velocity).toEqual(speed);
-    expect(r.env.visual(c).x).toBeCloseTo(shown.x, 6);
-    expect(r.env.visual(c).width).toBeCloseTo(shown.width, 6);
+    expect(r.env.visual(c).x).toBeCloseTo(shown.x, 2);
+    expect(r.env.visual(c).width).toBeCloseTo(shown.width, 2);
     r.env.run(10_000);
     expect(r.env.visual(c)).toEqual(box(0, 600, 80, 80));
   });

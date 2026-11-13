@@ -334,7 +334,7 @@ describe("the children", () => {
     list = later;
     r.env.place(r.el, box(0, 0, 200, 100));
     r.layout.play();
-    expect(first[0] in r.env.styles).toBe(false);
+    expect(r.env.styles.has(first[0])).toBe(false);
     for (const child of later) expect(r.env.style(child, "scale")).toBeDefined();
     r.env.run(10_000);
     for (const child of later) expect(r.env.style(child, "scale")).toBeUndefined();

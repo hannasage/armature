@@ -37,6 +37,14 @@ export const API = {
     types: ["DecayStep", "Keyframe", "Timeline", "TimelineEnvironment", "TimelineOptions", "TimelineState", "TimelineStep", "TrackSpec"],
     generic: true,
   },
+  "./layout": {
+    values: ["createBrowserLayoutEnvironment", "createLayout", "createPresence", "createShared", "requireLayout"],
+    types: [
+      "Box", "ExitPose", "Layout", "LayoutEnvironment", "LayoutFlavor", "LayoutOptions", "LayoutState", "Presence", "PresenceOptions", "PresenceState", "Shared",
+      "SharedOptions", "SharedState"
+    ],
+    generic: true,
+  },
   "./values": {
     values: [
       "colorKind", "createValue", "createVectorSpring", "isVectorAtRest", "numberKind", "pathKind", "reconfigureVector", "retargetVector",

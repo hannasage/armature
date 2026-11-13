@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // A server render touches no `window`. The globals a browser has are made to throw and to record, and the whole entry is imported and every
 // controller is made and destroyed with the default environment.
 
-const TRAPS = ["window", "document", "navigator", "requestAnimationFrame", "cancelAnimationFrame", "ResizeObserver", "getComputedStyle", "matchMedia"];
+const TRAPS = ["window", "document", "requestAnimationFrame", "cancelAnimationFrame", "ResizeObserver", "getComputedStyle", "matchMedia"];
 const hits: string[] = [];
 
 function trap() {

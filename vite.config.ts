@@ -12,6 +12,7 @@ export default defineConfig({
         "frame/index": "src/frame/index.ts",
         "gesture/index": "src/gesture/index.ts",
         "timeline/index": "src/timeline/index.ts",
+        "layout/index": "src/layout/index.ts",
         "values/index": "src/values/index.ts",
         "curves/index": "src/curves/index.ts",
         "linear/index": "src/linear/index.ts",
