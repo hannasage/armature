@@ -17,7 +17,7 @@ describe("release.config.json", () => {
   });
 
   it("names the release branch and a positive file count", () => {
-    expect(config.releaseBranch).toBe("release/1.0.0");
+    expect(config.releaseBranch).toBe("main");
     expect(Number.isInteger(config.expectedFileCount)).toBe(true);
     expect(config.expectedFileCount).toBeGreaterThan(0);
   });
@@ -46,8 +46,8 @@ describe("release.config.json", () => {
     expect(release.retireCommands(config).map((command) => command.join(" "))).toEqual([
       'npm deprecate @hannasage/armature@1.0.0-next.0 Renamed to the beta tag. Use 1.0.0-beta.0.',
       "npm dist-tag rm @hannasage/armature next",
-      "npm dist-tag add @hannasage/armature@1.0.0-beta.0 latest",
+      "npm dist-tag add @hannasage/armature@1.0.0-beta.1 latest",
     ]);
-    expect(release.gitTagName(config)).toBe("v1.0.0-beta.0");
+    expect(release.gitTagName(config)).toBe("v1.0.0-beta.1");
   });
 });

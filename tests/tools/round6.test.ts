@@ -8,7 +8,7 @@ import { cleanEnv, cleanup, git, makeFakeBin, makeReleaseRepo, makeRepo, repoRoo
 afterEach(cleanup);
 
 const lib = (name: string) => import(pathToFileURL(join(repoRoot, "tools/lib", name)).href);
-const BETA = JSON.stringify({ beta: "1.0.0-beta.0", next: "1.0.0-next.0", latest: "1.0.0-next.0" });
+const BETA = JSON.stringify({ beta: "1.0.0-beta.1", next: "1.0.0-next.0", latest: "1.0.0-next.0" });
 const script = join(repoRoot, "tools/tree-clean.mjs");
 
 function pushed() {

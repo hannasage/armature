@@ -7,7 +7,7 @@ import { cleanup, git, makeReleaseRepo, type ReleaseRepo } from "./support";
 afterEach(cleanup);
 
 const json = (text: string) => JSON.parse(text) as { ok: boolean; command: string; status: string; exit: number; message: string; steps: { command: string; exit: number | null }[]; [key: string]: unknown };
-const BETA = JSON.stringify({ beta: "1.0.0-beta.0", next: "1.0.0-next.0", latest: "1.0.0-next.0" });
+const BETA = JSON.stringify({ beta: "1.0.0-beta.1", next: "1.0.0-next.0", latest: "1.0.0-next.0" });
 const FORBIDDEN = /^(login|adduser|whoami|deprecate|dist-tag|unpublish|token)\b|^publish(?!.*--dry-run)/;
 
 /** No call to npm in the log may write to the registry or touch a login. */
@@ -89,7 +89,7 @@ describe("preflight", () => {
     git(repo.work, "checkout", "-q", "-b", "other");
     const result = repo.run(["preflight"]);
     expect(result.status).toBe(1);
-    expect(result.stdout).toContain("release/1.0.0");
+    expect(result.stdout).toContain("on branch other, not main. Run: git checkout main");
   });
 
   it("fails when the branch has a commit that is not on the remote", () => {
@@ -267,8 +267,8 @@ describe("tag", () => {
     const commit = git(repo.work, "rev-parse", "HEAD");
     const result = repo.run(["tag", "--dry-run"]);
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain(`git tag -a v1.0.0-beta.0 ${commit} -m 1.0.0-beta.0`);
-    expect(result.stdout).toContain("git push origin refs/tags/v1.0.0-beta.0");
+    expect(result.stdout).toContain(`git tag -a v1.0.0-beta.1 ${commit} -m 1.0.0-beta.1`);
+    expect(result.stdout).toContain("git push origin refs/tags/v1.0.0-beta.1");
     expect(git(repo.work, "tag", "--list")).toBe("");
     expect(git(repo.origin, "tag", "--list")).toBe("");
   });
@@ -296,8 +296,8 @@ describe("tag", () => {
     const commit = git(repo.work, "rev-parse", "HEAD");
     const result = repo.run(["tag"]);
     expect(result.status).toBe(0);
-    expect(git(repo.work, "rev-list", "-n", "1", "v1.0.0-beta.0")).toBe(commit);
-    expect(git(repo.origin, "rev-list", "-n", "1", "v1.0.0-beta.0")).toBe(commit);
+    expect(git(repo.work, "rev-list", "-n", "1", "v1.0.0-beta.1")).toBe(commit);
+    expect(git(repo.origin, "rev-list", "-n", "1", "v1.0.0-beta.1")).toBe(commit);
     const again = repo.run(["tag"]);
     expect(again.status).toBe(0);
     expect(again.stdout).toContain("already done");
@@ -311,13 +311,13 @@ describe("retire (human only)", () => {
     expect(result.status).toBe(2);
     expect(result.stdout).toContain("npm deprecate @hannasage/armature@1.0.0-next.0");
     expect(result.stdout).toContain("npm dist-tag rm @hannasage/armature next");
-    expect(result.stdout).toContain("npm dist-tag add @hannasage/armature@1.0.0-beta.0 latest");
+    expect(result.stdout).toContain("npm dist-tag add @hannasage/armature@1.0.0-beta.1 latest");
     expectNoRegistryWrites(repo);
   });
 
   it("prints already done when the tags and the deprecation are in place", () => {
     const repo = makeReleaseRepo();
-    writeFileSync(join(repo.fake.fixtures, "dist-tags.json"), JSON.stringify({ beta: "1.0.0-beta.0", latest: "1.0.0-beta.0" }));
+    writeFileSync(join(repo.fake.fixtures, "dist-tags.json"), JSON.stringify({ beta: "1.0.0-beta.1", latest: "1.0.0-beta.1" }));
     writeFileSync(join(repo.fake.fixtures, "deprecated.txt"), "Renamed to the beta tag. Use 1.0.0-beta.0.\n");
     const result = repo.run(["retire"]);
     expect(result.status).toBe(0);
@@ -361,7 +361,7 @@ describe("status", () => {
     const result = repo.run(["status"]);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("publish");
-    expect(result.stdout).toContain("1.0.0-beta.0");
+    expect(result.stdout).toContain("1.0.0-beta.1");
   });
 });
 

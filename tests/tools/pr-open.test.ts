@@ -17,7 +17,7 @@ function setup(body = GOOD) {
   const bodyFile = join(dir, "body.md");
   writeFileSync(bodyFile, body);
   const run = (args: string[], env: Record<string, string> = {}) => runNode(script, args, { cwd: repo, env: fake.env(env) });
-  const base = ["--title", "Add release script", "--body-file", bodyFile, "--base", "release/1.0.0"];
+  const base = ["--title", "Add release script", "--body-file", bodyFile, "--base", "main"];
   return { fake, repo, bodyFile, run, base };
 }
 
@@ -27,10 +27,10 @@ describe("pr-open", () => {
     const result = run(base);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("https://github.com/example/repo/pull/1");
-    expect(result.stdout).toContain("$ gh pr create --draft --base release/1.0.0");
+    expect(result.stdout).toContain("$ gh pr create --draft --base main");
     const calls = fake.lines("gh").filter((line) => line.startsWith("pr create"));
     expect(calls).toHaveLength(1);
-    expect(calls[0]).toMatch(/^pr create --draft --base release\/1\.0\.0 --title Add release script --body-file /);
+    expect(calls[0]).toMatch(/^pr create --draft --base main --title Add release script --body-file /);
   });
 
   it("never opens a pull request that is not a draft", () => {

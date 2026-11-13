@@ -14,7 +14,7 @@ interface Entry {
 }
 
 const manifest = JSON.parse(readFileSync(join(repoRoot, "tools/manifest.json"), "utf8")) as { tools: Entry[] };
-const BETA = JSON.stringify({ beta: "1.0.0-beta.0", next: "1.0.0-next.0", latest: "1.0.0-next.0" });
+const BETA = JSON.stringify({ beta: "1.0.0-beta.1", next: "1.0.0-next.0", latest: "1.0.0-next.0" });
 
 /** Brings the repository to the state in which the subcommand can do its work. */
 function prepare(repo: ReleaseRepo, subcommand: string) {

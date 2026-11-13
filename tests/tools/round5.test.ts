@@ -9,7 +9,7 @@ afterEach(cleanup);
 type Body = { ok: boolean; status: string; exit: number; message: string; phases?: { name: string; state: string; note: string }[]; warnings?: string[]; [key: string]: unknown };
 const parse = (text: string) => JSON.parse(text) as Body;
 const phase = (body: Body, name: string) => body.phases?.find((entry) => entry.name === name) as { name: string; state: string; note: string };
-const BETA = JSON.stringify({ beta: "1.0.0-beta.0", next: "1.0.0-next.0", latest: "1.0.0-next.0" });
+const BETA = JSON.stringify({ beta: "1.0.0-beta.1", next: "1.0.0-next.0", latest: "1.0.0-next.0" });
 const lib = (name: string) => import(pathToFileURL(join(repoRoot, "tools/lib", name)).href);
 
 describe("1. tree-clean fails closed on a repository that can run programs", () => {

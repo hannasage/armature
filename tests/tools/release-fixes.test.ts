@@ -11,8 +11,8 @@ afterEach(cleanup);
 
 type Body = { ok: boolean; status: string; exit: number; message: string; failingLine?: string; warnings?: string[]; phases?: { name: string; state: string }[]; [key: string]: unknown };
 const parse = (text: string) => JSON.parse(text) as Body;
-const BETA = JSON.stringify({ beta: "1.0.0-beta.0", next: "1.0.0-next.0", latest: "1.0.0-next.0" });
-const NAME = "v1.0.0-beta.0";
+const BETA = JSON.stringify({ beta: "1.0.0-beta.1", next: "1.0.0-next.0", latest: "1.0.0-next.0" });
+const NAME = "v1.0.0-beta.1";
 const statePath = (repo: ReleaseRepo) => join(repo.work, ".git", "release-state.json");
 const readState = (repo: ReleaseRepo) => JSON.parse(readFileSync(statePath(repo), "utf8"));
 const setDistTags = (repo: ReleaseRepo, text = BETA) => writeFileSync(join(repo.fake.fixtures, "dist-tags.json"), text);
@@ -39,7 +39,7 @@ describe("a git worktree", () => {
     const repo = makeReleaseRepo();
     git(repo.work, "checkout", "-q", "-b", "dev");
     const tree = join(tempDir(), "wt");
-    git(repo.work, "worktree", "add", "-q", tree, "release/1.0.0");
+    git(repo.work, "worktree", "add", "-q", tree, "main");
     expect(readFileSync(join(tree, ".git"), "utf8")).toMatch(/^gitdir: \//);
     const run = (args: string[]) => spawnSync(process.execPath, [join(tree, "scripts/release.mjs"), ...args], { cwd: tree, env: repo.env(), encoding: "utf8" });
     for (const sub of ["preflight", "gates", "dry-run"]) {
@@ -107,7 +107,7 @@ describe("the state file", () => {
   it("does not trust a forged gates record with the wrong lock hash", () => {
     const repo = makeReleaseRepo();
     const head = git(repo.work, "rev-parse", "HEAD");
-    writeFileSync(statePath(repo), JSON.stringify({ version: "1.0.0-beta.0", gates: { commit: head, lock: "deadbeef" } }));
+    writeFileSync(statePath(repo), JSON.stringify({ version: "1.0.0-beta.1", gates: { commit: head, lock: "deadbeef" } }));
     const result = repo.run(["gates"]);
     expect(result.stdout).not.toContain("already done");
     expect(repo.fake.lines("npm")).toHaveLength(6);
@@ -116,7 +116,7 @@ describe("the state file", () => {
   it("does not trust a forged gates record with no lock hash", () => {
     const repo = makeReleaseRepo();
     const head = git(repo.work, "rev-parse", "HEAD");
-    writeFileSync(statePath(repo), JSON.stringify({ version: "1.0.0-beta.0", gates: { commit: head } }));
+    writeFileSync(statePath(repo), JSON.stringify({ version: "1.0.0-beta.1", gates: { commit: head } }));
     expect(repo.run(["gates"]).stdout).not.toContain("already done");
   });
 
@@ -276,7 +276,7 @@ describe("tag", () => {
 
   it("pushes only when the local tag is right and the remote has none", () => {
     const repo = verified();
-    git(repo.work, "tag", "-a", NAME, "-m", "1.0.0-beta.0");
+    git(repo.work, "tag", "-a", NAME, "-m", "1.0.0-beta.1");
     const result = repo.run(["tag"]);
     expect(result.status).toBe(0);
     expect(git(repo.origin, "tag", "--list")).toBe(NAME);
@@ -295,7 +295,7 @@ describe("tag", () => {
 describe("retire", () => {
   it("is not done when the tags are right but the old version is not deprecated", () => {
     const repo = makeReleaseRepo();
-    setDistTags(repo, JSON.stringify({ beta: "1.0.0-beta.0", latest: "1.0.0-beta.0" }));
+    setDistTags(repo, JSON.stringify({ beta: "1.0.0-beta.1", latest: "1.0.0-beta.1" }));
     const result = repo.run(["retire"]);
     expect(result.status).toBe(2);
     expect(result.stdout).not.toContain("already done");

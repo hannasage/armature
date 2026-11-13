@@ -3,23 +3,26 @@
 This file lists the changes in each version of `@hannasage/armature`.
 The versions follow semantic versioning, with one note for prereleases: the API can still change between prereleases.
 
-## Unreleased
+## 1.0.0-beta.1
 
-Changes for the next beta. They are not published.
+This version is meant for the npm `beta` tag. Install it with `npm install @hannasage/armature@beta`, and pin the exact version.
 
+This version holds the work of milestones G0 to G8 of amendment 1 to the Armature spec.
+
+- Breaking, for flavor authors: `lens.pixelRest` is now `lens.rest`, and the part `follower` is now `followers`. An old name throws a `TypeError` that says the new name.
 - New guide `docs/flavor-authoring.md`: it builds the Tide flavor step by step, with its springs, a follower, a gesture, a timeline, and a layout part. Its code blocks are cut from `examples/tide`, and a test checks them.
-- New example flavor Tide in `examples/tide`: the motion of a bottom sheet, and a sheet that uses it. It is the third flavor of the stamped Milestone 4. It is not published.
+- New example flavor Tide in `examples/tide`: the motion of a bottom sheet, and a sheet that uses it. It is the third flavor. It is not published.
 - New page `docs/curves.md` for `/curves` and `/linear`, with a figure of the named easings drawn from their own samples.
 - Every numeral in the prose and the inline code of `docs/frame.md`, `docs/kinds.md`, `docs/curves.md`, `docs/gesture.md`, `docs/timeline.md`, `docs/layout.md`, `docs/css.md`, `docs/adapters.md`, and `docs/flavor-authoring.md` is checked by a test in `tests/docs` that works it out from the code, a run of the code, or a saved measure. Three pages changed as a result: `docs/gesture.md` now gives the measured peak of a hard flick into the band, `docs/css.md` says to round the duration up, and `docs/kinds.md` shows a compact path that parses.
 - New page `docs/frame.md` for `/frame`: how to make a scheduler, the environment, tasks, the fixed step, the clamp of a long frame, and the pause while the tab is hidden.
 - `npm run check:pack` also checks that the declaration file of the engine marks the same parts of `Flavor` `@experimental` as the source. It also fails when the size or the file count of the tarball differs from `tests/package/results/g8-pack.json`. `--update` writes the live measure to that file.
-- The contract review after the third flavor, in `docs/contract-review.md`. The top level, `surface`, and `followers` are stable by the rule of the stamped spec. `lens`, `reveal`, `gesture`, `timeline`, and `layout` stay experimental, and the type `Flavor` marks them with `@experimental`.
+- The contract review after the third flavor, in `docs/contract-review.md`. The top level, `surface`, and `followers` are stable. `lens`, `reveal`, `gesture`, `timeline`, and `layout` stay experimental, and the type `Flavor` marks them with `@experimental`.
 - New entry `@hannasage/armature/css`: functions that return CSS text, with no DOM and no environment. `cssLinear` writes a spring or a curve as `linear()`. `cssKeyframes` and `cssKeyframesFit` write a timeline as `@keyframes` text, with the values of a real timeline. `cssFlavor` writes the variables and attributes of a flavor as a stylesheet. Every name is escaped, and every number is cut and written with no exponent. The output never declares `transform`. See `docs/css.md`.
 - New entry `@hannasage/armature/vue`: the composables `useArmatureSurface`, `useArmatureFollower`, `useArmatureDrag`, and `useArmatureLayout`. Each makes its controller when the component mounts, and destroys it when the component unmounts. Each returns `{ controller, failed }`. See `docs/adapters.md`.
 - New entry `@hannasage/armature/svelte`: the actions `surface`, `follow`, `drag`, and `layout`, for the `use:` directive. They take `onReady` and `onError` beside the options of the controller. See `docs/adapters.md`.
 - Vue (`^3.5.0`) and Svelte (`^5.0.0`) are optional peer dependencies, as React is.
 - New entry `@hannasage/armature/layout`: layout animation (FLIP), shared elements, and presence. `createLayout(el, { flavor })` has `snapshot()` and `play()`: the element is measured, put back where it was with `translate` and `scale` (never `transform`), and sprung to zero. A change in flight starts from where the element is now and keeps its speed. The option `children` counter-scales the children of a scaled element, so they keep their shape. `createShared({ flavor })` moves two elements with one key as one. `createPresence(container, { flavor })` keeps an element mounted until its `exit` rests, and then unmounts it. A server render touches no `window`. See `docs/layout.md`.
-- New optional flavor part `layout`: spring keys and a rest threshold in pixels. `createLayout`, `createPresence`, `createShared`, and `requireLayout` check it, and `validateFlavor` does not. The tech lead decided option A for the layout part on 2026-11-13, for the same reason as G5. A flavor with no `layout` part stays valid.
+- New optional flavor part `layout`: spring keys and a rest threshold in pixels. `createLayout`, `createPresence`, `createShared`, and `requireLayout` check it, and `validateFlavor` does not. A flavor with no `layout` part stays valid.
 - The type `ArmatureEnvironment` has an optional `measure(target)` that returns a box. It adds no code to the spring-only entry.
 - New entry `@hannasage/armature/timeline`: `createTimeline`, with tracks, keyframes, place together, in sequence, or staggered, and play, pause, reverse, seek, and scrub on the shared scheduler. A step is a curve, a spring, or a decay. It adds the optional `timeline` part to the flavor contract (named curves, a default curve, named sequences), checked by `createTimeline` and `requireTimeline`.
 - New entry `@hannasage/armature/frame`: a shared frame scheduler. It steps tasks in fixed slices of 1/120 s, clamps a long frame to `MAX_FRAME`, pauses while the tab is hidden, and has a manual `advance` for tests.
@@ -39,8 +42,6 @@ Changes for the next beta. They are not published.
 - The kinds check their input in every method and throw a `TypeError` for a number that is not finite. The path kind keeps full precision and rounds to 6 decimals when it writes text.
 - New hook `useArmatureFollower` in `@hannasage/armature/react`.
 - A follower move can name its own spring: `follower.setTarget(1, { springKey: "settle" })`. Position, velocity, and target stay.
-
-- Breaking, for flavor authors: the lens rest limits are now `lens.rest` and not `lens.pixelRest`. The follower part is now `followers` and not `follower`. A flavor with an old name throws a `TypeError` that says the new name. The type `RestLimits` names the shape of every rest limit.
 
 ## 1.0.0-beta.0
 
