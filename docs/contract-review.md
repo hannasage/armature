@@ -83,10 +83,10 @@ No Projection delegation test was written for this reason.
   It ignores `NaN` and `Infinity`.
   It takes an injected `env`.
 - New public names: `requireFollower`, `defineFlavor`, `FollowerSpec`, and `FollowerFlavor` from `@hannasage/armature`, and `createFollower`, `FollowerOptions`, `FollowerState`, and `Follower` from `@hannasage/armature/dom`.
-  The lists are in `scripts/check-exports.mjs`. The `.` entry now has 29 runtime names and 17 type names. The `./dom` entry has 25 runtime names and 10 type names.
+  The lists are in `scripts/check-exports.mjs`. As of Milestone 2, the `.` entry had 29 runtime names and 17 type names, and the `./dom` entry had 25 runtime names and 10 type names. Later milestones added names.
 - The optional `specular` and `glow` switches in the surface part (`src/engine/flavor.ts`, `src/dom/surface.ts`). They default to true. They add no public name.
 - `docs/flavors.md` describes the follower part.
-- The glass flavor has no follower part. All 527 earlier tests pass unchanged.
+- The glass flavor has no follower part. As of Milestone 2, all 527 earlier tests passed unchanged.
 - Support for the example: path aliases in `tsconfig.json` and `vitest.config.ts`, and a boundary test that lets files under `examples/` import only the public names.
 
 The engine has no branch on a flavor name. A search of `src/engine`, `src/dom`, and `src/react` for `lqg`, `glass`, and `liquid` finds comments only, listed below.
@@ -136,3 +136,45 @@ Each is small. Each changes a public name or a shape. Settle them before a stabl
 3. Settle one shape for rest limits, and settle `follower` or `followers`. Closed in G1 (amendment 2, item 3): `RestLimits`, `rest`, and `followers`.
 After those three, the lens and the reveal still have only one real flavor.
 A reasonable path is to mark `follower` and the engine stable, and to leave the `lens` and `reveal` parts marked unstable until a real flavor uses them.
+
+## Review after the third flavor
+
+This review follows G8 of amendment 1. The third flavor is Tide, the motion of a bottom sheet, in `examples/tide/flavor.ts`. It was built on the public API only, with a follower, a gesture, a timeline, and a layout part. `docs/flavor-authoring.md` builds it step by step, and `tests/examples/tide.test.ts` runs it through every controller.
+
+The rule of the stamped spec: a part of the contract is marked stable only after a second real flavor uses it. A real flavor is a flavor outside `tests/helpers` that ships as a documented example or product. Today these are glass, Projection, and Tide. The flavors in `tests/helpers` are made for single tests and do not count. `tests/docs/contract-review.test.ts` finds the real flavors (glass, and each `examples/*/flavor.ts`), works out which parts each one uses, and checks the list below against it. A part counts as used only when it is not empty.
+
+Stable here means that the rule is met. It does not freeze the API. The change policy for 1.0, and the choice of what 1.0 freezes, belong to the maintainer.
+
+### The status of each part
+
+- `name`, `prefix`, `logLabel`, and `springs`: stable. Used by glass, projection, and tide.
+- `surface`: stable. Used by glass and projection.
+- `lens`: experimental. Used by glass only.
+- `reveal`: experimental. Used by glass only.
+- `followers`: stable. Used by projection and tide.
+- `gesture`: experimental. Used by tide only.
+- `timeline`: experimental. Used by tide only.
+- `layout`: experimental. Used by tide only.
+
+Why each part has its status:
+
+- The top level holds in all three flavors. No flavor needed a new top-level field.
+- The surface is stable by the rule. The point of the first review stays: a flavor that turns the glint and the glow off must still give their names and time constants.
+- The lens and the reveal have one real flavor each, as at the first review. Tide has no travelling indicator and no scroll reveal, so it did not test them.
+- The followers part now has its second real flavor. Tide uses a follower on a spring that its layout part also uses, and the names stayed unique across parts.
+- The gesture, timeline, and layout parts have one real flavor each: Tide. Each needs a second real flavor before it is marked stable. The next candidate is Projection UI in Milestone 3, whose Modal needs presence from the layout part.
+
+The type `Flavor` in `src/engine/flavor.ts` marks each experimental part with `@experimental`, so an editor shows the status. A test checks that the marks match the list above.
+
+### What the third flavor exposed
+
+- The contract needed no change. Tide uses only names and numbers that the existing parts already define. No engine file names Tide.
+- A drag has no listener for its position. A follower cannot track the height of a dragged sheet without a read of `getState` on every frame. The sheet dims on open and on close only. A position listener on the drag is an open option for a later version.
+- A timeline track writes one number. A sequence of the flavor holds the numbers of a move, and the code of the component holds the format, such as `0px ${y}px` for `translate`. The unit of a sequence is not part of the flavor.
+- `validateFlavor` does not check the timeline and layout parts, by the decisions of G5 and G6. `defineFlavor(tide)` would accept a bad timeline or layout part, and the error shows when the controller is made. The guide says so.
+- Presence takes the offset of a dragged element with the option `from`, so a drag and an exit hand over with no jump. In the browser, `getStyle` reads the offset, and the option is not needed.
+- The snap heights and the bounds of a drag belong to the call, not to the flavor, because they depend on the size of the sheet. This held. The gesture part carries only the feel.
+
+### Recommendation
+
+Mark the top level, `surface`, and `followers` stable. Leave `lens`, `reveal`, `gesture`, `timeline`, and `layout` experimental until a second real flavor uses each. This is the record. The maintainer decides what 1.0 freezes.

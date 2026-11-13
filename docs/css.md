@@ -54,7 +54,7 @@ const fit = cssKeyframesFit("pop", {
 }
 ```
 
-`fit.duration` is in milliseconds. It can have decimals. Use it for the length of the animation: `animation: pop 709ms linear both`.
+`fit.duration` is in milliseconds. It can have decimals. Round it up for the length of the animation, so the last stop is not cut: `animation: pop 709ms linear both`.
 Write `linear` for the timing function, because the stops already hold the motion.
 
 The numbers are not worked out in this function.

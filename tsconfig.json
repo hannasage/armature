@@ -12,8 +12,20 @@
     "types": ["node"],
     "paths": {
       "@hannasage/armature": ["./src/index.ts"],
+      "@hannasage/armature/frame": ["./src/frame/index.ts"],
+      "@hannasage/armature/gesture": ["./src/gesture/index.ts"],
+      "@hannasage/armature/timeline": ["./src/timeline/index.ts"],
+      "@hannasage/armature/layout": ["./src/layout/index.ts"],
+      "@hannasage/armature/values": ["./src/values/index.ts"],
+      "@hannasage/armature/curves": ["./src/curves/index.ts"],
+      "@hannasage/armature/linear": ["./src/linear/index.ts"],
       "@hannasage/armature/dom": ["./src/dom/index.ts"],
-      "@hannasage/armature/react": ["./src/react/index.ts"]
+      "@hannasage/armature/react": ["./src/react/index.ts"],
+      "@hannasage/armature/glass": ["./src/glass/index.ts"],
+      "@hannasage/armature/glass/react": ["./src/glass/react/index.ts"],
+      "@hannasage/armature/css": ["./src/css/index.ts"],
+      "@hannasage/armature/vue": ["./src/vue/index.ts"],
+      "@hannasage/armature/svelte": ["./src/svelte/index.ts"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "tests/**/*.tsx", "examples/**/*.ts", "examples/**/*.tsx"]

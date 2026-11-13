@@ -9,6 +9,9 @@ export interface SpringMeasure {
   peakSeconds: number;
 }
 
+/** The band of the settle time: the value stays within this share of the travel from the target. */
+export const SETTLE_BAND = 0.02;
+
 /** The damping ratio: c / (2 sqrt(k m)). Below 1 the spring overshoots, at 1 it is critical, above 1 it is overdamped. */
 export const dampingRatio = (config: SpringConfig): number => config.damping / (2 * Math.sqrt(config.stiffness * (config.mass ?? 1)));
 
@@ -30,7 +33,7 @@ function closedForm(config: SpringConfig, t: number): number {
 /** The 2 percent settle time of the closed-form solution, in seconds, found by a scan every 10 microseconds. Valid for a damping ratio of 1 or less. */
 export function analyticSettle(config: SpringConfig, seconds = 5): number {
   let last = 0;
-  for (let t = 0; t < seconds; t += 1e-5) if (Math.abs(closedForm(config, t) - 1) > 0.02) last = t;
+  for (let t = 0; t < seconds; t += 1e-5) if (Math.abs(closedForm(config, t) - 1) > SETTLE_BAND) last = t;
   return last;
 }
 
@@ -42,7 +45,7 @@ export function analyticSettle(config: SpringConfig, seconds = 5): number {
 export function measureSpring(config: SpringConfig, seconds = 5): SpringMeasure {
   let state = retarget(createSpring({ ...config, restDelta: 1e-9, restSpeed: 1e-9 }, 0), 1);
   const steps = Math.round(seconds / FIXED_STEP);
-  const band = 0.02;
+  const band = SETTLE_BAND;
   let peak = 0;
   let peakAt = 0;
   let settleAt: number | null = null;
