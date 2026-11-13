@@ -82,6 +82,7 @@ Run these from the armature repository folder.
    ```
 
 7. Look at the dist-tags. Moving `latest` is your decision. Beta publishes do not move it.
+   `status` and `retire` report retire as pending until `latest` moves to this version. Moving `latest` is the maintainer's call.
 
    ```bash
    npm dist-tag ls @hannasage/armature
@@ -133,12 +134,12 @@ Leave `retire.deprecateMessage` alone. It belongs to the retirement of `1.0.0-ne
 
 ## Retire 1.0.0-next.0
 
-This was done when `1.0.0-beta.0` was published. It is kept as a record. `npm run release -- retire` reports "already done" once it holds. Only a maintainer does these steps. You must be an owner of the package.
+The `deprecate` and `next` removal were done when `1.0.0-beta.0` was published. The move of `latest` is still open. `npm run release -- retire` prints these commands for the version in `release.config.json` (now `1.0.0-beta.1`), and reports "already done" once `latest` points at it. Only a maintainer does these steps. You must be an owner of the package.
 
 Why this is needed: semantic versioning orders prerelease names as plain text, so `beta` sorts below `next`.
-That means `1.0.0-next.0` still sorts above `1.0.0-beta.0`. A range such as `^1.0.0-0` could pick `next.0` over `beta.0`.
+That means `1.0.0-next.0` still sorts above every beta. A range such as `^1.0.0-0` could pick `next.0` over a beta.
 Deprecating `next.0` does not change the order. It warns people who install it, and it points them at the new version.
-Moving the tags makes the plain install and the `beta` install land on `1.0.0-beta.0`.
+Moving the tags makes the plain install and the `beta` install land on the new beta.
 
 1. Deprecate the old version.
 
@@ -155,10 +156,10 @@ Moving the tags makes the plain install and the `beta` install land on `1.0.0-be
 3. Move `latest` to the new version. A plain `npm install @hannasage/armature` installs `latest`.
 
    ```bash
-   npm dist-tag add @hannasage/armature@1.0.0-beta.0 latest
+   npm dist-tag add @hannasage/armature@1.0.0-beta.1 latest
    ```
 
-4. Check the result. `dist-tags` must show `"beta"` and `"latest"` at `1.0.0-beta.0`, and no `next`.
+4. Check the result. `dist-tags` must show `"beta"` and `"latest"` at `1.0.0-beta.1`, and no `next`.
 
    ```bash
    npm view @hannasage/armature dist-tags --json

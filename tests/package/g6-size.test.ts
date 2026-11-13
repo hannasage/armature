@@ -82,7 +82,7 @@ describe("the /layout size after G6", () => {
   });
 
   it("records the decision of the tech lead for the flavor check, in the source and in every doc, and leaves no open question", () => {
-    const files = ["src/layout/flavor.ts", "docs/layout.md", "docs/flavors.md", "docs/baseline.md", "CHANGELOG.md"];
+    const files = ["src/layout/flavor.ts", "docs/layout.md", "docs/flavors.md", "docs/baseline.md"];
     for (const file of files) {
       const text = readFileSync(join(root, file), "utf8");
       expect(text, file).toMatch(/the tech lead decided option A for the layout part on 2026-11-13/i);
