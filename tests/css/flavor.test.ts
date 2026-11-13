@@ -123,7 +123,7 @@ describe("injection", () => {
     const css = cssFlavor(hostile);
     expect(css).not.toContain("display:none");
     expect(css).not.toContain("color:red");
-    expect(css).toContain("--acme-press\;\\}body\\{display\\:none\\}\\/\\*");
+    expect(css).toContain("--acme-press\\;\\}body\\{display\\:none\\}\\/\\*");
     expect(css).toContain("[data-acme-x\\]\\{\\}\\*\\{color\\:red\\}\\[y]");
     expect(css).toContain("--acme-bar-x\\a \\}");
   });

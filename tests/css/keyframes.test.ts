@@ -54,7 +54,21 @@ describe("the text", () => {
   });
 
   it("pins the text of a spring step", () => {
-    expect(cssKeyframes("pop", { tracks: [{ property: "scale", keys: [[0, 0.5], [400, 1, spring]] }], stepMs: 80 })).toMatchInlineSnapshot();
+    expect(cssKeyframes("pop", { tracks: [{ property: "scale", keys: [[0, 0.5], [400, 1, spring]] }], stepMs: 80 })).toMatchInlineSnapshot(`
+      "@keyframes pop {
+        0% { scale: 0.5; }
+        11.1111% { scale: 0.6453; }
+        22.2222% { scale: 0.8038; }
+        33.3333% { scale: 0.9076; }
+        44.4444% { scale: 0.9547; }
+        55.5556% { scale: 0.9798; }
+        66.6667% { scale: 0.9903; }
+        77.7778% { scale: 0.9957; }
+        88.8889% { scale: 0.998; }
+        100% { scale: 1; }
+      }
+      "
+    `);
   });
 
   it("is the same text on every call", () => {
@@ -146,7 +160,7 @@ describe("injection", () => {
   it("escapes the name, so it stays one name", () => {
     const css = cssKeyframes("a}body{display:none}/*", { tracks, stepMs: 500 });
     expect(css.split("\n")[0]).toBe("@keyframes a\\}body\\{display\\:none\\}\\/\\* {");
-    expect(css.match(/\{/g)).toHaveLength(4);
+    expect(css.replace(/\\./g, "").match(/\{/g)).toHaveLength(4);
   });
 
   it("never writes a literal less-than sign from a name", () => {

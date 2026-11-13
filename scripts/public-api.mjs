@@ -82,6 +82,27 @@ export const API = {
     types: ["ArmatureProviderProps", "ArmatureRevealProviderProps", "FollowerHandle", "FollowerMove", "LensHandle", "UseArmatureRevealOptions"],
     generic: true,
   },
+  "./css": {
+    values: ["cssFlavor", "cssKeyframes", "cssKeyframesFit", "cssLinear"],
+    types: ["CssTrack", "KeyframesFit", "KeyframesOptions"],
+    generic: true,
+  },
+  "./vue": {
+    values: ["useArmatureDrag", "useArmatureFollower", "useArmatureLayout", "useArmatureSurface"],
+    types: [
+      "ControllerHandle", "Drag", "DragOptions", "DragState", "ElementRef", "Follower", "FollowerMove", "FollowerOptions", "FollowerState", "Layout",
+      "LayoutOptions", "LayoutState", "Surface", "SurfaceOptions"
+    ],
+    generic: true,
+  },
+  "./svelte": {
+    values: ["drag", "follow", "layout", "surface"],
+    types: [
+      "ActionHooks", "ActionResult", "Drag", "DragOptions", "DragState", "Follower", "FollowerMove", "FollowerOptions", "FollowerState", "Layout",
+      "LayoutOptions", "LayoutState", "Surface", "SurfaceOptions"
+    ],
+    generic: true,
+  },
   "./glass": {
     values: [
       "DEPTH_ATTRIBUTE", "DEPTH_DEFAULT", "DEPTH_MAX", "DEPTH_MIN", "DRAG_ATTRIBUTE", "DRAG_FULL_VELOCITY", "DRAG_ROTATE_MAX",

@@ -2,7 +2,7 @@
 // A rule fails when the README makes a claim that package.json does not back: the status, the version, the install
 // command, or the list of subpaths.
 
-const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"];
 
 // Words that look like a dist-tag and are not one.
 const NOT_TAGS = new Set(["latest", "npm", "npx", "node"]);

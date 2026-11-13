@@ -19,11 +19,11 @@ describe("cssLinear", () => {
   });
 
   it("pins the text of a critically damped spring", () => {
-    expect(cssLinear({ stiffness: 100, damping: 20 }, { tolerance: 0.05 })).toMatchInlineSnapshot();
+    expect(cssLinear({ stiffness: 100, damping: 20 }, { tolerance: 0.05 })).toMatchInlineSnapshot(`"linear(0, 0.6333 21.5517%, 0.8571 35.3448%, 0.9702 56.8966%, 1)"`);
   });
 
   it("pins the text of an ease-out bezier", () => {
-    expect(cssLinear(bezier(0.22, 1, 0.36, 1), { tolerance: 0.05 })).toMatchInlineSnapshot();
+    expect(cssLinear(bezier(0.22, 1, 0.36, 1), { tolerance: 0.05 })).toMatchInlineSnapshot(`"linear(0, 0.5674 15.5%, 0.8558 32.2%, 0.9754 55.4%, 1)"`);
   });
 
   it("starts with linear(, ends with ), and holds no exponent text and no NaN", () => {

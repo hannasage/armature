@@ -36,7 +36,7 @@ function run(label, command, args, cwd) {
 
 // What the consumer project holds. The versions of React and its types are the ones the repository tests against.
 const dev = pkg.devDependencies ?? {};
-const peers = [`react@${dev.react}`, `@types/react@${dev["@types/react"]}`];
+const peers = [`react@${dev.react}`, `@types/react@${dev["@types/react"]}`, `vue@${dev.vue}`, `svelte@${dev.svelte}`];
 
 const CONSUMER_SOURCE = `import { createSpring, defineFlavor, retarget, stepSpring, type Flavor, type SpringState } from "@hannasage/armature";
 import { createScheduler, type Scheduler } from "@hannasage/armature/frame";
@@ -47,6 +47,9 @@ import { createDrag, createPointerVelocity, type Drag, type SwipeDirection } fro
 import { createTimeline, type Timeline } from "@hannasage/armature/timeline";
 import { createLayout, createPresence, createShared, type Layout, type Presence } from "@hannasage/armature/layout";
 import { createFollower, type Follower } from "@hannasage/armature/dom";
+import { cssFlavor, cssKeyframes, cssLinear } from "@hannasage/armature/css";
+import { useArmatureFollower as useVueFollower, type ControllerHandle } from "@hannasage/armature/vue";
+import { follow as followAction, type ActionResult } from "@hannasage/armature/svelte";
 import { ArmatureProvider, useArmatureSurface } from "@hannasage/armature/react";
 import { createGlassFilter, glassFlavor, type GlassFlavor } from "@hannasage/armature/glass";
 import { LqgFilter, LqgProvider, useLqgSurface } from "@hannasage/armature/glass/react";
@@ -100,6 +103,16 @@ export function presence(container: HTMLElement, flavor: Flavor): Presence {
 
 export function follow(element: HTMLElement): Follower {
   return createFollower(element, { flavor: demo, name: "thumb" });
+}
+
+export const sheet: string = cssFlavor(demo);
+export const frames: string = cssKeyframes("fade", { tracks: [{ property: "opacity", keys: [[0, 0], [300, 1]] }] });
+export const ease2: string = cssLinear({ stiffness: 170, damping: 26 });
+export function vueFollower(el: { value: HTMLElement | null }): ControllerHandle<Follower> {
+  return useVueFollower(el, { flavor: demo, name: "thumb" });
+}
+export function svelteFollower(node: HTMLElement): ActionResult {
+  return followAction(node, { flavor: demo, name: "thumb", onReady: (controller) => controller?.snap(0) });
 }
 
 export function Demo() {

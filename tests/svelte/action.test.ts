@@ -52,7 +52,7 @@ describe("follow", () => {
     expect(ready).toHaveBeenLastCalledWith(null);
   });
 
-  it("does not pass its own options to the controller: onReady and onError are the adapter's", () => {
+  it("returns an object with destroy and no update: the options are read once", () => {
     const env = new FakeEnv();
     const ready = vi.fn();
     const action = follow(node(), { flavor: follows, name: "thumb", env, onReady: ready, onError: vi.fn() });

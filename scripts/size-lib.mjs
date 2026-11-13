@@ -1,5 +1,5 @@
 // Measures every package entry the way docs/baseline.md did: esbuild with bundle, minify, and the esm format,
-// then gzip. React stays external. Each entry is measured alone, with the files it imports.
+// then gzip. React, Vue, and Svelte stay external. Each entry is measured alone, with the files it imports.
 import { spawnSync } from "node:child_process";
 import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
@@ -90,7 +90,7 @@ export async function measureEntry(source, dir = root) {
     minify: true,
     format: "esm",
     write: false,
-    external: ["react", "react/jsx-runtime", "react-dom"],
+    external: ["react", "react/jsx-runtime", "react-dom", "vue", "svelte"],
     logLevel: "silent",
     outdir: "out",
   });

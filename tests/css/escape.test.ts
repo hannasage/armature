@@ -19,7 +19,7 @@ describe("escapeIdent", () => {
 
   it("escapes every character that could end a name", () => {
     expect(escapeIdent("a b")).toBe("a\\ b");
-    expect(escapeIdent("a}{;:,>")).toBe("a\\}\\{\;\\:\\,\\>");
+    expect(escapeIdent("a}{;:,>")).toBe("a\\}\\{\\;\\:\\,\\>");
     expect(escapeIdent('a"\'()[]\\/*')).toBe("a\\\"\\'\\(\\)\\[\\]\\\\\\/\\*");
   });
 

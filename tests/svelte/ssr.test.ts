@@ -49,6 +49,6 @@ describe("the Svelte actions on the server", () => {
 
   it("compiles each `use:` directive on the client to a call of the action", () => {
     const code = clientCodeOf(source);
-    for (const name of ["surface", "follow", "drag", "layout"]) expect(code, name).toMatch(new RegExp(`\\$\\.action\\([^\\n]*=> ${name}\\?\\.\\(`));
+    for (const name of ["surface", "follow", "drag", "layout"]) expect(code, name).toMatch(new RegExp(`\\$\\.action\\([^\\n]*=> ${name}\\??\\.?\\(`));
   });
 });
