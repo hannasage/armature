@@ -7,6 +7,8 @@
 //        a. every subpath imports by package name under Node ESM, and exports exactly the names in scripts/public-api.mjs,
 //        b. a small consumer file type-checks against every subpath with `tsc --noEmit`, under nodenext and under bundler,
 //        c. the stylesheet resolves by package name and holds the glass styles.
+//   5. The tarball is installed a second time into a lean project with React as the only peer. There the entries `.`, `/dom`, and `/css` import under
+//      Node ESM and type-check, and Vue and Svelte are not installed. That proves the two peers stay optional.
 // The check fails with a list of every problem found. Pass `--keep` to keep the temp folder for a look.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -171,11 +173,53 @@ if (problems.length > 0) {
 console.log("ok");
 `;
 
+const LEAN_SOURCE = `import { createSpring, defineFlavor, type Flavor } from "@hannasage/armature";
+import { createFollower, type Follower } from "@hannasage/armature/dom";
+import { cssFlavor, cssKeyframes, cssLinear } from "@hannasage/armature/css";
+
+const demo: Flavor = defineFlavor({ name: "demo", prefix: "demo", logLabel: "demo", springs: { soft: { stiffness: 170, damping: 26 } } });
+export const spring = createSpring({ stiffness: 170, damping: 26 }, 0);
+export const sheet: string = cssFlavor(demo);
+export const frames: string = cssKeyframes("fade", { tracks: [{ property: "opacity", keys: [[0, 0], [300, 1]] }] });
+export const ease: string = cssLinear({ stiffness: 170, damping: 26 });
+export function follow(element: HTMLElement): Follower {
+  return createFollower(element, { flavor: demo, name: "thumb" });
+}
+`;
+
+const LEAN_RUNTIME = `import { createRequire } from "node:module";
+const names = ["@hannasage/armature", "@hannasage/armature/dom", "@hannasage/armature/css"];
+const problems = [];
+for (const name of names) {
+  try {
+    const space = await import(name);
+    if (Object.keys(space).length === 0) problems.push(name + " exports nothing");
+  } catch (error) {
+    problems.push('import("' + name + '") failed: ' + (error instanceof Error ? error.message : String(error)));
+  }
+}
+const require = createRequire(import.meta.url);
+for (const peer of ["vue", "svelte"]) {
+  try {
+    require.resolve(peer);
+    problems.push(peer + " is installed in the lean project, so the check proves nothing");
+  } catch {
+    // Not installed, as it should be.
+  }
+}
+if (problems.length > 0) {
+  for (const text of problems) console.error(text);
+  process.exit(1);
+}
+console.log("ok");
+`;
+
 const COMPILER = { target: "es2022", lib: ["dom", "es2022"], strict: true, noEmit: true, jsx: "react-jsx", skipLibCheck: false, types: [] };
-const TSCONFIGS = {
-  nodenext: { compilerOptions: { ...COMPILER, module: "nodenext", moduleResolution: "nodenext" }, include: ["consumer.tsx"] },
-  bundler: { compilerOptions: { ...COMPILER, module: "esnext", moduleResolution: "bundler" }, include: ["consumer.tsx"] },
-};
+const tsconfigs = (file) => ({
+  nodenext: { compilerOptions: { ...COMPILER, module: "nodenext", moduleResolution: "nodenext" }, include: [file] },
+  bundler: { compilerOptions: { ...COMPILER, module: "esnext", moduleResolution: "bundler" }, include: [file] },
+});
+const TSCONFIGS = tsconfigs("consumer.tsx");
 
 const work = mkdtempSync(join(tmpdir(), "armature-pack-"));
 try {
@@ -217,6 +261,20 @@ try {
       const tsc = join(root, "node_modules", "typescript", "bin", "tsc");
       if (!existsSync(tsc)) problem(`TypeScript is not installed at ${tsc}. Run npm ci first.`);
       else for (const mode of Object.keys(TSCONFIGS)) run(`tsc --noEmit under ${mode} resolution`, process.execPath, [tsc, "-p", `tsconfig.${mode}.json`], consumer);
+    }
+
+    // ---- 5: a lean consumer with React only ----
+    const lean = join(work, "lean");
+    mkdirSync(lean);
+    writeFileSync(join(lean, "package.json"), JSON.stringify({ name: "armature-pack-lean", version: "0.0.0", private: true, type: "module" }, null, 2));
+    const leanInstalled = run("npm install of the tarball with React only", "npm", ["install", "--no-audit", "--no-fund", "--ignore-scripts", tarball, ...peers.slice(0, 2)], lean);
+    if (leanInstalled.ok) {
+      writeFileSync(join(lean, "check-lean.mjs"), LEAN_RUNTIME);
+      writeFileSync(join(lean, "lean.ts"), LEAN_SOURCE);
+      for (const [mode, config] of Object.entries(tsconfigs("lean.ts"))) writeFileSync(join(lean, `tsconfig.${mode}.json`), JSON.stringify(config, null, 2));
+      run("the import check of . and /dom and /css with no Vue and no Svelte", process.execPath, ["check-lean.mjs"], lean);
+      const tsc = join(root, "node_modules", "typescript", "bin", "tsc");
+      if (existsSync(tsc)) for (const mode of Object.keys(TSCONFIGS)) run(`tsc --noEmit of the lean project under ${mode} resolution`, process.execPath, [tsc, "-p", `tsconfig.${mode}.json`], lean);
     }
   }
 } finally {

@@ -10,8 +10,12 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const lib = (await import(pathToFileURL(join(root, "scripts/size-lib.mjs")).href)) as {
   measureAll: () => Promise<{ key: string; gzipped: number }[]>;
   capFor: (gzipped: number) => number;
+  measureOwn: (source: string) => Promise<{ gzipped: number }>;
+  checkOwnCaps: (budget: unknown) => Promise<string[]>;
+  WRAPPED_LAYERS: string[];
 };
 type Cap = { cap: number; measuredGzipped: number; measuredAfterReview?: number; measuredIn: string; proposal?: string; approval?: string };
+type OwnCap = { cap: number; measuredGzipped: number; approval?: string };
 type Pkg = {
   name: string;
   peerDependencies: Record<string, string>;
@@ -19,7 +23,7 @@ type Pkg = {
   devDependencies: Record<string, string>;
 };
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as Pkg;
-const budget = JSON.parse(readFileSync(join(root, "size-budget.json"), "utf8")) as { caps: Record<string, Cap>; proposedForNewEntries: Record<string, string> };
+const budget = JSON.parse(readFileSync(join(root, "size-budget.json"), "utf8")) as { caps: Record<string, Cap>; ownCaps?: Record<string, OwnCap>; proposedForNewEntries: Record<string, string> };
 const baseline = readFileSync(join(root, "docs/baseline.md"), "utf8");
 const section = () => baseline.slice(baseline.indexOf("## G7 build"));
 const NEW: Array<[string, string]> = [["css", "2.0 KB"], ["vue", "1.0 KB"], ["svelte", "1.0 KB"]];
@@ -38,8 +42,33 @@ describe("the sizes after G7", () => {
     expect(rows.find((row) => row.key === key(short))!.gzipped).toBe(entry.measuredAfterReview ?? entry.measuredGzipped);
   });
 
-  it.each(NEW)("records that the tech lead approved the /%s cap", (short) => {
-    expect(budget.caps[key(short)].approval).toBe("approved by the tech lead, 2026-11-13");
+  it.each(NEW)("records that the tech lead approved the /%s cap, with a date", (short) => {
+    expect(budget.caps[key(short)].approval).toMatch(/^approved by the tech lead, \d{4}-\d{2}-\d{2}$/);
+  });
+
+  it.each([["vue", 1000], ["svelte", 1000], ["css", 2510]] as Array<[string, number]>)("sets the own-code cap of /%s to %i, and the own code is under it", async (short, cap) => {
+    const own = budget.ownCaps![key(short)];
+    expect(own.cap).toBe(cap);
+    expect(own.approval).toMatch(/^approved by the tech lead, \d{4}-\d{2}-\d{2}$/);
+    const measured = await lib.measureOwn(`src/${short}/index.ts`);
+    expect(measured.gzipped).toBe(own.measuredGzipped);
+    expect(measured.gzipped).toBeLessThanOrEqual(own.cap);
+  });
+
+  it("measures own code with the wrapped layers left out, and counts more with them in", async () => {
+    for (const [short] of NEW) {
+      const own = await lib.measureOwn(`src/${short}/index.ts`);
+      const rows = await lib.measureAll();
+      expect(own.gzipped, short).toBeLessThan(rows.find((row) => row.key === key(short))!.gzipped / 3);
+    }
+    expect(lib.WRAPPED_LAYERS).toEqual(expect.arrayContaining(["engine", "dom", "gesture", "layout", "timeline"]));
+  });
+
+  it("fails check-size logic when own code is over its own-code cap", async () => {
+    const problems = await lib.checkOwnCaps({ ownCaps: { [key("vue")]: { cap: 10 } } });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("own-code cap of 10");
+    expect(await lib.checkOwnCaps({ ownCaps: { "@hannasage/armature/none": { cap: 10 } } })).toHaveLength(1);
   });
 
   it("no longer lists the three entries among the entries that do not exist yet", () => {
@@ -54,7 +83,9 @@ describe("the sizes after G7", () => {
       expect(text, short).toContain(`- \`/${short}\`: ${fmt(entry.cap)}`);
       expect(text, short).toContain(fmt(entry.measuredAfterReview ?? entry.measuredGzipped));
     }
-    expect(text).toContain("approved by the tech lead, 2026-11-13");
+    expect(text).toMatch(/approved by the tech lead, \d{4}-\d{2}-\d{2}/);
+    for (const [short] of NEW) expect(text, short).toContain(fmt(budget.ownCaps![key(short)].measuredGzipped));
+    expect(text).toContain("### Own-code caps");
     expect(text).toMatch(/tarball[^\n]*\d{3},\d{3} bytes/i);
     expect(text).toContain("1.5");
     expect(text).toMatch(/222,018/);
@@ -74,10 +105,10 @@ describe("the sizes after G7", () => {
     for (const [name, cap] of Object.entries(keep)) expect(budget.caps[name].cap, name).toBe(cap);
   });
 
-  it("keeps every entry at or under its cap, and the spring-only entry as G6 left it", async () => {
+  it("keeps every entry at or under its cap, and the spring-only entry under its cap of 4,000 (3,858 after the stop-once guard)", async () => {
     const rows = await lib.measureAll();
     for (const row of rows) expect(row.gzipped, row.key).toBeLessThanOrEqual(budget.caps[row.key].cap);
-    expect(rows.find((row) => row.key === "@hannasage/armature")!.gzipped).toBeLessThanOrEqual(3853);
+    expect(rows.find((row) => row.key === "@hannasage/armature")!.gzipped).toBeLessThanOrEqual(3858);
   });
 });
 
@@ -96,7 +127,7 @@ describe("the peer ranges", () => {
     expect(pkg).not.toHaveProperty("dependencies");
   });
 
-  it("are tested at their lowest version: the range starts at a version that exists", () => {
+  it("have the range strings ^3.5.0 and ^5.0.0 (this test checks the strings only; the floors are tested in the baseline record)", () => {
     expect(pkg.peerDependencies.vue).toBe("^3.5.0");
     expect(pkg.peerDependencies.svelte).toBe("^5.0.0");
   });

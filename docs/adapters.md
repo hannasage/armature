@@ -51,6 +51,8 @@ Each takes a template ref and the options of its controller. Each returns the sa
 
 A failed start, such as a flavor with no `followers` part, is logged once with the label of the flavor, for example `[acme-motion] acme follower failed to start and was skipped.` The page keeps working, and the error shows in `failed`.
 A call with no options is treated as a call with no flavor.
+If the ref is empty when the component mounts, for example because the element sits behind a `v-if`, the composable warns once, sets `failed`, and makes no controller.
+Inside `<KeepAlive>` a cached component stays mounted, so its controller keeps running. Unmount the component, or give it a `key`, to destroy the controller.
 
 On the server Vue runs no mount hook, so no composable makes a controller, and none touches a browser global.
 Call each composable inside `setup`, because it registers the mount hooks of the component.

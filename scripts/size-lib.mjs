@@ -2,7 +2,7 @@
 // then gzip. React, Vue, and Svelte stay external. Each entry is measured alone, with the files it imports.
 import { spawnSync } from "node:child_process";
 import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
-import { basename, dirname, join, resolve, sep } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Buffer } from "node:buffer";
 import { gzipSync } from "node:zlib";
@@ -101,6 +101,54 @@ export async function measureEntry(source, dir = root) {
   const bytes = Buffer.from(output.contents);
   if (bytes.length === 0) throw new Error(`the entry ${source} built to an empty file`);
   return { minified: bytes.length, gzipped: gzipSync(bytes).length };
+}
+
+/** The layers of src that an adapter or the CSS output wraps. Their files are left out when the own code of an entry is measured. */
+export const WRAPPED_LAYERS = ["engine", "dom", "gesture", "layout", "timeline", "linear", "curves", "frame"];
+
+/**
+ * Measure the code of one entry alone: the files of its own folder, with every file of a wrapped layer marked external.
+ * The result is what the entry adds on top of the layers it wraps. `source` is the entry file, such as src/vue/index.ts.
+ */
+export async function measureOwn(source, dir = root) {
+  const file = resolve(dir, source);
+  if (!existsSync(file)) throw new Error(`the entry source ${source} does not exist`);
+  const own = relative(join(dir, "src"), file).split(sep)[0];
+  // esbuild resolves symlinks, so the layer of an import is read from the real path of src.
+  const srcReal = realpathSync(join(dir, "src"));
+  const leaveOut = {
+    name: "wrapped-layers",
+    setup(b) {
+      b.onResolve({ filter: /^\.\.?\// }, (args) => {
+        const target = resolve(args.resolveDir, args.path);
+        const layer = relative(srcReal, target).split(sep)[0];
+        return layer !== own && WRAPPED_LAYERS.includes(layer) ? { path: target, external: true } : null;
+      });
+    },
+  };
+  const result = await build({
+    entryPoints: [file], bundle: true, minify: true, format: "esm", write: false, plugins: [leaveOut],
+    external: ["react", "react/jsx-runtime", "react-dom", "vue", "svelte"], logLevel: "silent", outdir: "out",
+  });
+  const bytes = Buffer.from((result.outputFiles.find((f) => !f.path.endsWith(".map")) ?? result.outputFiles[0]).contents);
+  return { minified: bytes.length, gzipped: gzipSync(bytes).length };
+}
+
+/** Compare the own code of each entry named in `ownCaps` with its cap. Returns a list of problems. */
+export async function checkOwnCaps(budget, dir = root) {
+  const problems = [];
+  const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
+  const sources = new Map(entriesOf(pkg).map((entry) => [entry.key, entry.source]));
+  for (const [key, { cap }] of Object.entries(budget.ownCaps ?? {})) {
+    const source = sources.get(key);
+    if (source === undefined) problems.push(`the budget has an own-code cap for ${key}, and the package has no such entry`);
+    else if (typeof cap !== "number" || !Number.isFinite(cap) || cap <= 0) problems.push(`${key} has an own-code cap that is not a number above 0`);
+    else {
+      const { gzipped } = await measureOwn(source, dir);
+      if (gzipped > cap) problems.push(`${key} own code is ${gzipped} bytes gzipped, which is ${gzipped - cap} over its own-code cap of ${cap}`);
+    }
+  }
+  return problems;
 }
 
 /** Measure every entry of package.json. */

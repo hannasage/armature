@@ -1,5 +1,5 @@
 {
-  "description": "Gzipped size cap in bytes for each package entry. Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. npm run check:size fails when an entry is over its cap or has no cap. A proposal is the figure in the amendment 1 spec, kept for comparison. The measuredGzipped value of each row is the size its cap was derived from: the G0 baseline for the entries that existed at G0, the G1 measure after review round 1 for /frame, the G2 measure for /curves and /linear, the G3 measure for /values, and the G4 measure for /gesture. The sizes are in docs/baseline.md, sections G1 build, G2 build, G3 build, and G4 build. The /gesture cap of 5,850 was derived from its G4 measure of 5,316 and approved by the maintainer; measuredAfterReview is the size after review round 4. The entries under proposedForNewEntries do not exist yet and are not checked. No entry is left there after G7. The caps of /curves, /linear, /react, /values and /gesture carry an approval note. The /react cap was re-derived from its G2 measure of 11,494 by the same rule, and no trim was made. Each row names, in measuredIn, the docs/baseline.md section that holds its measured table row. measuredAfterReview is the size after the review fixes, and the real headroom is the cap minus that size. The /values cap of 6,870 was derived from its G3 measure of 6,244 and approved by the maintainer; measuredAfterReview is the size after review round 2. pathAlone is the size of src/values/path.ts alone, and withoutPath is the /values entry without the path kind. The /timeline cap of 6,460 was derived from its G5 measure of 5,866, after review round 2, and approved by the maintainer; measuredAfterReview is the size after review round 3. The /layout cap of 6,420 was derived from its G6 measure of 5,832 and approved by the tech lead on 2026-11-13. The reason is in docs/baseline.md, section G6 build. The /css, /vue, and /svelte caps were derived from their G7 measures of 9,563, 10,954, and 10,883 and approved by the tech lead on 2026-11-13. Each entry is measured alone with every file it imports, so an adapter counts the controllers it wraps. The reason, and the size of the adapter code alone, are in docs/baseline.md, section G7 build.",
+  "description": "Gzipped size cap in bytes for each package entry. Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes. npm run check:size fails when an entry is over its cap or has no cap. A proposal is the figure in the amendment 1 spec, kept for comparison. The measuredGzipped value of each row is the size its cap was derived from: the G0 baseline for the entries that existed at G0, the G1 measure after review round 1 for /frame, the G2 measure for /curves and /linear, the G3 measure for /values, and the G4 measure for /gesture. The sizes are in docs/baseline.md, sections G1 build, G2 build, G3 build, and G4 build. The /gesture cap of 5,850 was derived from its G4 measure of 5,316 and approved by the maintainer; measuredAfterReview is the size after review round 4. The entries under proposedForNewEntries do not exist yet and are not checked. No entry is left there after G7. The caps of /curves, /linear, /react, /values and /gesture carry an approval note. The /react cap was re-derived from its G2 measure of 11,494 by the same rule, and no trim was made. Each row names, in measuredIn, the docs/baseline.md section that holds its measured table row. measuredAfterReview is the size after the review fixes, and the real headroom is the cap minus that size. The /values cap of 6,870 was derived from its G3 measure of 6,244 and approved by the maintainer; measuredAfterReview is the size after review round 2. pathAlone is the size of src/values/path.ts alone, and withoutPath is the /values entry without the path kind. The /timeline cap of 6,460 was derived from its G5 measure of 5,866, after review round 2, and approved by the maintainer; measuredAfterReview is the size after review round 3. The /layout cap of 6,420 was derived from its G6 measure of 5,832 and approved by the tech lead on 2026-11-13. The reason is in docs/baseline.md, section G6 build. The /css, /vue, and /svelte caps were derived from their G7 measures of 9,563, 10,954, and 10,883 and approved by the tech lead on 2026-11-13. Each entry is measured alone with every file it imports, so an adapter counts the controllers it wraps. The reason, and the size of the adapter code alone, are in docs/baseline.md, section G7 build. ownCaps holds a second cap for /vue, /svelte, and /css: the gzipped size of the entry's own code, with the files of the layers it wraps (engine, dom, gesture, layout, timeline, linear, curves, frame) left out. The entry caps stay as the most a page pays. Both kinds are checked by npm run check:size. The /css, /vue, and /svelte entries were measured again after fix round 1 of G7 (9,677, 11,011, and 10,964), and each is under its cap, which did not move. measuredAfterReview holds the new figure.",
   "measuredWith": "esbuild 0.28.2, bundle, minify, esm, React external, then gzip. See docs/baseline.md, sections G0 and G1 build.",
   "caps": {
     "@hannasage/armature": {
@@ -95,22 +95,42 @@
       "measuredGzipped": 9563,
       "proposal": "2.0 KB",
       "approval": "approved by the tech lead, 2026-11-13",
-      "measuredIn": "G7 build"
+      "measuredIn": "G7 build",
+      "measuredAfterReview": 9677
     },
     "@hannasage/armature/vue": {
       "cap": 12050,
       "measuredGzipped": 10954,
       "proposal": "1.0 KB",
       "approval": "approved by the tech lead, 2026-11-13",
-      "measuredIn": "G7 build"
+      "measuredIn": "G7 build",
+      "measuredAfterReview": 11011
     },
     "@hannasage/armature/svelte": {
       "cap": 11980,
       "measuredGzipped": 10883,
       "proposal": "1.0 KB",
       "approval": "approved by the tech lead, 2026-11-13",
-      "measuredIn": "G7 build"
+      "measuredIn": "G7 build",
+      "measuredAfterReview": 10964
     }
   },
-  "proposedForNewEntries": {}
+  "proposedForNewEntries": {},
+  "ownCaps": {
+    "@hannasage/armature/vue": {
+      "cap": 1000,
+      "measuredGzipped": 572,
+      "approval": "approved by the tech lead, 2026-11-13"
+    },
+    "@hannasage/armature/svelte": {
+      "cap": 1000,
+      "measuredGzipped": 523,
+      "approval": "approved by the tech lead, 2026-11-13"
+    },
+    "@hannasage/armature/css": {
+      "cap": 2510,
+      "measuredGzipped": 2380,
+      "approval": "approved by the tech lead, 2026-11-13"
+    }
+  }
 }

@@ -1,5 +1,5 @@
 import { onBeforeUnmount, onMounted, shallowRef, type ShallowRef } from "vue";
-import type { Flavor } from "../engine/flavor";
+import { logTag, type Flavor } from "../engine/flavor";
 import { guardedSetup } from "../engine/guard";
 
 /** What a composable reads: a template ref, or anything with a `value` that holds the element. */
@@ -11,7 +11,7 @@ export interface ElementRef {
 export interface ControllerHandle<T> {
   /** The controller while the component is mounted. `null` before the mount, after the unmount, on the server, and after a failed start. */
   readonly controller: Readonly<ShallowRef<T | null>>;
-  /** The error of a failed start. `undefined` otherwise. The error is also logged once, and the page keeps working. */
+  /** The error of a failed start, or of an empty ref at the mount. `undefined` otherwise. The error is also logged once, and the page keeps working. */
   readonly failed: Readonly<ShallowRef<Error | undefined>>;
 }
 
@@ -32,8 +32,13 @@ export function useController<T extends { destroy(): void }>(
 
   onMounted(() => {
     const element = target.value;
-    if (!element) return;
     const flavor = options?.flavor;
+    if (!element) {
+      // The ref was not bound when the component mounted, for example the element sits behind a `v-if`. Say so once, and show it in `failed`.
+      failed.value = new Error(`The ${part} has no element: the ref was empty when the component mounted.`);
+      console.warn(`${logTag(flavor)} ${flavor?.name ?? "armature"} ${part} was skipped: the ref was empty when the component mounted.`);
+      return;
+    }
     stop = guardedSetup(`${flavor?.name ?? "armature"} ${part}`, () => {
       let made: T;
       try {

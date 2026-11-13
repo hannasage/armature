@@ -1,5 +1,5 @@
-// The escapes for text that is written into CSS. A name goes through `escapeIdent` and a quoted value through `escapeString`, so one hostile
-// character cannot end the name, close the rule, or start a new one. Neither function writes a literal `<`, so a sheet is safe inside a `<style>` element.
+// The escape for text that is written into CSS as a name. A name goes through `escapeIdent`, so one hostile
+// character cannot end the name, close the rule, or start a new one. It never writes a literal `<`, so a sheet is safe inside a `<style>` element.
 
 const hex = (code: number) => `\\${code.toString(16)} `;
 
@@ -22,17 +22,4 @@ export function escapeIdent(name: string): string {
     else out += `\\${value[i]}`;
   }
   return out;
-}
-
-/** A double-quoted CSS string. The quote, the backslash, `<`, and every control character are escaped. */
-export function escapeString(value: string): string {
-  const input = text(value, "A CSS string");
-  let out = '"';
-  for (let i = 0; i < input.length; i += 1) {
-    const code = input.charCodeAt(i);
-    if (code === 0) out += "�";
-    else if (code < 0x20 || code === 0x7f || code === 0x3c) out += hex(code);
-    else out += code === 0x22 || code === 0x5c ? `\\${input[i]}` : input[i];
-  }
-  return `${out}"`;
 }

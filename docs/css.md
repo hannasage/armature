@@ -30,7 +30,7 @@ Check support first with `supportsLinear` or `toEasing` from `@hannasage/armatur
 ## `cssKeyframes(name, options)` and `cssKeyframesFit(name, options)`
 
 They write a timeline as `@keyframes` text.
-`cssKeyframesFit` also returns the duration and the number of stops.
+`cssKeyframesFit` also returns the duration, the number of stops, and `capped`.
 
 ```ts
 const fit = cssKeyframesFit("pop", {
@@ -66,15 +66,18 @@ The options:
 
 - `tracks` is a list of tracks. A track is the same as a track of `createTimeline`, with `property` in place of `value` and no `target`. It takes `keys` or `sequence`, and `offset`, `unit`, and `format`.
 - `place`, `stagger`, and `flavor` are the same as for `createTimeline`.
-- `stepMs` is the time between two stops. The default is 1000/60. It is a finite number of 1 or more. A timeline that needs more than 5,000 stops throws a `RangeError`. Raise `stepMs` to fix it.
+- `stepMs` is the most time between two stops. The default is 1000/60. It is a finite number of 1 or more. The stops are evenly spaced: the timeline is cut into the fewest equal steps that are each `stepMs` or shorter, so the first stop is at 0% and the last is on the end of the timeline. At most 5,000 stops are written, and the first and the last count. A timeline that needs more throws a `RangeError` that says how many stops it needs. Raise `stepMs` to fix it.
 
 A timeline with no length throws a `RangeError`. A call with no tracks throws a `TypeError`.
+The name cannot be `none`, `initial`, `inherit`, `unset`, `revert`, `revert-layer`, or `default`, in any case. These words cannot name a keyframes rule, so the call throws a `TypeError`.
+
+`fit.capped` is `true` when a spring or a decay in the timeline was cut at 10 seconds without coming to rest, as `capped` of a timeline state says. The text then ends before that spring does.
 
 ### What a track may write
 
 - `property` is an individual CSS property, such as `opacity`, `translate`, `scale`, `rotate`, or a custom property. It never writes `transform`. A name such as `-webkit-transform` is refused too.
 - `unit` is letters or a percent sign, up to 12 characters. Anything else throws a `TypeError`.
-- `format(value)` replaces the number and the unit. It must return text. The text may hold letters, digits, spaces, and these characters: `. , % ( ) # + - * /`. Its parentheses must balance. It may call only these functions: `calc`, `min`, `max`, `clamp`, `var`, the color functions (`rgb`, `rgba`, `hsl`, `hsla`, `hwb`, `lab`, `lch`, `oklab`, `oklch`, `color`, `color-mix`), the filter functions, and the shape functions. It cannot hold `;`, braces, quotes, a backslash, `<`, a comment, or a number written with an exponent. Text that breaks a rule throws a `TypeError`.
+- `format(value)` replaces the number and the unit. It gets the value rounded to 4 places, so it never gets a number such as `5.5e-17`. It must return text. The text may hold letters, digits, spaces, and these characters: `. , % ( ) # + - * /`. Its parentheses must balance. It may call only these functions: `calc`, `min`, `max`, `clamp`, `var`, the color functions (`rgb`, `rgba`, `hsl`, `hsla`, `hwb`, `lab`, `lch`, `oklab`, `oklch`, `color`, `color-mix`), the filter functions, and the shape functions. It cannot hold `;`, braces, quotes, a backslash, `<`, a comment, or a number written with an exponent. Text that breaks a rule throws a `TypeError`.
 - Every number is cut to 1,000,000,000 and written with at most 4 decimals. No number reaches the CSS as exponent text.
 
 ## `cssFlavor(flavor)`
@@ -95,7 +98,7 @@ gives:
 @property --lqg-spec-x { syntax: "<percentage>"; inherits: false; initial-value: 50%; }
 @property --lqg-spec-y { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
 @property --lqg-glow { syntax: "<number>"; inherits: false; initial-value: 0; }
-@property --lqg-lens-x { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --lqg-lens-x { syntax: "<length>"; inherits: true; initial-value: 0px; }
 ... (the other lens variables)
 :where([data-lqg]) {
   --lqg-press: 1;
@@ -108,8 +111,8 @@ gives:
 
 What it writes, in this order:
 
-1. An `@property` rule for each of the five surface variables, with `inherits: false`. The start value is the surface at rest. The glint starts at the `specularRest` of the flavor.
-2. An `@property` rule for each of the six lens variables. The four lengths start at `0px`, and the two scales start at `1`.
+1. An `@property` rule for each of the five surface variables, with `inherits: false`. The surface controller writes them on the element, and the stylesheet reads them on that element. The start value is the surface at rest. The glint starts at the `specularRest` of the flavor.
+2. An `@property` rule for each of the six lens variables, with `inherits: true`. The lens controller writes them on the row, and the stylesheet reads them on a child, so they must inherit. The four lengths start at `0px`, and the two scales start at `1`.
 3. An `@property` rule for each follower. A follower is a number that starts at `0` and inherits, because a stylesheet usually reads it in the children of the element.
 4. A `:where` rule on the surface attribute, which sets the five surface variables at rest. It is for a browser that does not know `@property`. `:where` has no specificity, so the inline values that a controller writes always win.
 

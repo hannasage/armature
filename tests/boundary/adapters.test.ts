@@ -139,11 +139,11 @@ describe("the G7 layers", () => {
 });
 
 describe("the entries", () => {
-  it("lets the spring-only entry reach no file of /css, /vue, or /svelte, and keeps it as G6 left it", async () => {
+  it("lets the spring-only entry reach no file of /css, /vue, or /svelte, and keeps it under its cap, at 3,858 or less (G7 made the stop function of guardedSetup run once, which added 5 bytes)", async () => {
     const { inputs, gzipped } = await bundle("src/index.ts");
     expect(inputs.length).toBeGreaterThan(3);
     expect(inputs.filter((file) => /(^|\/)src\/(css|vue|svelte)\//.test(file))).toEqual([]);
-    expect(gzipped).toBeLessThanOrEqual(3853);
+    expect(gzipped).toBeLessThanOrEqual(3858);
   });
 
   it("bundles /css from its own files, and no DOM, React, Vue, Svelte, glass, gesture, layout, or values code", async () => {

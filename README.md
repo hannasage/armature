@@ -16,7 +16,7 @@ npm install @hannasage/armature@beta
 ```
 
 React, Vue, and Svelte are optional peers. The engine and the DOM controllers need none of them.
-Install React 18 or later only if you use the React entries. Install Vue 3.5 or later only if you use `@hannasage/armature/vue`, and Svelte 5 or later only if you use `@hannasage/armature/svelte`.
+Install React 18 or later only if you use the React entries. Install Vue 3.5 or later within 3.x only if you use `@hannasage/armature/vue`, and Svelte 5 or later only if you use `@hannasage/armature/svelte`.
 
 ## The fifteen subpaths
 

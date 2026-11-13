@@ -681,6 +681,8 @@ Each cap is the measured size plus 10 percent, rounded up to the next 10 bytes, 
 - `/vue`: 12,050.
 - `/svelte`: 11,980.
 
+After fix round 1 the three entries measure 9,677 (`/css`), 11,011 (`/vue`), and 10,964 (`/svelte`) gzipped bytes. Each is under its cap, and no cap moved. The first measures, 9,563, 10,954, and 10,883, are the ones the caps were derived from. The growth is the checks and fixes of the round.
+
 The three measures are far above the proposals. The amendment says a cap is "counted alone with its own imports", and the proposals were set from judgment before the code existed. The measures count what each entry imports:
 
 | Part | Minified (bytes) | Gzipped (bytes) | What is left out |
@@ -694,15 +696,29 @@ The code of each adapter alone is under its proposal of 1.0 KB. The code of `/cs
 
 The `/css` entry is large for the same reason. It reuses `/linear` (3,351 gzipped) and `/timeline` (5,893), so that its keyframes hold the values of a real timeline and it holds no motion logic of its own. Its own code is 2,274, and the engine files add 1,266 more, mostly `validateFlavor`, which `cssFlavor` calls so that a flavor that does not hold together is refused. A copy of the timeline math inside `/css` would be smaller, and it would be a second copy of the motion logic. That choice is for the tech lead, and it is listed in "Choices".
 
+### Own-code caps
+
+The tech lead decided on 2026-11-13 to keep the entry caps as the most a page pays, and to add a second cap for the code of the entry alone. The own code is measured with the files of the wrapped layers (`engine`, `dom`, `gesture`, `layout`, `timeline`, `linear`, `curves`, and `frame`) marked external. `scripts/size-lib.mjs` does this (`measureOwn`), and `npm run check:size` checks it (approved by the tech lead, 2026-11-13).
+
+| Entry | Own code (gzipped) | Own-code cap |
+| --- | ---: | ---: |
+| `/vue` | 572 | 1,000 |
+| `/svelte` | 523 | 1,000 |
+| `/css` | 2,380 | 2,510 |
+
+### One import
+
+The entry sizes count all four controllers, because each adapter exports four functions. A page that imports one function pays for one controller. `tests/package/g7-treeshake.test.ts` bundles a page that imports only `useArmatureFollower` from `/vue`, and only `follow` from `/svelte`, with esbuild and tree-shaking on. The result: the bundle holds `src/dom/follower.ts` and none of `src/dom/surface.ts`, `src/gesture/drag.ts`, `src/layout/layout.ts`, or `src/layout/motion.ts`. The page costs 3,393 gzipped bytes from `/vue` and 3,341 from `/svelte`, against about 11,000 for the whole entry. Tree-shaking holds, so the subpaths are not split.
+
 ### Other entries
 
-No cap moved, and no entry grew. After G7 the measures are the same as after G6: `.` 3,853 (cap 4,000), `/frame` 807, `/values` 6,615, `/curves` 2,363, `/linear` 3,351, `/gesture` 5,332, `/timeline` 5,893, `/layout` 5,832, `/dom` 11,310, `/react` 11,661, `/glass` 7,882, `/glass/react` 12,668, and `styles.css` 749 gzipped bytes. The spring-only entry reaches no file of `/css`, `/vue`, or `/svelte`, and a boundary test checks it.
+No cap moved, and no entry is over its cap. The stop function of `guardedSetup` now runs its cleanup once, which added 5 bytes to `.` and 3 to each of `/react` and `/glass/react`. After G7 fix round 1: `.` 3,858 (cap 4,000; it was 3,853), `/frame` 807, `/values` 6,615, `/curves` 2,363, `/linear` 3,351, `/gesture` 5,332, `/timeline` 5,893, `/layout` 5,832, `/dom` 11,310, `/react` 11,664 (it was 11,661), `/glass` 7,882, `/glass/react` 12,671 (it was 12,668), and `styles.css` 749 gzipped bytes. The spring-only entry reaches no file of `/css`, `/vue`, or `/svelte`, and a boundary test checks it. The tests that pinned `.` at 3,853 or 3,854 now pin 3,858.
 
 ### The tarball
 
-`npm run check:pack` passed. The tarball is 293,764 bytes in 259 files, under the limit of 333,027 (1.5 times the approved MEASURED_SIZE of 222,018). It was 275,938 bytes in 230 files after G6. MEASURED_SIZE did not change. The room left under the limit is 39,263 bytes.
+`npm run check:pack` passed. The tarball is 295,340 bytes in 259 files, under the limit of 333,027 (1.5 times the approved MEASURED_SIZE of 222,018). It was 275,938 bytes in 230 files after G6. MEASURED_SIZE did not change. The room left under the limit is 37,687 bytes. It was 293,764 bytes before fix round 1.
 
-The pack check now installs Vue and Svelte beside React in the clean consumer project, and type-checks a consumer file that imports the three new entries under `nodenext` and `bundler`.
+The pack check installs Vue and Svelte beside React in the clean consumer project, and type-checks a consumer file that imports the three new entries under `nodenext` and `bundler`. It also installs the tarball a second time into a lean project with React only, imports `.`, `/dom`, and `/css` there, type-checks them, and checks that Vue and Svelte are not installed, which proves the two peers stay optional. The whole check ran in 8 seconds in the gate container.
 
 ### Peer ranges
 
@@ -741,6 +757,11 @@ The Svelte docs describe two server steps: `compile` from `svelte/compiler` with
 The Vue test path uses `vue/server-renderer` for the server render, and Vue's own `createRenderer` with nodes that need no DOM for mount and unmount, so the real `onMounted` and `onBeforeUnmount` hooks run.
 
 ### Choices
+
+- The inherit flag of each `@property` rule follows where the controller writes and where the stylesheet reads: the surface variables do not inherit, and the lens and follower variables do. The lens controller writes on the row and the stylesheet reads on a `.lqg-lens` child.
+- `format` gets the value rounded to 4 places, a keyframes name cannot be a CSS keyword, and `cssKeyframesFit` returns `capped`.
+- A Vue composable with an empty ref at the mount warns once and sets `failed`.
+- A Svelte action destroys its controller when `onReady` throws, and reports an error of `onReady(null)` through the same reporter.
 
 The spec was silent on these points:
 

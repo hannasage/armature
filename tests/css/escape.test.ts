@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { escapeIdent, escapeString } from "../../src/css/escape";
+import { escapeIdent } from "../../src/css/escape";
 
-// The escapes follow the CSS Object Model rule for `CSS.escape`. A name that is written into a selector, a property, or a keyframes rule goes through
+// The escape follows the CSS Object Model rule for `CSS.escape`. A name that is written into a selector, a property, or a keyframes rule goes through
 // `escapeIdent`, so it stays one name whatever it holds. `<` is written as a hex escape, so no `</style>` can reach a page.
 
 describe("escapeIdent", () => {
@@ -37,26 +37,5 @@ describe("escapeIdent", () => {
   it("is applied to text only: a value that is not text throws a TypeError", () => {
     expect(() => escapeIdent(undefined as never)).toThrow(TypeError);
     expect(() => escapeIdent(5 as never)).toThrow(TypeError);
-  });
-});
-
-describe("escapeString", () => {
-  it("quotes a plain text", () => {
-    expect(escapeString("ready")).toBe('"ready"');
-  });
-
-  it("escapes the quote, the backslash, the newline, and every control character", () => {
-    expect(escapeString('a"b')).toBe('"a\\"b"');
-    expect(escapeString("a\\b")).toBe('"a\\\\b"');
-    expect(escapeString("a\nb")).toBe('"a\\a b"');
-    expect(escapeString("a\u0001b")).toBe('"a\\1 b"');
-  });
-
-  it("never writes a literal less-than sign", () => {
-    expect(escapeString("</style><script>")).toBe('"\\3c /style>\\3c script>"');
-  });
-
-  it("throws a TypeError for a value that is not text", () => {
-    expect(() => escapeString(null as never)).toThrow(TypeError);
   });
 });

@@ -95,9 +95,9 @@ describe("the entries", () => {
     expect(inputs.filter((file) => /(^|\/)src\/(layout|timeline|gesture|frame|values|curves|linear)\//.test(file))).toEqual([]);
   });
 
-  it("keeps the spring-only entry as G5 left it: no layout check in validateFlavor, and the size of 3,853", async () => {
+  it("keeps the spring-only entry as G5 left it: no layout check in validateFlavor, and the size of 3,853 plus the 5 bytes of the G7 stop-once guard (3,858)", async () => {
     const { gzipped } = await bundle("src/index.ts");
-    expect(gzipped).toBeLessThanOrEqual(3853);
+    expect(gzipped).toBeLessThanOrEqual(3858);
     expect(gzipped).toBeLessThanOrEqual(4000);
   });
 

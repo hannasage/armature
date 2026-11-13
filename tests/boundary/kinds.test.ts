@@ -64,9 +64,9 @@ describe("nothing writes `transform`", () => {
 
 describe("the spring-only entry", () => {
   it("does not grow past its size at G4, and stays under its cap of 4,000", async () => {
-    // G4 adds the check of the optional gesture part to validateFlavor, which grew this entry from 3,686 to 3,854. The cap did not move.
+    // G4 adds the check of the optional gesture part to validateFlavor, which grew this entry from 3,686 to 3,854. The cap did not move. G7 added 5 bytes for a stop function that runs once, so the limit here is 3,858.
     const { gzipped } = await bundle("src/index.ts");
-    expect(gzipped).toBeLessThanOrEqual(3854);
+    expect(gzipped).toBeLessThanOrEqual(3858);
     const budget = JSON.parse(readFileSync(join(root, "size-budget.json"), "utf8")) as { caps: Record<string, { cap: number }> };
     expect(budget.caps["@hannasage/armature"].cap).toBe(4000);
   });

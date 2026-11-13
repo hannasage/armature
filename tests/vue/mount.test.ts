@@ -147,14 +147,19 @@ describe("a failed start", () => {
     expect(String(spy.mock.calls[0][0])).toContain("while stopping");
   });
 
-  it("makes no controller, logs nothing, and does not fail when the ref has no element", () => {
-    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  it("warns once and sets `failed` when the ref has no element at the mount, and makes no controller", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
     let handle!: ReturnType<typeof useArmatureFollower>;
     const mounted = mountWith((el) => void (handle = useArmatureFollower(el, { flavor: follows, name: "thumb", env: new FakeEnv() })), { withRef: false });
     expect(handle.controller.value).toBeNull();
-    expect(handle.failed.value).toBeUndefined();
-    mounted.unmount();
-    expect(spy).not.toHaveBeenCalled();
+    expect(handle.failed.value).toBeInstanceOf(Error);
+    expect(handle.failed.value!.message).toContain("ref was empty");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("[acme-motion]");
+    expect(() => mounted.unmount()).not.toThrow();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(error).not.toHaveBeenCalled();
   });
 });
 

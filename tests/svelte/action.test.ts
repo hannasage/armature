@@ -121,14 +121,67 @@ describe("a failed start", () => {
     expect(() => action.destroy()).not.toThrow();
   });
 
-  it("logs an onReady that throws, once, and keeps the controller", () => {
+  it("destroys the controller when onReady throws after it was made, and reports the start as failed", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const env = new FakeEnv();
-    const action = follow(node(), { flavor: follows, name: "thumb", env, onReady: () => { throw new Error("mine"); } });
-    expect(spy).toHaveBeenCalledTimes(1);
-    expect(String(spy.mock.calls[0][0])).toContain("onReady");
-    action.destroy();
+    let made: { getState(): { destroyed: boolean } } | undefined;
+    const grab = (c: unknown) => { made = c as typeof made; };
+    const action = follow(node(), { flavor: follows, name: "thumb", env, onReady: (c) => { if (c) { grab(c); throw new Error("mine"); } } });
+    expect(made!.getState().destroyed).toBe(true);
     expect(env.pending).toBe(0);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(String(spy.mock.calls[0][0])).toContain("failed to start");
+    action.destroy();
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives an onReady failure to onError, with the error of the hook", () => {
+    const onError = vi.fn();
+    follow(node(), { flavor: follows, name: "thumb", env: new FakeEnv(), onReady: () => { throw new Error("mine"); }, onError });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect((onError.mock.calls[0][0] as Error).message).toBe("mine");
+  });
+
+  it("sends an error of onReady(null) through the same reporter, after the controller is destroyed", () => {
+    const onError = vi.fn();
+    const ready = vi.fn((c: unknown) => { if (c === null) throw new Error("late"); });
+    const action = layout(node(), { flavor: lofty, env: new FakeLayoutEnv(), onReady: ready, onError });
+    const made = ready.mock.calls[0][0] as { getState(): { destroyed: boolean } };
+    expect(() => action.destroy()).not.toThrow();
+    expect(made.getState().destroyed).toBe(true);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect((onError.mock.calls[0][0] as Error).message).toBe("late");
+    expect(onError.mock.calls[0][1]).toContain("while stopping");
+  });
+
+  it("reports both errors when destroy and onReady(null) both throw", () => {
+    const onError = vi.fn();
+    const ready = vi.fn((c: unknown) => { if (c === null) throw new Error("late"); });
+    const action = layout(node(), { flavor: lofty, env: new FakeLayoutEnv(), onReady: ready, onError });
+    vi.spyOn(ready.mock.calls[0][0] as { destroy(): void }, "destroy").mockImplementation(() => { throw new Error("boom"); });
+    action.destroy();
+    expect(onError.mock.calls.map((call) => (call[0] as Error).message).sort()).toEqual(["boom", "late"]);
+  });
+
+  it("falls back to console.error, and keeps the original error, when onError itself throws", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let action: ReturnType<typeof follow> | undefined;
+    expect(() => {
+      action = follow(node(), { flavor: acme, name: "thumb", env: new FakeEnv(), onError: () => { throw new Error("hook"); } });
+    }).not.toThrow();
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(String(spy.mock.calls[0][0])).toContain("onError");
+    expect((spy.mock.calls[0][1] as Error).message).toBe("hook");
+    expect(spy.mock.calls[1][1]).toBeInstanceOf(TypeError);
+    expect(() => action!.destroy()).not.toThrow();
+  });
+
+  it("runs the stop once: a second destroy calls onReady(null) no more", () => {
+    const ready = vi.fn();
+    const action = layout(node(), { flavor: lofty, env: new FakeLayoutEnv(), onReady: ready });
+    action.destroy();
+    action.destroy();
+    expect(ready.mock.calls.filter((call) => call[0] === null)).toHaveLength(1);
   });
 
   it("logs a destroy that throws, and does not let it reach Svelte", () => {

@@ -142,6 +142,105 @@ describe("the values", () => {
   });
 });
 
+describe("format gets the rounded value", () => {
+  const seen = (tracks: CssTrack[], stepMs: number) => {
+    const values: number[] = [];
+    cssKeyframes("r", { tracks: tracks.map((t) => ({ ...t, format: (v: number) => (values.push(v), `${v}px`) })), stepMs });
+    return values;
+  };
+
+  it("never gives format exponent text, for a value that crosses zero in small steps", () => {
+    const values = seen([{ property: "translate", keys: [[0, -0.3], [100, 0.6]] }], 1);
+    expect(values.length).toBeGreaterThan(90);
+    for (const v of values) expect(String(v), String(v)).not.toMatch(/e/i);
+    for (const v of values) expect(v).toBe(Number(v.toFixed(4)));
+  });
+
+  it("gives format a clean 0, and not a float error such as 5.5e-17, where the value crosses zero on a stop", () => {
+    const values = seen([{ property: "translate", keys: [[0, -0.3], [90, 0.6]] }], 1);
+    expect(values.some((v) => v === 0 && !Object.is(v, -0))).toBe(true);
+    for (const v of values) expect(String(v)).not.toMatch(/e/i);
+  });
+
+  it("never gives format exponent text, for a spring that settles near zero", () => {
+    const css = cssKeyframes("z", { tracks: [{ property: "translate", keys: [[0, 1], [600, 0, { stiffness: 170, damping: 14 }]], format: (v) => `${v}px` }], stepMs: 4 });
+    expect(css).not.toMatch(/\d[eE][+-]?\d/);
+    const values = seen([{ property: "translate", keys: [[0, 1], [600, 0, { stiffness: 170, damping: 14 }]] }], 4);
+    for (const v of values) expect(String(v)).not.toMatch(/e/i);
+    expect(values[values.length - 1]).toBe(0);
+  });
+
+  it("writes the same text with format (v) => `${v}` as with no format", () => {
+    const tracks: CssTrack[] = [{ property: "opacity", keys: [[0, -0.3], [100, 0.6]] }];
+    expect(cssKeyframes("same", { tracks: [{ ...tracks[0], format: (v) => `${v}` }], stepMs: 7 })).toBe(cssKeyframes("same", { tracks, stepMs: 7 }));
+  });
+});
+
+describe("the track is read once", () => {
+  it("checks and writes the same property, unit, and format, even when a getter gives another on the next read", () => {
+    let reads = 0;
+    const track = {
+      keys: [[0, 0], [100, 1]],
+      get property() {
+        reads += 1;
+        return reads === 1 ? "opacity" : "opacity;}body{display:none";
+      },
+      get unit() {
+        reads += 1;
+        return reads < 100 ? "" : "px;}";
+      },
+    } as unknown as CssTrack;
+    const css = cssKeyframes("once", { tracks: [track], stepMs: 50 });
+    expect(css).not.toContain("body");
+    expect(css).toContain("opacity: 0.5;");
+    expect(reads).toBe(2);
+  });
+});
+
+describe("the name is not a keyword", () => {
+  it.each(["none", "initial", "inherit", "unset", "revert", "revert-layer", "default", "NONE", "Initial", "Revert-Layer", "DEFAULT"])("refuses %s", (name) => {
+    expect(() => cssKeyframes(name, { tracks: [fade] })).toThrow(TypeError);
+    expect(() => cssKeyframes(name, { tracks: [fade] })).toThrow(/keyword/);
+  });
+
+  it("accepts a name that holds a keyword", () => {
+    for (const name of ["none-x", "initial1", "my-default", "revert-layers"]) expect(cssKeyframes(name, { tracks: [fade], stepMs: 500 })).toContain(`@keyframes ${name} {`);
+  });
+});
+
+describe("capped", () => {
+  it("is false for a spring that rests, and true for one that is cut at 10 seconds before the next key", () => {
+    expect(cssKeyframesFit("c", { tracks: [{ property: "scale", keys: [[0, 0], [300, 1, spring]] }], stepMs: 50 }).capped).toBe(false);
+    expect(cssKeyframesFit("c", { tracks: [fade], stepMs: 500 }).capped).toBe(false);
+    const loose = { property: "scale", keys: [[0, 0], [20_000, 1, { stiffness: 10, damping: 0 }], [30_000, 0]] } satisfies CssTrack;
+    const fit = cssKeyframesFit("c", { tracks: [loose], stepMs: 5000 });
+    expect(fit.capped).toBe(true);
+    expect(fit.duration).toBe(30_000);
+  });
+});
+
+describe("the number of stops", () => {
+  const long = (ms: number): CssTrack => ({ property: "opacity", keys: [[0, 0], [ms, 1]] });
+
+  it("writes evenly spaced stops, at most stepMs apart, and count is the number of stops written", () => {
+    const fit = cssKeyframesFit("n", { tracks: [long(1000)], stepMs: 300 });
+    const percents = parse(fit.css).map(([p]) => p);
+    expect(fit.count).toBe(percents.length);
+    expect(fit.count).toBe(5);
+    const gaps = percents.slice(1).map((p, i) => p - percents[i]);
+    for (const gap of gaps) expect((gap / 100) * fit.duration).toBeLessThanOrEqual(300 + 1e-6);
+    expect(Math.max(...gaps) - Math.min(...gaps)).toBeLessThan(1e-3);
+  });
+
+  it("writes 5,000 stops at the edge, and refuses 5,001 with a message that counts stops", () => {
+    const ok = cssKeyframesFit("e", { tracks: [long(4999)], stepMs: 1 });
+    expect(ok.count).toBe(5000);
+    expect(parse(ok.css)).toHaveLength(5000);
+    expect(() => cssKeyframes("e", { tracks: [long(5000)], stepMs: 1 })).toThrow(RangeError);
+    expect(() => cssKeyframes("e", { tracks: [long(5000)], stepMs: 1 })).toThrow(/5001 stops/);
+  });
+});
+
 describe("no transform", () => {
   it.each(["transform", "Transform", "-webkit-transform", "-moz-TRANSFORM", "-ms-transform"])("refuses the property %s", (property) => {
     expect(() => cssKeyframes("t", { tracks: [{ property, keys: [[0, 0], [100, 1]] }] })).toThrow(TypeError);

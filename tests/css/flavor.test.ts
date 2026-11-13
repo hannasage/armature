@@ -1,6 +1,10 @@
+import { readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { cssFlavor } from "../../src/css";
 import { defineFlavor, type Flavor } from "../../src/engine/flavor";
+import { glassFlavor } from "../../src/glass";
 import { acme } from "../helpers/other-flavor";
 
 // `cssFlavor` writes the variables and the attributes of a flavor as a stylesheet: one `@property` rule for each variable a controller writes,
@@ -14,12 +18,12 @@ const ACME = [
   '@property --acme-shine-x { syntax: "<percentage>"; inherits: false; initial-value: 20%; }',
   '@property --acme-shine-y { syntax: "<percentage>"; inherits: false; initial-value: 80%; }',
   '@property --acme-halo { syntax: "<number>"; inherits: false; initial-value: 0; }',
-  '@property --acme-bar-x { syntax: "<length>"; inherits: false; initial-value: 0px; }',
-  '@property --acme-bar-y { syntax: "<length>"; inherits: false; initial-value: 0px; }',
-  '@property --acme-bar-w { syntax: "<length>"; inherits: false; initial-value: 0px; }',
-  '@property --acme-bar-h { syntax: "<length>"; inherits: false; initial-value: 0px; }',
-  '@property --acme-bar-sx { syntax: "<number>"; inherits: false; initial-value: 1; }',
-  '@property --acme-bar-sy { syntax: "<number>"; inherits: false; initial-value: 1; }',
+  '@property --acme-bar-x { syntax: "<length>"; inherits: true; initial-value: 0px; }',
+  '@property --acme-bar-y { syntax: "<length>"; inherits: true; initial-value: 0px; }',
+  '@property --acme-bar-w { syntax: "<length>"; inherits: true; initial-value: 0px; }',
+  '@property --acme-bar-h { syntax: "<length>"; inherits: true; initial-value: 0px; }',
+  '@property --acme-bar-sx { syntax: "<number>"; inherits: true; initial-value: 1; }',
+  '@property --acme-bar-sy { syntax: "<number>"; inherits: true; initial-value: 1; }',
   ":where([data-acme]) {",
   "  --acme-squeeze: 1;",
   "  --acme-bend: 0;",
@@ -151,5 +155,41 @@ describe("injection", () => {
   it("refuses a variable suffix that is not text", () => {
     const flavor: Flavor = { ...acme, surface: { ...acme.surface, vars: { ...acme.surface.vars, press: 5 as never } } };
     expect(() => cssFlavor(flavor)).toThrow(TypeError);
+  });
+});
+
+// Whether a variable inherits depends on where its controller writes it and where the stylesheet reads it. A variable that is written on an element
+// and read on the same element needs no inheritance. One that is written on a parent and read on a child must inherit, or the child sees the initial value.
+describe("the inherit flag of each part", () => {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+  const read = (file: string) => readFileSync(join(root, file), "utf8");
+  const styles = read("src/glass/styles.css");
+  const inherits = (css: string): Record<string, boolean> =>
+    Object.fromEntries([...css.matchAll(/@property (--[\w-]+) \{[^}]*inherits: (true|false)/g)].map((m) => [m[1], m[2] === "true"]));
+  const flags = inherits(cssFlavor(glassFlavor));
+  /** The selectors of the rules of the stylesheet that read a variable. */
+  const readers = (name: string): string[] =>
+    [...styles.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter((m) => m[2].includes(`var(${name}`)).map((m) => m[1].replace(/\/\*[\s\S]*?\*\//g, "").trim());
+
+  it("writes the surface on the element it reads it on, so the surface variables do not inherit", () => {
+    expect(read("src/dom/surface.ts")).toMatch(/env\.setCSSVariable\(target, name, value\)/);
+    for (const name of ["press", "flex", "spec-x", "spec-y", "glow"]) {
+      expect(new Set(readers(`--lqg-${name}`)), name).toEqual(new Set([".lqg-surface"]));
+      expect(flags[`--lqg-${name}`], name).toBe(false);
+    }
+  });
+
+  it("writes the lens on the row (its container) and reads it on a child, so the lens variables inherit", () => {
+    expect(read("src/dom/lens.ts")).toMatch(/env\.setCSSVariable\(options\.container, name, value\)/);
+    expect(styles).toMatch(/\[data-lqg-lens="ready"\] \.lqg-lens/);
+    for (const name of ["lens-x", "lens-y", "lens-w", "lens-h", "lens-sx", "lens-sy"]) {
+      expect(new Set(readers(`--lqg-${name}`)), name).toEqual(new Set([".lqg-lens"]));
+      expect(flags[`--lqg-${name}`], name).toBe(true);
+    }
+  });
+
+  it("writes a follower on its target, and the stylesheet reads it in the children, so a follower inherits", () => {
+    const flavor: Flavor = { ...acme, followers: { thumb: { var: "thumb", springKey: "tap", rest } } };
+    expect(inherits(cssFlavor(flavor))["--acme-thumb"]).toBe(true);
   });
 });

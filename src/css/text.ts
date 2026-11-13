@@ -5,7 +5,7 @@
 const MAX = 1e9;
 
 /** Cuts a number to the range that is written, so a caller's format function never sees a value past it. */
-export const clamp = (value: number): number => Math.max(-MAX, Math.min(MAX, value));
+const clamp = (value: number): number => Math.max(-MAX, Math.min(MAX, value));
 
 /** A finite number as CSS text, with no exponent. A value that is not a finite number throws a TypeError that names `what`. */
 export function num(value: unknown, what: string): string {
