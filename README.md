@@ -5,7 +5,7 @@ It has one engine and many flavors.
 The engine holds the spring solver and the browser plumbing.
 A flavor is a named movement language. It sets the spring constants, the names of the attributes the engine reads, and the CSS variables the engine writes.
 
-Status: pre-release. It is published on the npm `beta` tag as 1.0.0-beta.0. The API can still change.
+Status: pre-release. It is published on the npm `beta` tag as 1.0.0-beta.1. The API can still change.
 
 The first flavor is liquid glass. It is in this package. The second flavor will live in Projection UI. A third, Tide, is an example in `examples/tide`: the motion of a bottom sheet, built with a follower, a gesture, a timeline, and a layout part.
 

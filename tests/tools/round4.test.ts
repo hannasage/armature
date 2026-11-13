@@ -11,7 +11,7 @@ type Phase = { name: string; state: string; note: string };
 type Body = { ok: boolean; status: string; exit: number; message: string; phases?: Phase[]; warnings?: string[]; [key: string]: unknown };
 const parse = (text: string) => JSON.parse(text) as Body;
 const phase = (body: Body, name: string) => body.phases?.find((entry) => entry.name === name) as Phase;
-const BETA = JSON.stringify({ beta: "1.0.0-beta.0", next: "1.0.0-next.0", latest: "1.0.0-next.0" });
+const BETA = JSON.stringify({ beta: "1.0.0-beta.1", next: "1.0.0-next.0", latest: "1.0.0-next.0" });
 const noTags = (repo: ReleaseRepo) => rmSync(join(repo.fake.fixtures, "dist-tags.json"));
 
 const env = (await import(pathToFileURL(join(repoRoot, "tools/lib/env.mjs")).href)) as {

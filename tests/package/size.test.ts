@@ -286,7 +286,7 @@ describe("check scripts as programs", () => {
   it("check-readme exits 1 and names the problem on a broken README", () => {
     const dir = copy();
     try {
-      writeFileSync(join(dir, "README.md"), readFileSync(join(dir, "README.md"), "utf8").replace("1.0.0-beta.0", "0.0.1"));
+      writeFileSync(join(dir, "README.md"), readFileSync(join(dir, "README.md"), "utf8").replace("1.0.0-beta.1", "0.0.1"));
       const result = run(dir, "check-readme.mjs");
       expect(result.status).toBe(1);
       expect(result.stderr).toContain("README check failed");

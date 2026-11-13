@@ -1,6 +1,6 @@
 {
   "package": "@hannasage/armature",
-  "version": "1.0.0-beta.0",
+  "version": "1.0.0-beta.1",
   "npmTag": "beta",
   "access": "public",
   "expectedFileCount": 122,

@@ -17,7 +17,7 @@ const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as Reco
 describe("package contract", () => {
   it("has the public name and the prerelease version", () => {
     expect(pkg.name).toBe("@hannasage/armature");
-    expect(pkg.version).toBe("1.0.0-beta.0");
+    expect(pkg.version).toBe("1.0.0-beta.1");
   });
 
   it("is public, MIT, and ESM only", () => {

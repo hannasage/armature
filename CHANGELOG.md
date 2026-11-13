@@ -3,9 +3,19 @@
 This file lists the changes in each version of `@hannasage/armature`.
 The versions follow semantic versioning, with one note for prereleases: the API can still change between prereleases.
 
-## Unreleased
+## 1.0.0-beta.1
 
-Changes for the next beta. They are not published.
+Unreleased until it is published. It is meant for the npm `beta` tag. Install it with `npm install @hannasage/armature@beta`, and pin the exact version.
+
+This version holds the work of milestones G0 to G8 of amendment 1 to the Armature spec.
+
+- New subpaths: `/frame`, `/values`, `/curves`, `/linear`, `/gesture`, `/timeline`, `/layout`, `/css`, `/vue`, and `/svelte`. The `.`, `/dom`, `/react`, `/glass`, `/glass/react`, and `/styles.css` entries from beta.0 stay.
+- New flavor parts: `gesture`, `timeline`, and `layout`, all optional. A flavor with none of them stays valid.
+- New docs for every new entry, and `docs/flavor-authoring.md`. Their numbers are checked by tests.
+- A third flavor, Tide, in `examples/tide`. It is not published.
+- The contract review, in `docs/contract-review.md`. Stable: the top level, `surface`, and `followers`. Experimental: `lens`, `reveal`, `gesture`, `timeline`, and `layout`.
+- Breaking, for flavor authors: `lens.pixelRest` is now `lens.rest`, and the part `follower` is now `followers`. An old name throws a `TypeError` that says the new name.
+
 
 - New guide `docs/flavor-authoring.md`: it builds the Tide flavor step by step, with its springs, a follower, a gesture, a timeline, and a layout part. Its code blocks are cut from `examples/tide`, and a test checks them.
 - New example flavor Tide in `examples/tide`: the motion of a bottom sheet, and a sheet that uses it. It is the third flavor of the stamped Milestone 4. It is not published.
