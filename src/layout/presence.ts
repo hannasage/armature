@@ -123,8 +123,13 @@ export function createPresence(container: ArmatureTarget, options: PresenceOptio
   };
   /** Takes an element out of the leaving list, and stops its watchdog. */
   const forget = (element: ArmatureTarget) => {
-    live.get(element)?.cancel?.();
+    const entry = live.get(element);
     live.delete(element);
+    try {
+      entry?.cancel?.();
+    } catch (error) {
+      record(error);
+    }
   };
   const finish = (element: ArmatureTarget, mover?: Mover) => {
     forget(element);
@@ -198,13 +203,18 @@ export function createPresence(container: ArmatureTarget, options: PresenceOptio
         finish(element, mover);
         return;
       }
-      const cancel = env.after?.(WATCHDOG_MS, () => {
-        const entry = live.get(element);
-        if (!entry) return;
-        finish(element, entry.mover);
-        if (live.size === 0) run.stop();
-      });
-      live.set(element, { mover, cancel });
+      const entry: Leaving = { mover };
+      live.set(element, entry);
+      try {
+        entry.cancel = env.after?.(WATCHDOG_MS, () => {
+          if (!live.has(element)) return;
+          finish(element, mover);
+          if (live.size === 0) run.stop();
+        });
+      } catch (error) {
+        fail(element, error);
+        return;
+      }
       run.start();
     },
     on: (event, listener) => events.on(event, listener as (...args: never[]) => void),
@@ -215,10 +225,9 @@ export function createPresence(container: ArmatureTarget, options: PresenceOptio
       events.clear();
       const leaving = [...live];
       run.stop();
-      for (const [element, { cancel }] of leaving) {
-        cancel?.();
-        live.delete(element);
-        take(element);
+      for (const [element, { mover }] of leaving) {
+        forget(element);
+        take(element, mover);
       }
       if (own) (scheduler as Scheduler).destroy();
     },

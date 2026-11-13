@@ -62,7 +62,11 @@ export function runner(scheduler: Pick<Scheduler, "add">, task: FrameTask) {
     stop() {
       const r = remove;
       remove = undefined;
-      r?.();
+      try {
+        r?.();
+      } catch {
+        // The scheduler drops its own task. A remove that throws leaves nothing to undo here.
+      }
     },
     /** The scheduler dropped the task by itself. */
     done() {
@@ -194,7 +198,7 @@ export function createMover(env: LayoutEnvironment, el: ArmatureTarget, natural:
       const [sx, sy] = scale();
       // A shift of nothing is not written, so a scale alone, or a pose that rests, leaves `translate` alone.
       const text = `${num(base.x + springs[0].value, 3)}px ${num(base.y + springs[1].value, 3)}px`;
-      const shift = text === "0px 0px" ? null : text;
+      const shift = text === "0px 0px" && base.text === null ? null : text;
       if (shift !== translated) {
         env.setStyle(el, "translate", shift);
         translated = shift;

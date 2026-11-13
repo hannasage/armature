@@ -4,7 +4,7 @@ import type { Box, LayoutEnvironment } from "../../src/layout";
 /** The numbers of a style such as "12px 3px" or "0.5". One number fills the second place with `same` or with 0. */
 function pair(text: string | undefined, fallback: [number, number], same: boolean): [number, number] {
   if (text === undefined) return fallback;
-  const parts = text.trim().split(/\s+/).map(parseFloat);
+  const parts = text.trim().split(/\s+/).map((part) => parseFloat(part) || 0);
   return [parts[0], parts[1] ?? (same ? parts[0] : 0)];
 }
 

@@ -561,28 +561,28 @@ Method: `node scripts/size.mjs`, the same as G0 to G5. esbuild 0.28.2, `bundle`,
 
 | Entry | Source | Minified (bytes) | Gzipped (bytes) |
 | --- | --- | ---: | ---: |
-| `@hannasage/armature/layout` | `src/layout/index.ts` | 14,050 | 5,746 |
+| `@hannasage/armature/layout` | `src/layout/index.ts` | 14,257 | 5,832 |
 
-The cap is the measured size plus 10 percent, rounded up to the next 10 bytes: 5,746 gives 6,330. The tech lead approved the cap of 6,330 (approved by the tech lead, 2026-11-13), under the authority the maintainer gave on 2026-11-13. The amendment 1 proposal sits beside it. The entry is 1,746 bytes over the 4.0 KB proposal.
+The cap is the measured size plus 10 percent, rounded up to the next 10 bytes: 5,832 gives 6,420. The tech lead approved the cap of 6,420 (approved by the tech lead, 2026-11-13), under the authority the maintainer gave on 2026-11-13. The amendment 1 proposal sits beside it. The entry is 1,832 bytes over the 4.0 KB proposal.
 
-The measure after the first build was 4,868, and its cap was 5,360. Review round 1 added behavior, and the entry grew by 878 bytes: the `translate` that other code set (`getStyle`, the option `from`), a presence that survives the failure of one element (`leftMounted`, per-element failure), a watchdog (`after`), a time to live and tracking for shared keys, `release()`, a clear that can be retried, and a check for a box of all zeros. The trims tried (one shared message for the no-box line, shorter flavor messages built by one helper) moved the gzipped size by at most a byte, because gzip already folds repeated text. So the measure stands at 5,746, and the cap follows the rule.
+The measure after the first build was 4,868, and its cap was 5,360. Review round 1 added behavior, and the entry grew by 878 bytes: the `translate` that other code set (`getStyle`, the option `from`), a presence that survives the failure of one element (`leftMounted`, per-element failure), a watchdog (`after`), a time to live and tracking for shared keys, `release()`, a clear that can be retried, and a check for a box of all zeros. The trims tried (one shared message for the no-box line, shorter flavor messages built by one helper) moved the gzipped size by at most a byte, because gzip already folds repeated text. So the measure was 5,746 after round 1 (cap 6,330). Review round 2 added the pose clear at destroy, the untracking of released and failed layouts in `createShared`, the guard on the watchdog timer, and the base translate restore, and the entry grew by 86 bytes to 5,832. The tech lead had approved the cap by the same rule, so the cap is now 6,420, approved by the tech lead, 2026-11-13.
 
 | Entry | Measured (gzipped) | Cap (approved) | Amendment 1 proposal |
 | --- | ---: | ---: | --- |
-| `/layout` | 5,746 | 6,330 | 4.0 KB |
+| `/layout` | 5,832 | 6,420 | 4.0 KB |
 
 The cap of `/layout`, as a bullet (approved by the tech lead, 2026-11-13):
 
-- `/layout`: 6,330.
+- `/layout`: 6,420.
 
 Where the bytes sit, in minified bytes of the bundle:
 
 | File | Minified (bytes) |
 | --- | ---: |
-| `src/layout/motion.ts` | 3,236 |
-| `src/layout/presence.ts` | 2,410 |
+| `src/layout/motion.ts` | 3,263 |
+| `src/layout/presence.ts` | 2,441 |
 | `src/layout/layout.ts` | 1,858 |
-| `src/layout/shared.ts` | 1,580 |
+| `src/layout/shared.ts` | 1,729 |
 | `src/engine/spring.ts` | 1,453 |
 | `src/frame/scheduler.ts` | 1,378 |
 | `src/layout/flavor.ts` | 904 |
@@ -590,7 +590,7 @@ Where the bytes sit, in minified bytes of the bundle:
 | `src/layout/util.ts` | 288 |
 | `src/engine/env.ts` | 116 |
 
-The spring solver and the scheduler are 2,831 of the 14,050 bytes, and the entry needs both. The entry does not bundle `src/engine/flavor.ts`: it runs its own check of the `layout` part, which saves about 1.8 KB. No existing entry grew.
+The spring solver and the scheduler are 2,831 of the 14,257 bytes, and the entry needs both. The entry does not bundle `src/engine/flavor.ts`: it runs its own check of the `layout` part, which saves about 1.8 KB. No existing entry grew.
 
 ### Other entries
 
@@ -600,7 +600,7 @@ A named type added to `src/engine/flavor.ts` (`export interface LayoutFlavor`, o
 
 ### The tarball
 
-`npm run check:pack` passed. The tarball is 275,495 bytes in 230 files, under the limit of 333,027 (1.5 times the approved MEASURED_SIZE of 222,018). MEASURED_SIZE did not change.
+`npm run check:pack` passed. The tarball is 275,938 bytes in 230 files, under the limit of 333,027 (1.5 times the approved MEASURED_SIZE of 222,018). MEASURED_SIZE did not change.
 
 ### Scale distortion
 

@@ -81,6 +81,15 @@ export function createShared(options: SharedOptions): Shared {
     const now = env.now();
     for (const [key, entry] of [...waiting]) if (now - entry.at > ttl) waiting.delete(key);
   };
+  /** Untracks the layouts that are no longer live: destroyed, released, failed, or at rest. */
+  const sweep = () => {
+    for (const [element, layout] of [...byElement]) {
+      const state = layout.getState();
+      if (state.destroyed || state.failed || !state.moving) untrack(layout, element);
+      // A failed layout may still hold its pose. Destroying it tries the clear again.
+      if (state.failed) layout.destroy();
+    }
+  };
   const untrack = (layout: Layout, element: object) => {
     made.delete(layout);
     if (byElement.get(element) === layout) byElement.delete(element);
@@ -118,6 +127,7 @@ export function createShared(options: SharedOptions): Shared {
       const name = keyOf(key);
       if (!thing(element)) throw new TypeError("A shared element is an element.");
       prune();
+      sweep();
       const from = waiting.get(name);
       waiting.delete(name);
       const live = byElement.get(element);
@@ -135,11 +145,13 @@ export function createShared(options: SharedOptions): Shared {
           made.add(layout);
           byElement.set(element, layout);
           layout.on("rest", () => untrack(layout, element));
-          const done = layout.destroy;
-          layout.destroy = () => {
-            untrack(layout, element);
-            done();
-          };
+          for (const method of ["destroy", "release"] as const) {
+            const done = layout[method];
+            layout[method] = () => {
+              untrack(layout, element);
+              done();
+            };
+          }
         }
       }
       return layout;
@@ -150,6 +162,7 @@ export function createShared(options: SharedOptions): Shared {
     },
     getState: () => {
       prune();
+      sweep();
       return { pending: waiting.size, layouts: made.size, destroyed, failed: failure };
     },
     destroy() {
