@@ -788,3 +788,58 @@ The spec was silent on these points:
 `/css` exports `cssFlavor`, `cssKeyframes`, `cssKeyframesFit`, `cssLinear`, and the types `CssTrack`, `KeyframesFit`, and `KeyframesOptions`.
 `/vue` exports `useArmatureDrag`, `useArmatureFollower`, `useArmatureLayout`, `useArmatureSurface`, and the types `ControllerHandle`, `ElementRef`, and the controller types and options it wraps.
 `/svelte` exports `drag`, `follow`, `layout`, `surface`, and the types `ActionHooks`, `ActionResult`, and the same controller types and options.
+
+## G8 build
+
+Date: 2026-11-13 (UTC).
+Source: branch `task/g8-docs-flavor-gate`, from `cd726aa` (the merge of G7). G8 adds documentation, the third flavor (Tide, in `examples/tide`), the contract review after it, and tests. It adds no entry and no runtime code. The one change under `src` is the `@experimental` mark in the comments of the type `Flavor`.
+Method: `node scripts/size.mjs`, the same as G0 to G7. esbuild 0.28.2, `bundle`, `minify`, `esm`, then gzip. React, Vue, and Svelte are external. Node 24 in Docker, with the repository at `/home/runner/work/armature/armature`, as in CI.
+
+### The final size table
+
+Every entry, its gzipped size now, its cap in `size-budget.json`, and the room left under the cap. `tests/package/g8-size.test.ts` measures each entry again and checks each row.
+
+| Entry | Measured (gzipped) | Cap | Room |
+| --- | ---: | ---: | ---: |
+| `@hannasage/armature` | 3,865 | 4,000 | 135 |
+| `@hannasage/armature/frame` | 807 | 890 | 83 |
+| `@hannasage/armature/gesture` | 5,332 | 5,850 | 518 |
+| `@hannasage/armature/timeline` | 5,893 | 6,460 | 567 |
+| `@hannasage/armature/layout` | 5,832 | 6,420 | 588 |
+| `@hannasage/armature/values` | 6,615 | 6,870 | 255 |
+| `@hannasage/armature/curves` | 2,363 | 2,500 | 137 |
+| `@hannasage/armature/linear` | 3,351 | 3,690 | 339 |
+| `@hannasage/armature/dom` | 11,310 | 12,170 | 860 |
+| `@hannasage/armature/react` | 11,674 | 12,650 | 976 |
+| `@hannasage/armature/glass` | 7,882 | 8,430 | 548 |
+| `@hannasage/armature/glass/react` | 12,682 | 13,710 | 1,028 |
+| `@hannasage/armature/css` | 9,677 | 10,520 | 843 |
+| `@hannasage/armature/vue` | 11,018 | 12,050 | 1,032 |
+| `@hannasage/armature/svelte` | 10,966 | 11,980 | 1,014 |
+| `@hannasage/armature/styles.css` | 749 | 830 | 81 |
+
+The own code of the adapters and of `/css`, with the layers they wrap left out:
+
+| Entry | Own code (gzipped) | Own-code cap |
+| --- | ---: | ---: |
+| `@hannasage/armature/vue` | 573 | 1,000 |
+| `@hannasage/armature/svelte` | 528 | 1,000 |
+| `@hannasage/armature/css` | 2,382 | 2,510 |
+
+Every entry is inside its cap. No cap moved, and no entry needs a new cap. Every size is the same as after G7, because G8 changes no runtime code.
+
+### The tarball
+
+`npm run check:pack` passed. The tarball is 295,794 bytes in 259 files, under the limit of 333,027 (1.5 times the approved MEASURED_SIZE of 222,018). It was 295,441 bytes in 259 files after G7. The growth of 353 bytes is two packed files that G8 changed: `README.md`, which now lists the new pages and the third flavor, and the type file of the engine, which holds the `@experimental` marks. MEASURED_SIZE did not change. The room left under the limit is 37,233 bytes, so no source map was slimmed.
+
+The docs, the figures, the example flavors, and the tests are not in the tarball. The `files` field of `package.json` is `dist`, `README.md`, and `LICENSE`, and `tests/package/g8-size.test.ts` checks that the files G8 adds are refused by the pack rules.
+
+### The 1.0 gate of amendment 1
+
+- Every new part has a page: kinds (`docs/kinds.md`), curves and `linear()` (`docs/curves.md`), gesture (`docs/gesture.md`), timeline (`docs/timeline.md`), layout (`docs/layout.md`), the CSS output (`docs/css.md`), and the Vue and Svelte adapters (`docs/adapters.md`, one page for both).
+- Every number in the prose of those pages, and of the guide, is checked by a figure in `tests/docs`. A figure works the number out from the code, from a run of the code, or from a saved browser measure. Two typed numbers did not hold. `docs/gesture.md` said that a flick into the band peaks at 0.8 times the reach. That is the design target of the band speed, and a test checks it. A flick at the speed ceiling measures 0.96 times the reach, because the decay crosses the bound inside one slice, and the page now says both. `docs/css.md` gave a duration of 709 ms for a timeline that measures 708.33 ms. The page now says to round it up.
+- `docs/flavor-authoring.md` builds the Tide flavor with a follower, a gesture, a timeline, and a layout part. Its code blocks are cut from `examples/tide`, and its spring numbers are measured by the solver. `tests/examples/tide.test.ts` runs the flavor through every controller.
+- The contract review after the third flavor is in `docs/contract-review.md`. The top level, `surface`, and `followers` are stable by the rule. `lens`, `reveal`, `gesture`, `timeline`, and `layout` stay experimental, because one real flavor uses each.
+- The size table is inside its budget, as above.
+
+The 1.0 release itself is not part of G8. Milestone 5 of the stamped spec still asks for two flavors in real use, a written change policy, and Hanna's authorization of each publish.

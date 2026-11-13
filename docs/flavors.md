@@ -41,6 +41,10 @@ Only the top level is needed by every flavor. The other seven parts are optional
 - `timeline`: read by `createTimeline`. Added in G5. See "The timeline part" below.
 - `layout`: read by `createLayout`, `createPresence`, and `createShared`. Added in G6. See "The layout part" below.
 
+## Stable and experimental parts
+
+A part is marked stable only after two real flavors use it. Today the top level, `surface`, and `followers` are stable. `lens`, `reveal`, `gesture`, `timeline`, and `layout` are experimental, and the type marks each with `@experimental`. `docs/contract-review.md`, section "Review after the third flavor", gives the reason for each part. `docs/flavor-authoring.md` builds a flavor with the new parts step by step.
+
 ## Top level fields
 
 - `name` is a short word for messages. `validateFlavor` and the require helpers put it in their errors. The React hooks use it in the context of a logged failure, such as `glass surface`.

@@ -7,7 +7,7 @@ A flavor is a named movement language. It sets the spring constants, the names o
 
 Status: pre-release. It is published on the npm `beta` tag as 1.0.0-beta.0. The API can still change.
 
-The first flavor is liquid glass. It is in this package. The second flavor will live in Projection UI.
+The first flavor is liquid glass. It is in this package. The second flavor will live in Projection UI. A third, Tide, is an example in `examples/tide`: the motion of a bottom sheet, built with a follower, a gesture, a timeline, and a layout part.
 
 ## Install
 
@@ -92,7 +92,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 - `docs/flavors.md` explains the flavor contract: each field, and which engine code reads it.
 - `docs/glass-how-it-works.md` explains the numbers of the glass flavor: the spring, the displacement map, and the filter.
 - `docs/liquid-glass-readme.md` is the original guide to the glass package, from before the engine was split out. Its import paths are the old ones.
+- `docs/flavor-authoring.md` builds a flavor step by step: the Tide flavor, with its springs, a follower, a gesture, a timeline, and a layout part.
+- `docs/contract-review.md` records which parts of the flavor contract are stable and which stay experimental, and why.
 - `docs/kinds.md` explains the kinds: color (and why it blends in OKLab), path, and 3D transform, with the rule that nothing writes `transform`.
+- `docs/curves.md` explains the bezier, the named easings, the tween, the bezier fit, and the `linear()` exporter.
+- `docs/gesture.md`, `docs/timeline.md`, and `docs/layout.md` explain drag, timelines, and layout animation.
+- `docs/css.md` explains the CSS output, and `docs/adapters.md` explains the Vue and Svelte adapters.
 - `docs/baseline.md` records the measurements taken at each milestone.
 - `docs/releasing.md` lists the steps to publish a prerelease.
 - `CHANGELOG.md` lists the changes in each version.

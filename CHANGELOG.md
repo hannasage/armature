@@ -7,6 +7,11 @@ The versions follow semantic versioning, with one note for prereleases: the API 
 
 Changes for the next beta. They are not published.
 
+- New guide `docs/flavor-authoring.md`: it builds the Tide flavor step by step, with its springs, a follower, a gesture, a timeline, and a layout part. Its code blocks are cut from `examples/tide`, and a test checks them.
+- New example flavor Tide in `examples/tide`: the motion of a bottom sheet, and a sheet that uses it. It is the third flavor of the stamped Milestone 4. It is not published.
+- New page `docs/curves.md` for `/curves` and `/linear`, with a figure of the named easings drawn from their own samples.
+- Every number on the pages of the new parts is checked by a test that works it out from the code. Two pages changed as a result: `docs/gesture.md` now gives the measured peak of a hard flick into the band, and `docs/css.md` says to round the duration up.
+- The contract review after the third flavor, in `docs/contract-review.md`. The top level, `surface`, and `followers` are stable by the rule of the stamped spec. `lens`, `reveal`, `gesture`, `timeline`, and `layout` stay experimental, and the type `Flavor` marks them with `@experimental`.
 - New entry `@hannasage/armature/css`: functions that return CSS text, with no DOM and no environment. `cssLinear` writes a spring or a curve as `linear()`. `cssKeyframes` and `cssKeyframesFit` write a timeline as `@keyframes` text, with the values of a real timeline. `cssFlavor` writes the variables and attributes of a flavor as a stylesheet. Every name is escaped, and every number is cut and written with no exponent. The output never declares `transform`. See `docs/css.md`.
 - New entry `@hannasage/armature/vue`: the composables `useArmatureSurface`, `useArmatureFollower`, `useArmatureDrag`, and `useArmatureLayout`. Each makes its controller when the component mounts, and destroys it when the component unmounts. Each returns `{ controller, failed }`. See `docs/adapters.md`.
 - New entry `@hannasage/armature/svelte`: the actions `surface`, `follow`, `drag`, and `layout`, for the `use:` directive. They take `onReady` and `onError` beside the options of the controller. See `docs/adapters.md`.

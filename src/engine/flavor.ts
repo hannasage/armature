@@ -46,15 +46,17 @@ export interface Flavor<P extends string = string> {
   /** Named spring presets. The surface and lens flavors refer to these by key. */
   readonly springs: Readonly<Record<string, Readonly<SpringConfig>>>;
   readonly surface?: SurfaceFlavor;
+  /** @experimental One real flavor uses this part. See docs/contract-review.md. */
   readonly lens?: LensFlavor;
+  /** @experimental One real flavor uses this part. See docs/contract-review.md. */
   readonly reveal?: RevealFlavor<P>;
   /** Named followers: one number that springs toward a target and is written as a CSS variable. */
   readonly followers?: FollowerFlavor;
-  /** Drag, decay, snap, and swipe: the numbers `createDrag` from `@hannasage/armature/gesture` reads. */
+  /** Drag, decay, snap, and swipe: the numbers `createDrag` from `@hannasage/armature/gesture` reads. @experimental One real flavor uses this part. See docs/contract-review.md. */
   readonly gesture?: GestureFlavor;
-  /** Named sequences and default curves: the names `createTimeline` from `@hannasage/armature/timeline` reads. */
+  /** Named sequences and default curves: the names `createTimeline` from `@hannasage/armature/timeline` reads. @experimental One real flavor uses this part. See docs/contract-review.md. */
   readonly timeline?: TimelineFlavor;
-  /** Spring keys and rest limits in pixels: the numbers `createLayout`, `createPresence`, and `createShared` from `@hannasage/armature/layout` read. */
+  /** Spring keys and rest limits in pixels: the numbers `createLayout`, `createPresence`, and `createShared` from `@hannasage/armature/layout` read. @experimental One real flavor uses this part. See docs/contract-review.md. */
   readonly layout?: { readonly springKeys: { readonly move: string; readonly exit?: string }; readonly rest: RestLimits };
 }
 
