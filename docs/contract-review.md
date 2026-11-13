@@ -83,10 +83,10 @@ No Projection delegation test was written for this reason.
   It ignores `NaN` and `Infinity`.
   It takes an injected `env`.
 - New public names: `requireFollower`, `defineFlavor`, `FollowerSpec`, and `FollowerFlavor` from `@hannasage/armature`, and `createFollower`, `FollowerOptions`, `FollowerState`, and `Follower` from `@hannasage/armature/dom`.
-  The lists are in `scripts/check-exports.mjs`. The `.` entry now has 29 runtime names and 17 type names. The `./dom` entry has 25 runtime names and 10 type names.
+  The lists are in `scripts/check-exports.mjs`. As of Milestone 2, the `.` entry had 29 runtime names and 17 type names, and the `./dom` entry had 25 runtime names and 10 type names. Later milestones added names.
 - The optional `specular` and `glow` switches in the surface part (`src/engine/flavor.ts`, `src/dom/surface.ts`). They default to true. They add no public name.
 - `docs/flavors.md` describes the follower part.
-- The glass flavor has no follower part. All 527 earlier tests pass unchanged.
+- The glass flavor has no follower part. As of Milestone 2, all 527 earlier tests passed unchanged.
 - Support for the example: path aliases in `tsconfig.json` and `vitest.config.ts`, and a boundary test that lets files under `examples/` import only the public names.
 
 The engine has no branch on a flavor name. A search of `src/engine`, `src/dom`, and `src/react` for `lqg`, `glass`, and `liquid` finds comments only, listed below.
@@ -141,9 +141,9 @@ A reasonable path is to mark `follower` and the engine stable, and to leave the 
 
 This review follows G8 of amendment 1. The third flavor is Tide, the motion of a bottom sheet, in `examples/tide/flavor.ts`. It was built on the public API only, with a follower, a gesture, a timeline, and a layout part. `docs/flavor-authoring.md` builds it step by step, and `tests/examples/tide.test.ts` runs it through every controller.
 
-The rule of the stamped spec: a part of the contract is marked stable only after a second real flavor uses it. A real flavor is one built for a product: glass, Projection, and Tide. The flavors in `tests/helpers` are made for single tests and do not count. `tests/docs/contract-review.test.ts` works out from the three flavors which parts each one uses, and checks the list below against it.
+The rule of the stamped spec: a part of the contract is marked stable only after a second real flavor uses it. A real flavor is a flavor outside `tests/helpers` that ships as a documented example or product. Today these are glass, Projection, and Tide. The flavors in `tests/helpers` are made for single tests and do not count. `tests/docs/contract-review.test.ts` finds the real flavors (glass, and each `examples/*/flavor.ts`), works out which parts each one uses, and checks the list below against it. A part counts as used only when it is not empty.
 
-Stable here means that the rule is met. It does not freeze the API. The change policy for 1.0, and the choice of what 1.0 freezes, belong to Hanna.
+Stable here means that the rule is met. It does not freeze the API. The change policy for 1.0, and the choice of what 1.0 freezes, belong to the maintainer.
 
 ### The status of each part
 
@@ -177,4 +177,4 @@ The type `Flavor` in `src/engine/flavor.ts` marks each experimental part with `@
 
 ### Recommendation
 
-Mark the top level, `surface`, and `followers` stable. Leave `lens`, `reveal`, `gesture`, `timeline`, and `layout` experimental until a second real flavor uses each. This is the record. Hanna decides what 1.0 freezes.
+Mark the top level, `surface`, and `followers` stable. Leave `lens`, `reveal`, `gesture`, `timeline`, and `layout` experimental until a second real flavor uses each. This is the record. The maintainer decides what 1.0 freezes.

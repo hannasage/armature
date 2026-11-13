@@ -1,7 +1,9 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { bezier, easing, easings, type EasingName } from "../../src/curves";
 import { fitLinear, toEasing, toLinear } from "../../src/linear";
-import { checkPage } from "../helpers/doc-pages";
+import { checkPage, readDoc, root } from "../helpers/doc-pages";
 import { figure, sampleCurve } from "../helpers/doc-svg";
 
 // The numbers of docs/curves.md, worked out from the evaluator, the exporter, and the fitting aid. The figure of the named easings is drawn
@@ -23,7 +25,7 @@ const table = (): string =>
 checkPage("curves.md", [
   { text: table(), check: () => expect(Object.keys(easings)).toHaveLength(6) },
   {
-    text: "the best bezier is off by 0.0177 at most",
+    text: "- For the spring `{ stiffness: 170, damping: 26 }`, the best bezier is off by 0.0177 at most.",
     check: () => expect(four(toEasing(spring, { supports: () => false }).error)).toBe("0.0177"),
   },
   {
@@ -57,7 +59,7 @@ checkPage("curves.md", [
     },
   },
   {
-    text: "At the default tolerance it needs 15 stops. It rests in 775 ms, and the largest error is 0.0045.",
+    text: "For the spring `{ stiffness: 170, damping: 26 }`:\n\n- At the default tolerance it needs 15 stops. It rests in 775 ms, and the largest error is 0.0045.",
     check: () => {
       const fit = fitLinear(spring);
       expect([fit.count, Math.round(fit.duration * 1000), four(fit.error)]).toEqual([15, 775, "0.0045"]);
@@ -76,7 +78,10 @@ checkPage("curves.md", [
 ]);
 
 describe("docs/figures/easings.svg", () => {
-  it("is the drawing of the six named easings from their own samples", async () => {
+  it("is the drawing of the six named easings from their own samples, and the page links it", async () => {
+    // The file must exist, so a run that could write a new snapshot cannot pass on a file it made itself.
+    expect(existsSync(join(root, "docs/figures/easings.svg"))).toBe(true);
+    expect(readDoc("curves.md")).toMatch(/!\[[^\]]+\]\(figures\/easings\.svg\)/);
     const svg = figure((Object.keys(easings) as EasingName[]).map((name) => ({ title: name, points: sampleCurve(bezier(...easings[name])) })));
     await expect(svg).toMatchFileSnapshot("../../docs/figures/easings.svg");
   });

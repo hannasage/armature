@@ -78,4 +78,15 @@ checkPage("timeline.md", [
       expect(at(144)).toBeCloseTo(at60, 9);
     },
   },
+  {
+    text: "- A spring, such as `{ stiffness: 170, damping: 26 }`: the spring starts at the time of the previous key.",
+    check: () => {
+      // The spring of the example starts at the previous key (0 ms), so at 300 ms it has moved, and it ends on the value.
+      const { tl } = timeline([[0, 0], [300, 1, { stiffness: 170, damping: 26 }]]);
+      tl.seek(150);
+      expect(tl.getState().values[0]).toBeGreaterThan(0);
+      tl.seek(Infinity);
+      expect(tl.getState().values[0]).toBe(1);
+    },
+  },
 ]);

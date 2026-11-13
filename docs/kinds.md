@@ -26,6 +26,8 @@ The 3D transform kind uses one `restDelta` for all 11 components, because a spri
 
 ## Color
 
+The examples pass a `scheduler`: the shared frame scheduler of `@hannasage/armature/frame`. `docs/frame.md` shows how to make one.
+
 ```ts
 import { colorKind, createValue } from "@hannasage/armature/values";
 
@@ -87,7 +89,7 @@ What counts as structure:
 
 Armature does not resample. It cannot blend a path of three segments into a path of four, and it does not guess. That is separate work.
 
-The kind reads all path data forms: implicit repeats (`M 0 0 10 10`), compact numbers (`M0-1.5.5`), and arc flags with no separator. It writes one plain form: a letter, then its numbers, with a space between. `parse` and `toArray` keep the full precision of every number. Only `serialize` and `fromArray`, which write text, round to 6 decimals.
+The kind reads all path data forms: implicit repeats (`M 0 0 10 10`), compact numbers (`M0-1.5.5.5`), and arc flags with no separator. It writes one plain form: a letter, then its numbers, with a space between. `parse` and `toArray` keep the full precision of every number. Only `serialize` and `fromArray`, which write text, round to 6 decimals.
 
 ## 3D transform
 

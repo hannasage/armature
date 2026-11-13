@@ -1,7 +1,8 @@
-import { expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { cssFlavor, cssKeyframesFit, cssLinear } from "../../src/css";
+import { escapeIdent } from "../../src/css/escape";
 import { glassFlavor } from "../../src/glass";
-import { blocksOf, checkPage, readDoc } from "../helpers/doc-pages";
+import { blocksOf, checkPage, readDoc, sectionOf } from "../helpers/doc-pages";
 
 // The numbers of docs/css.md, worked out by calling the CSS output. The blocks that show output are compared with real output too.
 
@@ -101,4 +102,19 @@ checkPage("css.md", [
       for (const line of shown) expect(real, line).toContain(line);
     },
   },
+  {
+    text: "so it never gets a number such as `5.5e-17`",
+    check: () => {
+      const seen: number[] = [];
+      cssKeyframesFit("tiny", { tracks: [{ property: "opacity", keys: [[0, 5.5e-17], [10, 5.5e-17]], format: (value) => (seen.push(value), String(value)) }] });
+      expect(new Set(seen)).toEqual(new Set([0]));
+    },
+  },
+  { text: "They write it as `\\3c `", check: () => expect(escapeIdent("a<b")).toBe("a\\3c b") },
 ]);
+
+describe("docs/baseline.md, section G8 build", () => {
+  it("gives the measured duration of the example of docs/css.md", () => {
+    expect(sectionOf(readDoc("baseline.md"), "G8 build")).toContain(`a timeline that measures ${example().duration.toFixed(2)} ms`);
+  });
+});

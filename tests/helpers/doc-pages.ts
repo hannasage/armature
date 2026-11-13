@@ -7,9 +7,9 @@ import { describe, expect, it } from "vitest";
 // lists its figures. A figure is a piece of text on the page and a check that works the number out from the code, from a run of the
 // code, or from a saved measurement. A number in the prose that no figure covers fails the page.
 //
+// The scan covers the prose and the inline code spans in it, so a number such as `0.0001` in a sentence needs a figure too.
 // What is not a figure, because it is not a measured number:
-// - code: a fenced block or an inline code span. It is an example of the API. A block that shows the output of the API is checked by a
-//   figure all the same, where the page has one.
+// - a fenced block. It is an example of the API. A block that shows the output of the API is checked by a figure all the same.
 // - the marker of an ordered list, and a date such as 2026-11-13.
 // - the "3" of "3D".
 // - the bare numbers 0 and 1, which on these pages are bounds and counts ("0 or more", "from 0 to 1", "1 number").
@@ -25,16 +25,15 @@ export interface Figure {
   check: () => void | Promise<void>;
 }
 
-/** A number in prose: digits, with groups of three after a comma, and decimals. Not part of a word, a name such as G4, or a hex color. */
-const NUMBER = /(?<![\w.#-])\d+(?:,\d{3})*(?:\.\d+)?/g;
+/**
+ * A number: digits, with groups of three after a comma, and decimals, and a sign when a minus comes before it. Not part of a word, a name
+ * such as G4, or a hex color. The second number of a range such as 10-20 is a number of its own.
+ */
+const NUMBER = /(?<![\w.#])-?\d+(?:,\d{3})*(?:\.\d+)?/g;
 
-/** The ranges of a text that are code: fenced blocks and inline code spans. */
+/** The ranges of a text that are fenced blocks. */
 function codeRanges(text: string): Array<[number, number]> {
-  const ranges: Array<[number, number]> = [];
-  for (const match of text.matchAll(/^ {0,3}(```|~~~)[^\n]*\n[\s\S]*?^ {0,3}\1[^\n]*$/gm)) ranges.push([match.index, match.index + match[0].length]);
-  const inside = (at: number) => ranges.some(([start, end]) => at >= start && at < end);
-  for (const match of text.matchAll(/`[^`\n]+`/g)) if (!inside(match.index)) ranges.push([match.index, match.index + match[0].length]);
-  return ranges;
+  return [...text.matchAll(/^ {0,3}(```|~~~)[^\n]*\n[\s\S]*?^ {0,3}\1[^\n]*$/gm)].map((match) => [match.index, match.index + match[0].length]);
 }
 
 /** The ranges a rule leaves out: list markers, dates, and the "3" of "3D". */
@@ -97,3 +96,10 @@ export function blocksOf(text: string, language: string): string[] {
 
 /** A number written the way the pages write it: groups of three with commas. */
 export const grouped = (n: number): string => n.toLocaleString("en-US");
+
+/** True when the lines of `block` are a run of whole, consecutive lines of `file`. A block that drops a line in the middle is not. */
+export function isCutFrom(block: string, file: string): boolean {
+  const want = block.replace(/\n$/, "").split("\n");
+  const have = file.split("\n");
+  return have.some((_, start) => want.every((line, i) => have[start + i] === line));
+}

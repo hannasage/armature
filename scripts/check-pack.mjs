@@ -9,7 +9,9 @@
 //        c. the stylesheet resolves by package name and holds the glass styles.
 //   5. The tarball is installed a second time into a lean project with React as the only peer. There the entries `.`, `/dom`, and `/css` import under
 //      Node ESM and type-check, and Vue and Svelte are not installed. That proves the two peers stay optional.
+//   6. The declaration file of the engine in dist carries the same `@experimental` parts of `Flavor` as the source, and at least one.
 // The check fails with a list of every problem found. Pass `--keep` to keep the temp folder for a look.
+// Pass `--out <file>` to save the size and the file count of the tarball as JSON, to a new file inside the repository.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -17,13 +19,35 @@ import { dirname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { API } from "./public-api.mjs";
-import { childEnv, disallowedFiles, missingExportTargets, sizeLimit, withinSizeBudget } from "./pack-rules.mjs";
+import { childEnv, disallowedFiles, experimentalParts, missingExportTargets, packRecord, sizeLimit, withinSizeBudget } from "./pack-rules.mjs";
+import { resolveOut } from "./size-lib.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const keep = process.argv.includes("--keep");
 const problems = [];
 const problem = (text) => problems.push(text);
+let outFile = null;
+const outIndex = process.argv.indexOf("--out");
+if (outIndex !== -1) {
+  try {
+    outFile = resolveOut(process.argv[outIndex + 1]);
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+}
+
+// ---- 6: the @experimental marks reach the declaration file ----
+{
+  const source = experimentalParts(readFileSync(join(root, "src", "engine", "flavor.ts"), "utf8"));
+  const declaration = join(root, "dist", "engine", "flavor.d.ts");
+  const built = existsSync(declaration) ? experimentalParts(readFileSync(declaration, "utf8")) : null;
+  if (source.length === 0) problem("src/engine/flavor.ts marks no part of Flavor @experimental");
+  else if (built === null) problem("dist/engine/flavor.d.ts is missing. Run npm run build first.");
+  else if (built.join(",") !== source.join(",")) problem(`dist/engine/flavor.d.ts marks ${built.join(", ") || "no part"} @experimental, and the source marks ${source.join(", ")}`);
+  else console.log(`The declaration file marks ${built.length} parts of Flavor @experimental: ${built.join(", ")}.`);
+}
 
 /** Runs a command and returns its output. A failure is recorded with the command output, and the result has `ok: false`. */
 function run(label, command, args, cwd) {
@@ -235,6 +259,7 @@ try {
     if (missing.length > 0) problem(`the tarball lacks ${missing.length} export target${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}`);
     if (!withinSizeBudget(tarballSize)) problem(`the tarball is ${tarballSize} bytes, above the limit of ${sizeLimit()} bytes (1.5 times the measured size)`);
     console.log(`Packed ${paths.length} files, ${tarballSize} bytes (limit ${sizeLimit()}).`);
+    if (outFile) writeFileSync(outFile, `${JSON.stringify(packRecord(tarballSize, paths.length), null, 2)}\n`);
   }
 
   // ---- 4: install into a clean consumer ----

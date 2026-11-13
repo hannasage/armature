@@ -16,6 +16,8 @@ interface PackRules {
   withinSizeBudget(size: number, measured?: number): boolean;
   missingExportTargets(exportsMap: Record<string, unknown>, paths: string[]): string[];
   childEnv(env: Record<string, string | undefined>): Record<string, string | undefined>;
+  experimentalParts(text: string): string[];
+  packRecord(bytes: number, files: number, measured?: number): { bytes: number; files: number; limit: number; measuredSize: number; withinLimit: boolean };
 }
 
 const rules = (await import(pathToFileURL(join(root, "scripts/pack-rules.mjs")).href)) as PackRules;
@@ -119,3 +121,31 @@ describe("childEnv", () => {
     expect(env.npm_config_dry_run).toBe("true");
   });
 });
+
+describe("experimentalParts", () => {
+  it("reads the parts of Flavor whose comment has an @experimental line, in a source file and in a declaration file", () => {
+    const source = "export interface Flavor<P extends string = string> {\n  readonly name: string;\n  /**\n   * A part.\n   * @experimental Not yet.\n   */\n  readonly lens?: LensFlavor;\n  /** Fine. */\n  readonly surface?: SurfaceFlavor;\n}\n";
+    expect(rules.experimentalParts(source)).toEqual(["lens"]);
+    expect(rules.experimentalParts(source.replace("export interface", "export declare interface").replaceAll("readonly ", ""))).toEqual(["lens"]);
+  });
+  it("does not count a tag inside the text of a line, a tag of another interface, or a part with no comment", () => {
+    const text = "export interface Other {\n  /**\n   * @experimental\n   */\n  readonly x?: number;\n}\nexport interface Flavor<P> {\n  /** Drag. @experimental inline. */\n  readonly gesture?: G;\n  readonly layout?: L;\n}\n";
+    expect(rules.experimentalParts(text)).toEqual([]);
+    expect(rules.experimentalParts("no type here")).toEqual([]);
+  });
+  it("finds the five experimental parts in the source of the engine", async () => {
+    const { readFileSync } = await import("node:fs");
+    expect(rules.experimentalParts(readFileSync(join(root, "src/engine/flavor.ts"), "utf8"))).toEqual(["lens", "reveal", "gesture", "timeline", "layout"]);
+  });
+});
+
+describe("packRecord", () => {
+  it("records the size, the files, and the limit, and says whether the size is within it", () => {
+    expect(rules.packRecord(300000, 259)).toEqual({ bytes: 300000, files: 259, limit: rules.sizeLimit(), measuredSize: rules.MEASURED_SIZE, withinLimit: true });
+    expect(rules.packRecord(rules.sizeLimit() + 1, 1).withinLimit).toBe(false);
+  });
+  it("refuses a size or a count that is not a whole number above 0", () => {
+    for (const [bytes, files] of [[0, 1], [1, 0], [1.5, 1], [Number.NaN, 1]]) expect(() => rules.packRecord(bytes, files)).toThrow(TypeError);
+  });
+});
+

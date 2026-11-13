@@ -21,7 +21,7 @@ Pick a prefix. Every CSS variable and data attribute of the flavor starts with i
 
 A spring is the heart of a flavor. Every spring obeys one equation:
 
-```
+```text
 m x'' + c x' + k x = 0
 ```
 
@@ -38,9 +38,9 @@ const swell = Object.freeze({ stiffness: 380, damping: 30, mass: 1 });
 /** The dim and every exit. Critically damped, so nothing bounces on the way out. */
 const ebb = Object.freeze({ stiffness: 260, damping: criticalDamping(260, 1), mass: 1 });
 /** A row that moves to a new place. Close to critical, so a list that changes order does not wobble. */
-const drift = Object.freeze({ stiffness: 220, damping: 26, mass: 1 });
+const drift = Object.freeze({ stiffness: 220, damping: 25, mass: 1 });
 /** A row that rises into place. Loose, so the list ripples as it arrives. */
-const ripple = Object.freeze({ stiffness: 140, damping: 12, mass: 1 });
+const ripple = Object.freeze({ stiffness: 140, damping: 11, mass: 1 });
 ```
 
 ![The position of each Tide spring over one second, from 0 to the target, drawn from the solver's own samples. The dashed line is the target.](figures/tide-springs.svg)
@@ -71,25 +71,25 @@ The solver steps the equation in fixed slices with semi-implicit Euler. That add
 
 #### drift
 
-- Constants: stiffness 220, damping 26, mass 1.
+- Constants: stiffness 220, damping 25, mass 1.
 - Natural frequency: 14.8 radians per second.
-- Damping ratio 0.876. It is underdamped.
-- Measured overshoot: 0.0 percent.
-- Measured settle time: 315 ms.
-- Closed-form overshoot: 0.3 percent.
-- Closed-form settle time: 300 ms.
+- Damping ratio 0.843. It is underdamped.
+- Measured overshoot: 0.2 percent.
+- Measured settle time: 289 ms.
+- Closed-form overshoot: 0.7 percent.
+- Closed-form settle time: 278 ms.
 
 #### ripple
 
-- Constants: stiffness 140, damping 12, mass 1.
+- Constants: stiffness 140, damping 11, mass 1.
 - Natural frequency: 11.8 radians per second.
-- Damping ratio 0.507. It is underdamped.
-- Measured overshoot: 14.8 percent.
-- Measured settle time: 637 ms.
-- Closed-form overshoot: 15.7 percent.
-- Closed-form settle time: 676 ms.
+- Damping ratio 0.465. It is underdamped.
+- Measured overshoot: 18.3 percent.
+- Measured settle time: 676 ms.
+- Closed-form overshoot: 19.2 percent.
+- Closed-form settle time: 701 ms.
 
-`drift` is underdamped by the formula, and the solver measures no overshoot for it. The extra damping of the solver is enough to stop it. This is why the measured numbers decide.
+`drift` is underdamped by the formula, and the solver measures a smaller overshoot for it than the formula gives. The extra damping of the solver takes most of it away. This is why the measured numbers decide.
 
 ## Add a follower
 
@@ -104,7 +104,7 @@ const followers: FollowerFlavor = {
 
 - `var` is the suffix of the variable. It is unique across every part of the flavor.
 - `springKey` names a spring in `springs`.
-- `rest` holds the limits at which the follower stops. A fraction from 0 to 1 needs to look still, not to be exact.
+- `rest` holds the limits at which the follower stops. `restDelta` is in the units of the value, here a fraction of the full dim. `restSpeed` is in those units per second. A fraction from 0 to 1 needs to look still, not to be exact.
 
 ## Add a gesture
 
@@ -125,6 +125,9 @@ const gesture: GestureFlavor = {
 - `rubberBand.reach` is the most a pointer can pull the sheet past a bound, in pixels. `rubberBand.stiffness` is how hard the band pulls back.
 - If a release reaches both `swipe.velocity` and `swipe.distance`, it is a swipe. The sheet closes on a swipe down, so these two keep a slow drag from closing it.
 - `springKeys.snap` is the spring a release takes to the nearest height.
+- `rest` is in pixels: `restDelta` in pixels, and `restSpeed` in pixels per second. The decay stops below `restSpeed`.
+
+The snap points and the bounds are not in the flavor. They belong to the `createDrag` call, because they depend on the size of the sheet. The flavor carries only the feel.
 
 ## Add a timeline
 
@@ -149,7 +152,7 @@ const timeline: TimelineFlavor = {
 
 ## Add a layout
 
-The layout part holds the springs of layout changes, shared elements, and exits, and one rest limit in pixels.
+The layout part holds the springs of layout changes, shared elements, and exits, and one pair of rest limits: `restDelta` in pixels, and `restSpeed` in pixels per second.
 
 ```ts
 /** Rows move on `drift`, and the sheet leaves on `ebb`. A move rests within a quarter of a pixel. */
@@ -185,7 +188,18 @@ What is checked, and when:
 
 ## Use it
 
-Each controller takes the flavor. The sheet in `examples/tide/sheet.ts` makes one of each.
+The sheet in `examples/tide/sheet.ts` imports the controllers from their entries, and the flavor from its own folder.
+
+```ts
+import type { ArmatureEnvironment, ArmatureTarget } from "@hannasage/armature";
+import { createFollower } from "@hannasage/armature/dom";
+import { createDrag, type ArmaturePointerEnvironment } from "@hannasage/armature/gesture";
+import { createLayout, createPresence, createShared, type Layout, type LayoutEnvironment } from "@hannasage/armature/layout";
+import { createBrowserTimelineEnvironment, createTimeline, type TimelineEnvironment } from "@hannasage/armature/timeline";
+import { tide } from "./flavor";
+```
+
+Each controller takes the flavor. The sheet makes one of each.
 
 ```ts
   const dim = createFollower(backdrop, { flavor: tide, name: "dim", env: envs.page });
@@ -207,7 +221,16 @@ The rows rise on two tracks each, one for the opacity and one for the offset. Ea
   });
 ```
 
-A flick down closes the sheet. The dim springs back to 0, the drag stops, and presence slides the sheet out from where the finger left it. At rest, the sheet is removed from the page.
+A flick down closes the sheet. The drag fires a swipe, and the sheet listens for it. `closed` keeps a second swipe, or a second call of `close`, from starting a second exit. `stopSwipe` removes the listener.
+
+```ts
+  let closed = false;
+  const stopSwipe = drag.onSwipe((direction) => {
+    if (direction === "down") close();
+  });
+```
+
+On close, the dim springs back to 0, the drag stops, and presence slides the sheet out from where the finger left it. At rest, the sheet is removed from the page.
 
 ```ts
   function close() {
@@ -244,11 +267,11 @@ Every environment is optional, and a test passes fakes. `tests/examples/tide.tes
 - The flavor holds together, and has each of the four parts.
 - It is not a copy of glass or Projection. Its name, prefix, label, and springs differ, and it carries none of their parts.
 - Opening the sheet dims the page to 1 and plays the rows in order.
-- A slow release rests on the nearest height.
-- A flick down closes the sheet. At rest, the sheet is removed.
+- A slow release rests on the nearest height. A slow drag, a flick shorter than the swipe distance, and a flick up leave the sheet open.
+- A flick down closes the sheet from where the finger left it, with no jump. A call of `close` closes it once, however many times it runs. At rest, the sheet is removed.
 - A change of order glides each row to its new place, and a row opens into a card as one element.
-- Under reduced motion the dim and the rows land with no frame.
-- `destroy` stops every controller.
+- Under reduced motion the dim, the rows, a release, a change of order, and a close land with no frame.
+- `destroy` stops every controller in the middle of a move.
 
 ## Stable and experimental parts
 

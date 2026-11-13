@@ -38,7 +38,23 @@ export interface Sheet {
   reorder(change: () => void): void;
   /** Moves `to` from the place of `from`, as one element. Returns the layout of `to`. */
   expand(key: string, from: ArmatureTarget, to: ArmatureTarget): Layout;
+  /** What moves now, for a test or a debug panel. */
+  getState(): SheetState;
   destroy(): void;
+}
+
+export interface SheetState {
+  closed: boolean;
+  /** True while the dim springs. */
+  dimming: boolean;
+  /** True while a finger holds the sheet, or the sheet travels after a release. */
+  dragging: boolean;
+  /** True while the rows play in. */
+  playing: boolean;
+  /** How many rows still glide to a new place. */
+  gliding: number;
+  /** How many elements still slide out before they are removed. */
+  exiting: number;
 }
 
 /** The time between the start of one row and the start of the next, in milliseconds. */
@@ -88,6 +104,18 @@ export function createSheet(parts: SheetParts, envs: SheetEnvironments = {}): Sh
     expand(key, from, to) {
       shared.leave(key, from);
       return shared.enter(key, to);
+    },
+    getState() {
+      const motion = drag.getState();
+      const fade = dim.getState();
+      return {
+        closed,
+        dimming: fade.moving && !fade.destroyed,
+        dragging: motion.dragging || motion.moving,
+        playing: enter.getState().playing,
+        gliding: layouts.filter((layout) => layout.getState().moving).length,
+        exiting: presence.getState().exiting,
+      };
     },
     destroy() {
       stopSwipe();

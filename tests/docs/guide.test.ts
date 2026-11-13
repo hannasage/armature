@@ -1,10 +1,10 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { cssFlavor } from "../../src/css";
 import { criticalDamping, type SpringConfig } from "../../src/engine/spring";
 import { tide } from "../../examples/tide/flavor";
-import { blocksOf, checkPage, readDoc, root } from "../helpers/doc-pages";
+import { blocksOf, checkPage, isCutFrom, readDoc, root, sectionOf } from "../helpers/doc-pages";
 import { figure, sampleSpring } from "../helpers/doc-svg";
 import { analyticOvershoot, analyticSettle, dampingRatio, measureSpring, SETTLE_BAND } from "../helpers/measure-spring";
 
@@ -39,15 +39,45 @@ function springSection(name: string, config: SpringConfig): string {
 }
 
 checkPage("flavor-authoring.md", [
-  ...Object.entries(tide.springs).map(([name, config]) => ({ text: springSection(name, config), check: () => expect(dampingRatio(config)).toBeLessThanOrEqual(1) })),
+  // Each section is written from the solver, so its numbers are the check. It must sit under the heading that says they are measured.
+  ...Object.entries(tide.springs).map(([name, config]) => {
+    const text = springSection(name, config);
+    return { text, check: () => expect(sectionOf(page, "What the solver measures")).toContain(text) };
+  }),
   { text: "stays inside 2 percent of the target", check: () => expect(SETTLE_BAND).toBe(0.02) },
+  {
+    text: "`ζ = c / (2 sqrt(k m))`",
+    check: () => {
+      const config = { stiffness: 260, damping: 20, mass: 2 };
+      expect(dampingRatio(config)).toBeCloseTo(20 / (2 * Math.sqrt(260 * 2)), 12);
+    },
+  },
+  { text: "returns `2 sqrt(k m)`", check: () => expect(criticalDamping(260, 2)).toBeCloseTo(2 * Math.sqrt(260 * 2), 12) },
 ]);
 
 describe("the guide to writing a flavor", () => {
-  it("cuts every code block from the files of the Tide flavor", () => {
+  it("labels every fenced block as ts, css, or text, so no block escapes the checks", () => {
+    const fences = [...page.matchAll(/^```(.*)$/gm)].map((match) => match[1]);
+    const opening = fences.filter((_, i) => i % 2 === 0);
+    expect(opening.length).toBeGreaterThan(0);
+    for (const label of opening) expect(["ts", "css", "text"], `a block labelled "${label}"`).toContain(label);
+  });
+
+  it("cuts every ts block from the files of the Tide flavor, as whole consecutive lines", () => {
     const blocks = blocksOf(page, "ts");
-    expect(blocks.length).toBeGreaterThanOrEqual(10);
-    for (const block of blocks) expect(files.some((file) => file.includes(block)), block).toBe(true);
+    expect(blocks.length).toBeGreaterThanOrEqual(12);
+    for (const block of blocks) expect(files.some((file) => isCutFrom(block, file)), block).toBe(true);
+  });
+
+  it("refuses a block that drops a line in the middle, or that starts inside a line", () => {
+    const file = "a\nb\nc\n";
+    expect(isCutFrom("a\nb\n", file)).toBe(true);
+    expect(isCutFrom("a\nc\n", file)).toBe(false);
+    expect(isCutFrom("b\nc", "xb\nc")).toBe(false);
+  });
+
+  it("shows the only text block as the equation of a spring", () => {
+    expect(blocksOf(page, "text")).toEqual(["m x'' + c x' + k x = 0\n"]);
   });
 
   it("shows the whole flavor: each part of it is a block on the page", () => {
@@ -61,11 +91,10 @@ describe("the guide to writing a flavor", () => {
     expect(blocksOf(page, "css")).toEqual([cssFlavor(tide)]);
   });
 
-  it("says that the solver measures no overshoot for drift, which the formula calls underdamped", () => {
-    expect(page).toContain("`drift` is underdamped by the formula, and the solver measures no overshoot for it.");
+  it("says that the solver measures less overshoot for drift than the formula, which calls it underdamped", () => {
+    expect(page).toContain("`drift` is underdamped by the formula, and the solver measures a smaller overshoot for it than the formula gives.");
     expect(dampingRatio(tide.springs.drift)).toBeLessThan(1);
-    expect(analyticOvershoot(tide.springs.drift)).toBeGreaterThan(0);
-    expect(percent(measureSpring(tide.springs.drift).overshoot)).toBe("0.0 percent");
+    expect(measureSpring(tide.springs.drift).overshoot).toBeLessThan(analyticOvershoot(tide.springs.drift));
   });
 
   it("points to the contract review for the status of each part", () => {
@@ -73,7 +102,10 @@ describe("the guide to writing a flavor", () => {
     expect(readDoc("contract-review.md")).toContain("## Review after the third flavor");
   });
 
-  it("draws docs/figures/tide-springs.svg from the solver's own samples", async () => {
+  it("draws docs/figures/tide-springs.svg from the solver's own samples, and links it", async () => {
+    // The file must exist, so a run that could write a new snapshot cannot pass on a file it made itself.
+    expect(existsSync(join(root, "docs/figures/tide-springs.svg"))).toBe(true);
+    expect(page).toMatch(/!\[[^\]]+\]\(figures\/tide-springs\.svg\)/);
     const svg = figure(Object.entries(tide.springs).map(([name, config]) => ({ title: name, points: sampleSpring(config, 1) })));
     await expect(svg).toMatchFileSnapshot("../../docs/figures/tide-springs.svg");
   });

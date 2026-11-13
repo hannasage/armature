@@ -1,8 +1,8 @@
 import { expect } from "vitest";
 import { createSpring } from "../../src/engine/spring";
-import { colorKind, pathKind, transform3dKind, type Transform3D } from "../../src/values";
+import { colorKind, pathKind, transform3dKind, transform3dStyles, type Transform3D } from "../../src/values";
 import { namedColors } from "../../src/values/color-names";
-import { checkPage } from "../helpers/doc-pages";
+import { checkPage, readDoc } from "../helpers/doc-pages";
 
 // The numbers of docs/kinds.md, worked out from the kinds themselves.
 
@@ -125,6 +125,38 @@ checkPage("kinds.md", [
       expect(Math.hypot(...parts.slice(3, 7))).toBeCloseTo(1, 9);
       expect(parts.slice(7, 10)).toEqual([4, 5, 6]);
       expect(parts[10]).toBe(2);
+    },
+  },
+  {
+    text: "`pathKind(template, { restDelta: 0.0001 })`",
+    check: () => expect(pathKind("M 0 0 L 1 1", { restDelta: 0.0001 }).restDelta).toBe(0.0001),
+  },
+  {
+    text: '`parse("rgb(51 102 153)")` is `"#336699"`',
+    check: () => expect(colorKind.parse("rgb(51 102 153)")).toBe("#336699"),
+  },
+  {
+    text: "implicit repeats (`M 0 0 10 10`), compact numbers (`M0-1.5.5.5`)",
+    check: () => {
+      const repeats = pathKind("M 0 0 L 10 10");
+      expect(repeats.serialize(repeats.parse("M 0 0 10 10"))).toBe("M 0 0 L 10 10");
+      const compact = pathKind("M 0 -1.5 L 0.5 0.5");
+      expect(compact.serialize(compact.parse("M0-1.5.5.5"))).toBe("M 0 -1.5 L 0.5 0.5");
+    },
+  },
+  {
+    text: "as `perspective: 800px` or `none`",
+    check: () => {
+      expect(transform3dStyles(t3({ perspective: 800 })).parent.perspective).toBe("800px");
+      expect(transform3dStyles(t3({})).parent.perspective).toBe("none");
+    },
+  },
+  {
+    text: "translate: 10px 20px 30px; rotate: 0 0 1 45deg; scale: 1 1 1",
+    check: () => {
+      // The block on the page that shows what the kind writes.
+      expect(readDoc("kinds.md")).toContain("```\ntranslate: 10px 20px 30px; rotate: 0 0 1 45deg; scale: 1 1 1\n```");
+      expect(transform3dKind.serialize(t3({ translate: [10, 20, 30], rotate: { axis: [0, 0, 1], angle: 45 } }))).toBe("translate: 10px 20px 30px; rotate: 0 0 1 45deg; scale: 1 1 1");
     },
   },
 ]);

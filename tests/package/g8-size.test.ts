@@ -64,19 +64,24 @@ describe("the size table after G8", () => {
     }
   });
 
-  it("records the tarball under the limit of 1.5 times the approved MEASURED_SIZE, which did not change", () => {
+  it("records the tarball that check:pack measured, under the limit of 1.5 times the approved MEASURED_SIZE, which did not change", () => {
+    // tests/package/results/g8-pack.json is the output of `npm run check:pack -- --out` on the build of this branch, in the gate container.
+    const record = JSON.parse(readFileSync(join(root, "tests/package/results/g8-pack.json"), "utf8")) as { bytes: number; files: number; limit: number; measuredSize: number; withinLimit: boolean };
     expect(rules.MEASURED_SIZE).toBe(222018);
     expect(rules.SIZE_FACTOR).toBe(1.5);
+    expect(record.measuredSize).toBe(rules.MEASURED_SIZE);
+    expect(record.limit).toBe(rules.sizeLimit());
+    expect(record.withinLimit).toBe(true);
     const match = /The tarball is ([\d,]+) bytes in ([\d,]+) files, under the limit of ([\d,]+)/.exec(section());
     expect(match, "a tarball line").not.toBeNull();
-    const [bytes, , limit] = match!.slice(1).map((text) => Number(text.replaceAll(",", "")));
-    expect(limit).toBe(rules.sizeLimit());
-    expect(bytes).toBeLessThanOrEqual(limit);
+    const [bytes, files, limit] = match!.slice(1).map((text) => Number(text.replaceAll(",", "")));
+    expect({ bytes, files, limit }).toEqual({ bytes: record.bytes, files: record.files, limit: record.limit });
+    expect(section()).toContain(`The room left under the limit is ${fmt(record.limit - record.bytes)} bytes`);
   });
 
   it("keeps the docs, the examples, and the tests out of the tarball", () => {
     expect(pkg.files).toEqual(["dist", "README.md", "LICENSE"]);
-    const added = ["docs/curves.md", "docs/flavor-authoring.md", "docs/figures/easings.svg", "examples/tide/flavor.ts", "examples/tide/sheet.ts", "tests/examples/tide.test.ts"];
+    const added = ["docs/frame.md", "tests/package/results/g8-pack.json", "docs/curves.md", "docs/flavor-authoring.md", "docs/figures/easings.svg", "examples/tide/flavor.ts", "examples/tide/sheet.ts", "tests/examples/tide.test.ts"];
     expect(rules.disallowedFiles(added)).toEqual(added);
   });
 });

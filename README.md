@@ -94,6 +94,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 - `docs/liquid-glass-readme.md` is the original guide to the glass package, from before the engine was split out. Its import paths are the old ones.
 - `docs/flavor-authoring.md` builds a flavor step by step: the Tide flavor, with its springs, a follower, a gesture, a timeline, and a layout part.
 - `docs/contract-review.md` records which parts of the flavor contract are stable and which stay experimental, and why.
+- `docs/frame.md` explains the shared frame scheduler: how to make one, the fixed step, the clamp of a long frame, and the pause while the tab is hidden.
 - `docs/kinds.md` explains the kinds: color (and why it blends in OKLab), path, and 3D transform, with the rule that nothing writes `transform`.
 - `docs/curves.md` explains the bezier, the named easings, the tween, the bezier fit, and the `linear()` exporter.
 - `docs/gesture.md`, `docs/timeline.md`, and `docs/layout.md` explain drag, timelines, and layout animation.

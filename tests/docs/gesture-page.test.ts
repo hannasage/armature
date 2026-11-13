@@ -45,7 +45,7 @@ checkPage("gesture.md", [
     },
   },
   {
-    text: "0.999 times",
+    text: "0.999",
     check: () => {
       const env = new FakePointerEnv();
       const el = {};

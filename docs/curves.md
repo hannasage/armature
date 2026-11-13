@@ -3,7 +3,7 @@
 `@hannasage/armature/curves` holds timing curves. A curve is a function from progress to a value. Progress runs from 0 at the start of a move to 1 at its end.
 It has a cubic-bezier evaluator, named easings, a tween, a tween controller, and a fitting aid.
 `@hannasage/armature/linear` writes a spring or a curve as a CSS `linear()` string.
-Both entries read no DOM and no environment, so they run on a server, in a build step, or in a test.
+Both entries need no DOM node and no environment, so they run on a server, in a build step, or in a test. One global is read: `supportsLinear`, and `toEasing` through it, read the global `CSS` if it exists.
 
 ```ts
 import { bezier, createTween, easing, stepTween } from "@hannasage/armature/curves";
@@ -67,7 +67,7 @@ A tween moves one number from A to B in a set time along a curve. It has the ste
 
 A tween ends exactly on its target. The last slice writes the target and not the curve, so no rounding error is left.
 
-`createTweenValue(scheduler, kind, initial, options)` runs a tween over any kind on the shared frame scheduler. It is the fixed-time partner of `createValue` in `@hannasage/armature/values`, so a tween can move a color, a path, or a 3D transform. The options are `duration`, `curve`, `onChange`, and `reducedMotion`. When `reducedMotion` returns true, a move jumps to its target. See `docs/kinds.md` for the kinds.
+`createTweenValue(scheduler, kind, initial, options)` runs a tween over any kind on the shared frame scheduler. `docs/frame.md` shows how to make the `scheduler`. It is the fixed-time partner of `createValue` in `@hannasage/armature/values`, so a tween can move a color, a path, or a 3D transform. The options are `duration`, `curve`, `onChange`, and `reducedMotion`. When `reducedMotion` returns true, a move jumps to its target. See `docs/kinds.md` for the kinds.
 
 ## Fit a bezier
 

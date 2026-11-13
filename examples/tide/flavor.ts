@@ -18,9 +18,9 @@ const swell = Object.freeze({ stiffness: 380, damping: 30, mass: 1 });
 /** The dim and every exit. Critically damped, so nothing bounces on the way out. */
 const ebb = Object.freeze({ stiffness: 260, damping: criticalDamping(260, 1), mass: 1 });
 /** A row that moves to a new place. Close to critical, so a list that changes order does not wobble. */
-const drift = Object.freeze({ stiffness: 220, damping: 26, mass: 1 });
+const drift = Object.freeze({ stiffness: 220, damping: 25, mass: 1 });
 /** A row that rises into place. Loose, so the list ripples as it arrives. */
-const ripple = Object.freeze({ stiffness: 140, damping: 12, mass: 1 });
+const ripple = Object.freeze({ stiffness: 140, damping: 11, mass: 1 });
 
 // ---- followers ----
 
