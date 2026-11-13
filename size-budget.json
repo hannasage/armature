@@ -119,7 +119,7 @@
   "ownCaps": {
     "@hannasage/armature/vue": {
       "cap": 1000,
-      "measuredGzipped": 572,
+      "measuredGzipped": 573,
       "approval": "approved by the tech lead, 2026-11-13"
     },
     "@hannasage/armature/svelte": {
@@ -129,7 +129,7 @@
     },
     "@hannasage/armature/css": {
       "cap": 2510,
-      "measuredGzipped": 2380,
+      "measuredGzipped": 2382,
       "approval": "approved by the tech lead, 2026-11-13"
     }
   }

@@ -121,8 +121,11 @@ export async function measureOwn(source, dir = root) {
     setup(b) {
       b.onResolve({ filter: /^\.\.?\// }, (args) => {
         const target = resolve(args.resolveDir, args.path);
-        const layer = relative(srcReal, target).split(sep)[0];
-        return layer !== own && WRAPPED_LAYERS.includes(layer) ? { path: target, external: true } : null;
+        const inside = relative(srcReal, target);
+        const layer = inside.split(sep)[0];
+        // The specifier that esbuild writes for an external import is part of the bundle, and so of its gzip size. An absolute path would make the size
+        // depend on where the repository is checked out, so the specifier is the path inside src, in a fixed form.
+        return layer !== own && WRAPPED_LAYERS.includes(layer) ? { path: `armature-layer:${inside.split(sep).join("/")}`, external: true } : null;
       });
     },
   };

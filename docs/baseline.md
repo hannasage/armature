@@ -702,9 +702,16 @@ The tech lead decided on 2026-11-13 to keep the entry caps as the most a page pa
 
 | Entry | Own code (gzipped) | Own-code cap |
 | --- | ---: | ---: |
-| `/vue` | 572 | 1,000 |
+| `/vue` | 573 | 1,000 |
 | `/svelte` | 528 | 1,000 |
-| `/css` | 2,380 | 2,510 |
+| `/css` | 2,382 | 2,510 |
+
+The own-code measure does not depend on where the repository is checked out.
+The first version wrote the absolute path of each left-out file as the import specifier.
+A checkout at `/w` measured 571, 527, and 2,377 bytes.
+A checkout at `/home/runner/work/armature/armature` measured 589, 542, and 2,397 bytes.
+The specifier is now `armature-layer:` and the path inside `src`.
+Both checkouts now measure 573, 528, and 2,382 bytes.
 
 ### One import
 
