@@ -39,7 +39,7 @@ describe("a git worktree", () => {
     const repo = makeReleaseRepo();
     git(repo.work, "checkout", "-q", "-b", "dev");
     const tree = join(tempDir(), "wt");
-    git(repo.work, "worktree", "add", "-q", tree, "release/1.0.0");
+    git(repo.work, "worktree", "add", "-q", tree, "main");
     expect(readFileSync(join(tree, ".git"), "utf8")).toMatch(/^gitdir: \//);
     const run = (args: string[]) => spawnSync(process.execPath, [join(tree, "scripts/release.mjs"), ...args], { cwd: tree, env: repo.env(), encoding: "utf8" });
     for (const sub of ["preflight", "gates", "dry-run"]) {

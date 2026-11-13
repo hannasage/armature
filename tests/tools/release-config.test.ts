@@ -17,7 +17,7 @@ describe("release.config.json", () => {
   });
 
   it("names the release branch and a positive file count", () => {
-    expect(config.releaseBranch).toBe("release/1.0.0");
+    expect(config.releaseBranch).toBe("main");
     expect(Number.isInteger(config.expectedFileCount)).toBe(true);
     expect(config.expectedFileCount).toBeGreaterThan(0);
   });

@@ -1,124 +1,101 @@
 # Releasing
 
-This page lists the steps to publish the prerelease `1.0.0-beta.0` to the npm `beta` tag.
-It replaces `1.0.0-next.0`, which is already on npm. The last section retires that version.
+This page lists the steps to publish a prerelease of `@hannasage/armature` to the npm `beta` tag.
+It is written for the current release, `1.0.0-beta.1`. The same steps apply to every later beta: change the version, and nothing else here.
 Only a maintainer does these steps. An agent must not publish, log in to npm, or handle a token.
 
-The steps below can also be run, checked, and listed with `npm run release -- <subcommand>`: `status`, `preflight`, `gates`, `dry-run`, `publish`, `verify`, `tag`, `retire`, and `claims`.
-The script reads `release.config.json`. `publish` and `retire` only print the commands, and you run them yourself.
+The repository has its own release script. Run each step as `npm run release -- <step>`. The steps are `status`, `preflight`, `gates`, `dry-run`, `publish`, `verify`, and `tag`. The last two, `retire` and `claims`, are described below.
+The script reads `release.config.json`: the version, the tag, the release branch (`main`), and the expected file count.
+`publish` and `retire` only print the commands, and you run them yourself.
 A refused precondition exits 1. Exit 2 means wrong use or a human-only step.
 
-A prerelease is a version with a dash in it, such as `1.0.0-beta.0`.
+A prerelease is a version with a dash in it, such as `1.0.0-beta.1`.
 A distribution tag, or dist-tag, is a movable label on npm that points at one version.
 Publishing with `--tag beta` puts the version under `beta`. It does not make it the default install.
 
 ## Before you start
 
 - You need an npm account that can publish to the `@hannasage` scope.
-  `npm view @hannasage/projection-ui name version` shows that the scope is in use. It does not prove that your account can publish to it.
-  `npm publish --dry-run` does not check this either. The first real publish fails with an error if the account has no right.
-- Your account needs two-factor authentication (2FA). 2FA is a second code, from an authenticator app, on top of the password.
-  `npm publish` asks for a one-time code when the registry requires it. You can also pass `--otp <code>`.
+  `npm publish --dry-run` does not check this. The first real publish fails with an error if the account has no right.
+- Your account needs two-factor authentication (2FA). `npm publish` asks for a one-time code when the registry requires it. You can also pass `--otp <code>`.
+- The pull request that sets the version has been merged into `main`. `release.config.json`, `package.json`, and `package-lock.json` all name the version to publish.
 
 ## Steps
 
-1. Confirm a clean checkout of `release/1.0.0` at the commit to publish.
+Run these from the armature repository folder.
+
+1. Preflight. It checks that the files agree, that you are on `main` at `origin/main`, and that the work tree is clean. It writes down the commit.
 
    ```bash
-   git fetch origin
-   git checkout release/1.0.0
+   git checkout main
    git pull --ff-only
-   git status --short
-   git log -1 --oneline
+   npm run release -- preflight
    ```
 
-   `git status --short` must print nothing. Write down the commit hash. You tag it in step 8.
+   Write down the commit hash. `tag` uses the same commit.
 
-2. Install exactly what the lock file says.
+2. Gates. This runs `npm ci`, then `typecheck`, `lint`, `test`, `build`, and `check:pack`. Every one must exit with 0.
 
    ```bash
-   npm ci
+   npm run release -- gates
    ```
 
-3. Run the gates and the pack check. Every command must exit with 0.
+3. Dry run. It runs `npm publish --dry-run --tag beta --access public` and checks the output.
 
    ```bash
-   npm run typecheck
-   npm run lint
-   npm test
-   npm run build
-   npm run check:pack
+   npm run release -- dry-run
    ```
 
-   `npm run check:pack` packs the package, installs the tarball into a clean temp project, imports each subpath, type checks a consumer file under `nodenext` and `bundler`, and resolves the stylesheet.
-   It also fails if the tarball holds a file outside `dist`, `README.md`, `LICENSE`, and `package.json`, or if it is larger than 1.5 times the size in `docs/baseline.md`.
+   It checks these lines:
 
-4. Run a dry run of the publish.
+   - `package: @hannasage/armature@1.0.0-beta.1`.
+   - `total files` equals `expectedFileCount` in `release.config.json` (259 for beta.1), and the size is under the limit in `scripts/pack-rules.mjs`.
+   - The tag is `beta` and the output says dry-run.
+   - The last line is `+ @hannasage/armature@1.0.0-beta.1`.
 
-   ```bash
-   npm publish --dry-run --tag beta --access public
-   ```
+   A large change in the file count needs an explanation. Set `expectedFileCount` only after you know why it changed.
 
-   The dry run also runs `prepublishOnly`, which repeats the gates and the pack check. It uploads nothing. Look for these lines:
-
-   - `package: @hannasage/armature@1.0.0-beta.0`.
-   - The Tarball Contents list holds `LICENSE`, `README.md`, `package.json`, and files under `dist/`. Nothing else.
-   - `total files: 122` and a package size of about 137 kB. A large change from these numbers needs an explanation.
-   - The last notice line says `Publishing to https://registry.npmjs.org/ with tag beta and public access (dry-run)`.
-   - The last line is `+ @hannasage/armature@1.0.0-beta.0`.
-
-5. Log in. You do this yourself.
+4. Publish. The script prints the command and does not run it. Run the printed command yourself, and enter the 2FA code when npm asks.
 
    ```bash
+   npm run release -- publish
    npm whoami
-   npm login
-   ```
-
-   Run `npm login` only if `npm whoami` fails or prints the wrong account. The login opens a browser or asks for your password and a 2FA code.
-   Never paste a token into a file, a chat, or a command that is saved in shell history.
-
-6. Publish.
-
-   ```bash
    npm publish --tag beta --access public
    ```
 
-   Enter the 2FA code when npm asks. The command runs the gates and the pack check once more before it uploads.
+   Run `npm login` only if `npm whoami` fails or prints the wrong account.
+   Never paste a token into a file, a chat, or a command that is saved in shell history.
+   `npm publish` runs `prepublishOnly`, which repeats the gates and the pack check, before it uploads.
 
-7. Verify the registry and a clean install.
-
-   ```bash
-   npm view @hannasage/armature dist-tags
-   npm view @hannasage/armature version
-   cd "$(mktemp -d)"
-   npm init -y
-   npm install @hannasage/armature@beta react
-   node --input-type=module -e "import * as engine from '@hannasage/armature'; console.log(Object.keys(engine).length)"
-   ```
-
-   Run the `dist-tags` command with `--json` as well, so the output is easy to read.
+5. Verify. It reads the registry and installs the package into a clean project.
 
    ```bash
-   npm view @hannasage/armature dist-tags --json
+   npm run release -- verify
    ```
 
-   It must show `"beta": "1.0.0-beta.0"`.
-   The registry also keeps `latest` and `next` pointing at `1.0.0-next.0` until you retire it. See the last section.
-   The count in the last command must match the engine list in `scripts/public-api.mjs` (29 names).
+   It fails if the `beta` tag is not the new version. It also fails if the `gitHead` on the registry differs from the commit that preflight recorded. Do not pass `--allow-no-githead`: without a gitHead nothing ties the tarball to the commit.
 
-8. Tag the commit from step 1.
+6. Tag. It tags the commit from preflight and pushes the tag. It refuses until verify has passed.
 
    ```bash
-   git tag -a v1.0.0-beta.0 <commit-hash> -m "1.0.0-beta.0"
-   git push origin v1.0.0-beta.0
+   npm run release -- tag
    ```
 
-9. Check the claims about the package. Do this in a pull request after the publish, not before.
+7. Look at the dist-tags. Moving `latest` is your decision. Beta publishes do not move it.
 
-   - `README.md` already says that `1.0.0-beta.0` is on the `beta` tag. Merge the pull request that holds that text only after the publish.
-   - In the Projection UI docs site, the Armature page at `docs-site/app/(docs)/armature/page.tsx` (on the `task/armature-page` branch when this page was written) says `Pre-release. Not published yet.` and `Pre-release. The API can still change.`
-     Change the first to say it is on the `beta` tag. Keep the second.
+   ```bash
+   npm dist-tag ls @hannasage/armature
+   ```
+
+8. Check the claims about the package. Do this in a pull request after the publish, not before.
+
+   ```bash
+   npm run release -- claims
+   ```
+
+   - `README.md` already says that `1.0.0-beta.1` is on the `beta` tag. It is true once the publish is done.
    - Search both repositories for `Nothing is published`, `Not published yet`, and `armature@next` to find any other copy.
+   - The Projection UI docs site has an Armature page that names the published version. Update it after the publish.
 
 ## If something is wrong
 
@@ -126,7 +103,7 @@ Read `npm help unpublish` and `npm help deprecate` first. This section comes fro
 
 The safe fix is a new version.
 
-- Fix the problem, set the version to `1.0.0-beta.1`, and publish again with `--tag beta`. The `beta` tag then points at the new version.
+- Fix the problem, set the version to the next beta, and publish again with `--tag beta`. The `beta` tag then points at the new version.
 - To point `beta` at another version without a publish, run `npm dist-tag add @hannasage/armature@<version> beta`.
 - A version number can never be used again after it was published, even if it was removed. So the fix is always a new number.
 
@@ -149,12 +126,14 @@ The npm help itself recommends `npm deprecate` when the aim is to steer people t
 
 ## Future prereleases
 
-Bump the number after `beta`: `1.0.0-beta.1`, then `1.0.0-beta.2`, and so on. Publish each with `--tag beta`.
-Change `version` in `package.json` and in `package-lock.json`, and the version in `tests/package/contract.test.ts`, in the same commit.
+Bump the number after `beta`: `1.0.0-beta.2` follows `1.0.0-beta.1`, and so on. Publish each with `--tag beta`.
+In the same commit, change `version` in `package.json`, `package-lock.json`, and `release.config.json`, the status line of `README.md`, and the version in `tests/package/contract.test.ts` and the tests under `tests/tools` that name it.
+Run `npm run check:pack -- --update` if the tarball changed, and update `expectedFileCount` in `release.config.json` if the file count changed.
+Leave `retire.deprecateMessage` alone. It belongs to the retirement of `1.0.0-next.0` and names `1.0.0-beta.0`.
 
 ## Retire 1.0.0-next.0
 
-Do this after `1.0.0-beta.0` is published and verified. Only a maintainer does these steps. You must be an owner of the package.
+This was done when `1.0.0-beta.0` was published. It is kept as a record. `npm run release -- retire` reports "already done" once it holds. Only a maintainer does these steps. You must be an owner of the package.
 
 Why this is needed: semantic versioning orders prerelease names as plain text, so `beta` sorts below `next`.
 That means `1.0.0-next.0` still sorts above `1.0.0-beta.0`. A range such as `^1.0.0-0` could pick `next.0` over `beta.0`.

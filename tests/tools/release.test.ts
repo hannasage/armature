@@ -89,7 +89,7 @@ describe("preflight", () => {
     git(repo.work, "checkout", "-q", "-b", "other");
     const result = repo.run(["preflight"]);
     expect(result.status).toBe(1);
-    expect(result.stdout).toContain("release/1.0.0");
+    expect(result.stdout).toContain("main");
   });
 
   it("fails when the branch has a commit that is not on the remote", () => {

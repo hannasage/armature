@@ -78,6 +78,9 @@ export function makeRepo(branch = "main"): string {
   return dir;
 }
 
+/** The fake dry run reports the file count that release.config.json expects. */
+const EXPECTED_FILES = (JSON.parse(readFileSync(join(repoRoot, "release.config.json"), "utf8")) as { expectedFileCount: number }).expectedFileCount;
+
 const FAKE_NPM = `#!/usr/bin/env node
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -159,7 +162,7 @@ if (command === "publish") {
   const notices = [
     "package: " + manifest.name + "@" + manifest.version,
     "package size: " + (knob("FAKE_SIZE") ?? "137 kB"),
-    "total files: " + (knob("FAKE_FILES") ?? 122),
+    "total files: " + (knob("FAKE_FILES") ?? ${EXPECTED_FILES}),
     "Publishing to https://registry.npmjs.org/ with tag " + tag + " and public access (dry-run)",
   ];
   for (const line of notices) console.error("npm notice " + line);
@@ -256,8 +259,9 @@ export function makeReleaseRepo(): ReleaseRepo {
   const work = join(base, "work");
   mkdirSync(origin);
   mkdirSync(work);
-  git(origin, "init", "-q", "--bare", "-b", "release/1.0.0");
-  git(work, "init", "-q", "-b", "release/1.0.0");
+  const branch = (JSON.parse(readFileSync(join(repoRoot, "release.config.json"), "utf8")) as { releaseBranch: string }).releaseBranch;
+  git(origin, "init", "-q", "--bare", "-b", branch);
+  git(work, "init", "-q", "-b", branch);
   git(work, "config", "user.email", "test@example.com");
   git(work, "config", "user.name", "Test");
   mkdirSync(join(work, "scripts"));
@@ -277,7 +281,7 @@ export function makeReleaseRepo(): ReleaseRepo {
   git(work, "add", "-A");
   git(work, "commit", "-q", "-m", "first");
   git(work, "remote", "add", "origin", origin);
-  git(work, "push", "-q", "-u", "origin", "release/1.0.0");
+  git(work, "push", "-q", "-u", "origin", branch);
   const script = join(work, "scripts", "release.mjs");
   writeFileSync(join(fake.fixtures, "dist-tags.json"), JSON.stringify({ next: "1.0.0-next.0", latest: "1.0.0-next.0" }));
   // A real package has a gitHead that names the commit it was published from. The fake registry says the first commit.

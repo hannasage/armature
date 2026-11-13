@@ -3,7 +3,7 @@
   "version": "1.0.0-beta.1",
   "npmTag": "beta",
   "access": "public",
-  "expectedFileCount": 122,
+  "expectedFileCount": 259,
   "gates": [
     "typecheck",
     "lint",
@@ -11,7 +11,7 @@
     "build",
     "check:pack"
   ],
-  "releaseBranch": "release/1.0.0",
+  "releaseBranch": "main",
   "remote": "origin",
   "publicApi": {
     "file": "scripts/public-api.mjs",
