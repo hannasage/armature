@@ -135,9 +135,24 @@ describe("a failed start", () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
+  it("calls onReady(null) after it destroys the controller, so the component drops the dead controller", () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const seen: unknown[] = [];
+    follow(node(), { flavor: follows, name: "thumb", env: new FakeEnv(), onReady: (c) => { seen.push(c); if (c) throw new Error("mine"); } });
+    expect(seen).toHaveLength(2);
+    expect(seen[1]).toBeNull();
+    expect((seen[0] as { getState(): { destroyed: boolean } }).getState().destroyed).toBe(true);
+  });
+
+  it("reports an error of that onReady(null) call, and still reports the start as failed", () => {
+    const onError = vi.fn();
+    follow(node(), { flavor: follows, name: "thumb", env: new FakeEnv(), onReady: (c) => { throw new Error(c ? "first" : "second"); }, onError });
+    expect(onError.mock.calls.map((call) => (call[0] as Error).message).sort()).toEqual(["first", "second"]);
+  });
+
   it("gives an onReady failure to onError, with the error of the hook", () => {
     const onError = vi.fn();
-    follow(node(), { flavor: follows, name: "thumb", env: new FakeEnv(), onReady: () => { throw new Error("mine"); }, onError });
+    follow(node(), { flavor: follows, name: "thumb", env: new FakeEnv(), onReady: (c) => { if (c) throw new Error("mine"); }, onError });
     expect(onError).toHaveBeenCalledTimes(1);
     expect((onError.mock.calls[0][0] as Error).message).toBe("mine");
   });

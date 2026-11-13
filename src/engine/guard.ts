@@ -18,7 +18,8 @@ export function guardedSetup(context: string, setup: () => (() => void) | void, 
     return () => undefined;
   }
   return () => {
-    try { cleanup?.(); } catch (error) { complain(error, `${context} (while stopping)`); }
+    const run = cleanup;
     cleanup = undefined;
+    try { run?.(); } catch (error) { complain(error, `${context} (while stopping)`); }
   };
 }

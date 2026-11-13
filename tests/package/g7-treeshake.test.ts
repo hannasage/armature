@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
@@ -17,6 +18,10 @@ async function page(entry: string, name: string) {
   return { inputs: Object.keys(Object.values(result.metafile.outputs)[0].inputs), gzipped: gzipSync(result.outputFiles[0].contents).length };
 }
 
+/** The gzipped bytes of a page that imports one follower function, as docs/baseline.md records them (G7 build, "One import"). A pin is an upper bound, as the size pins elsewhere are. */
+const ONE = { vue: 3392, svelte: 3339 };
+const baseline = readFileSync(join(root, "docs/baseline.md"), "utf8");
+
 const has = (inputs: string[], file: string) => inputs.some((input) => input.endsWith(file));
 
 describe("a page that imports one function", () => {
@@ -27,6 +32,7 @@ describe("a page that imports one function", () => {
     for (const file of ["src/dom/surface.ts", "src/gesture/drag.ts", "src/layout/layout.ts", "src/layout/motion.ts"]) expect(has(one.inputs, file), file).toBe(false);
     expect(one.gzipped).toBeLessThan(all.gzipped / 2);
     expect(one.gzipped).toBeLessThan(4000);
+    expect(one.gzipped).toBeLessThanOrEqual(ONE.vue);
   });
 
   it("pays for the follower from /svelte, and not for the drag, layout, or surface controllers", async () => {
@@ -36,6 +42,7 @@ describe("a page that imports one function", () => {
     for (const file of ["src/dom/surface.ts", "src/gesture/drag.ts", "src/layout/layout.ts", "src/layout/motion.ts"]) expect(has(one.inputs, file), file).toBe(false);
     expect(one.gzipped).toBeLessThan(all.gzipped / 2);
     expect(one.gzipped).toBeLessThan(4000);
+    expect(one.gzipped).toBeLessThanOrEqual(ONE.svelte);
   });
 
   it("pays for the drag only when the drag is imported, and for the layout only when the layout is imported", async () => {
@@ -45,10 +52,15 @@ describe("a page that imports one function", () => {
     expect(has((await page("src/svelte/index.ts", "layout")).inputs, "src/dom/follower.ts")).toBe(false);
   });
 
-  it("pays for the keyframes and not the flavor sheet from /css, when only cssLinear is imported", async () => {
+  it("drops the timeline and the flavor sheet from /css when only cssLinear is imported, and keeps the linear exporter", async () => {
     const one = await page("src/css/index.ts", "cssLinear");
     expect(has(one.inputs, "src/timeline/timeline.ts")).toBe(false);
     expect(has(one.inputs, "src/css/flavor.ts")).toBe(false);
     expect(has(one.inputs, "src/linear/linear.ts")).toBe(true);
+  });
+
+  it("records the two single-import sizes in docs/baseline.md", () => {
+    expect(baseline).toContain(`${ONE.vue.toLocaleString("en-US")} gzipped bytes from \`/vue\``);
+    expect(baseline).toContain(`${ONE.svelte.toLocaleString("en-US")} from \`/svelte\``);
   });
 });

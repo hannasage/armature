@@ -73,7 +73,7 @@ describe("the /layout size after G6", () => {
   it("keeps every other entry at or under its cap, and the spring-only entry as G5 left it", async () => {
     const rows = await lib.measureAll();
     for (const row of rows) expect(row.gzipped, row.key).toBeLessThanOrEqual(budget.caps[row.key].cap);
-    expect(rows.find((row) => row.key === "@hannasage/armature")!.gzipped).toBeLessThanOrEqual(3858);
+    expect(rows.find((row) => row.key === "@hannasage/armature")!.gzipped).toBeLessThanOrEqual(3865);
   });
 
   it("records the public names, and the decision for the environment, in docs/baseline.md", () => {

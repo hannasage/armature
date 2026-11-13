@@ -187,7 +187,8 @@ export function follow(element: HTMLElement): Follower {
 }
 `;
 
-const LEAN_RUNTIME = `import { createRequire } from "node:module";
+const LEAN_RUNTIME = `import { existsSync } from "node:fs";
+import { join } from "node:path";
 const names = ["@hannasage/armature", "@hannasage/armature/dom", "@hannasage/armature/css"];
 const problems = [];
 for (const name of names) {
@@ -198,14 +199,8 @@ for (const name of names) {
     problems.push('import("' + name + '") failed: ' + (error instanceof Error ? error.message : String(error)));
   }
 }
-const require = createRequire(import.meta.url);
 for (const peer of ["vue", "svelte"]) {
-  try {
-    require.resolve(peer);
-    problems.push(peer + " is installed in the lean project, so the check proves nothing");
-  } catch {
-    // Not installed, as it should be.
-  }
+  if (existsSync(join(process.cwd(), "node_modules", peer, "package.json"))) problems.push(peer + " is installed in the lean project, so the check proves nothing");
 }
 if (problems.length > 0) {
   for (const text of problems) console.error(text);
@@ -287,4 +282,4 @@ if (problems.length > 0) {
   for (const text of problems) console.error(`  - ${text}`);
   process.exit(1);
 }
-console.log(`Package tarball checked: contents, size, imports of ${Object.keys(API).length} subpaths, types under nodenext and bundler, and the stylesheet.`);
+console.log(`Package tarball checked: contents, size, imports of ${Object.keys(API).length} subpaths, types under nodenext and bundler, the stylesheet, and the lean project with React only (., /dom, and /css with no Vue and no Svelte).`);

@@ -29,4 +29,18 @@ describe("the stop function of guardedSetup", () => {
     stop();
     expect(report).toHaveBeenCalledTimes(1);
   });
+
+  it("runs the cleanup once even when the reporter throws, and when the cleanup stops again from inside", () => {
+    const cleanup = vi.fn(() => { throw new Error("stop failed"); });
+    const stop = guardedSetup("loud", () => cleanup, () => { throw new Error("reporter failed"); }, acme);
+    expect(() => stop()).toThrow("reporter failed");
+    expect(() => stop()).not.toThrow();
+    expect(cleanup).toHaveBeenCalledTimes(1);
+
+    const holder: { stop?: () => void } = {};
+    const inner = vi.fn(() => holder.stop!());
+    holder.stop = guardedSetup("re-entrant", () => inner, vi.fn(), acme);
+    holder.stop();
+    expect(inner).toHaveBeenCalledTimes(1);
+  });
 });

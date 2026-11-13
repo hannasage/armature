@@ -61,7 +61,7 @@ describe("the sizes after G7", () => {
       const rows = await lib.measureAll();
       expect(own.gzipped, short).toBeLessThan(rows.find((row) => row.key === key(short))!.gzipped / 3);
     }
-    expect(lib.WRAPPED_LAYERS).toEqual(expect.arrayContaining(["engine", "dom", "gesture", "layout", "timeline"]));
+    expect(lib.WRAPPED_LAYERS).toEqual(["engine", "dom", "gesture", "layout", "timeline", "linear", "curves", "frame"]);
   });
 
   it("fails check-size logic when own code is over its own-code cap", async () => {
@@ -105,10 +105,10 @@ describe("the sizes after G7", () => {
     for (const [name, cap] of Object.entries(keep)) expect(budget.caps[name].cap, name).toBe(cap);
   });
 
-  it("keeps every entry at or under its cap, and the spring-only entry under its cap of 4,000 (3,858 after the stop-once guard)", async () => {
+  it("keeps every entry at or under its cap, and the spring-only entry under its cap of 4,000 (3,865 after the stop-once guard)", async () => {
     const rows = await lib.measureAll();
     for (const row of rows) expect(row.gzipped, row.key).toBeLessThanOrEqual(budget.caps[row.key].cap);
-    expect(rows.find((row) => row.key === "@hannasage/armature")!.gzipped).toBeLessThanOrEqual(3858);
+    expect(rows.find((row) => row.key === "@hannasage/armature")!.gzipped).toBeLessThanOrEqual(3865);
   });
 });
 

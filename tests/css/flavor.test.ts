@@ -172,7 +172,12 @@ describe("the inherit flag of each part", () => {
     [...styles.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter((m) => m[2].includes(`var(${name}`)).map((m) => m[1].replace(/\/\*[\s\S]*?\*\//g, "").trim());
 
   it("writes the surface on the element it reads it on, so the surface variables do not inherit", () => {
-    expect(read("src/dom/surface.ts")).toMatch(/env\.setCSSVariable\(target, name, value\)/);
+    const surface = read("src/dom/surface.ts");
+    // The writes of the five variables are on `element`, the element of the surface, and not on a parent.
+    for (const [call, label] of [["press", "press"], ["flex", "flex"], ["specX", "spec-x"], ["specY", "spec-y"], ["glow", "glow"]]) {
+      expect(surface, label).toContain(`setVar(element, varNames.${call},`);
+    }
+    expect(surface).toMatch(/const setVar = \(target: object, name: string, value: string\) => \{[\s\S]*?env\.setCSSVariable\(target, name, value\)/);
     for (const name of ["press", "flex", "spec-x", "spec-y", "glow"]) {
       expect(new Set(readers(`--lqg-${name}`)), name).toEqual(new Set([".lqg-surface"]));
       expect(flags[`--lqg-${name}`], name).toBe(false);
@@ -188,7 +193,9 @@ describe("the inherit flag of each part", () => {
     }
   });
 
-  it("writes a follower on its target, and the stylesheet reads it in the children, so a follower inherits", () => {
+  it("writes a follower on the target it is given, and docs/css.md says a stylesheet reads it in descendants, so a follower inherits by design", () => {
+    expect(read("src/dom/follower.ts")).toContain("env.setCSSVariable(target, name, next)");
+    expect(read("docs/css.md")).toMatch(/follower[^\n]*inherits[^\n]*children/i);
     const flavor: Flavor = { ...acme, followers: { thumb: { var: "thumb", springKey: "tap", rest } } };
     expect(inherits(cssFlavor(flavor))["--acme-thumb"]).toBe(true);
   });

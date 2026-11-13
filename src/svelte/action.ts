@@ -50,6 +50,12 @@ export function act<T extends { destroy(): void }>(
       } catch (again) {
         (report ?? log)(again, `${context} (while stopping)`);
       }
+      // The component still holds the controller that onReady was given, if it kept it. Tell it the controller is gone.
+      try {
+        onReady?.(null);
+      } catch (again) {
+        (report ?? log)(again, `${context} (while stopping)`);
+      }
       throw error;
     }
     return () => {

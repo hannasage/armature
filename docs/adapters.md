@@ -75,10 +75,10 @@ The actions are `surface`, `follow`, `drag`, and `layout`. They work with the `u
 Each takes the options of its controller, and two hooks:
 
 - `onReady(controller)` is called with the controller when the node mounts, and with `null` when the node leaves. This is how a component gets the controller to call `setTarget` or `play`.
-- `onError(error, context)` is called with the error of a failed start, in place of the log line.
+- `onError(error, context)` is called with the error of a failed start or a failed stop, in place of the log line. If `onError` throws, its error is logged with `console.error`, together with the original error.
 
 An action returns `{ destroy }` and no `update`: the options are read once, when the node mounts. To start again with new options, wrap the node in `{#key}`.
-If `onReady` throws, the error is logged once and the controller stays.
+If `onReady` throws when the node mounts, the controller is destroyed, `onReady(null)` is called so the component drops it, and the error is reported as a failed start.
 Svelte runs no action on the server, so nothing here runs there.
 `@hannasage/armature/svelte` imports nothing from Svelte, so it also works with an action-compatible tool.
 
