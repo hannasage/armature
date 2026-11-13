@@ -18,9 +18,9 @@ npm install @hannasage/armature@beta
 React is an optional peer. The engine and the DOM controllers need no React.
 Install React 18 or later only if you use the React entries.
 
-## The eleven subpaths
+## The twelve subpaths
 
-The package has eleven JavaScript entries and one stylesheet.
+The package has twelve JavaScript entries and one stylesheet.
 The package is ESM only. Each entry has a `types` file and an `import` file, and there is no CommonJS build.
 Each entry loads only what it needs.
 Every entry except `glass` and `glass/react` holds no glass code.
@@ -32,6 +32,7 @@ Every entry except `glass` and `glass/react` holds no glass code.
 - `@hannasage/armature/linear` writes a spring or a curve as a CSS `linear()` string within a tolerance. It checks that the browser supports `linear()`, and it falls back to a fitted cubic-bezier.
 - `@hannasage/armature/gesture` holds drag with a rubber band past the bounds, decay on release, snap to the nearest point with the release velocity, and swipe. It also holds the pointer environment and the pointer velocity tracker. `createDrag` takes a flavor with a `gesture` part. See `docs/gesture.md`.
 - `@hannasage/armature/timeline` holds timelines: tracks that animate one value each along keyframes, placed together, in sequence, or staggered. A step is a curve, a spring, or a decay. A timeline plays, pauses, reverses, seeks, and scrubs on the shared scheduler. See `docs/timeline.md`.
+- `@hannasage/armature/layout` holds layout animation (FLIP), shared elements, and presence. An element is measured before and after a change, put back where it was with `translate` and `scale`, and sprung to zero. A change in flight keeps its speed. Two elements with one key move as one, and an exiting element stays until it rests. `createLayout`, `createShared`, and `createPresence` take a flavor with a `layout` part. See `docs/layout.md`.
 - `@hannasage/armature/dom` holds the DOM controllers: surface, lens, follower, delegation, and scroll reveal. Each one takes a flavor.
 - `@hannasage/armature/react` holds the generic React hooks and providers, such as `useArmatureSurface`, `useArmatureFollower`, and `ArmatureProvider`. Each one takes a flavor.
 - `@hannasage/armature/glass` holds the glass flavor, `glassFlavor`, with the refraction filter, the PNG encoder, the browser check, and the glass names.

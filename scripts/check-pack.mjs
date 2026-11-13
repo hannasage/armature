@@ -45,6 +45,7 @@ import { bezier, createTween, createTweenValue, easing, stepTween, type Easing, 
 import { fitLinear, toEasing, toLinear, type EasingResult } from "@hannasage/armature/linear";
 import { createDrag, createPointerVelocity, type Drag, type SwipeDirection } from "@hannasage/armature/gesture";
 import { createTimeline, type Timeline } from "@hannasage/armature/timeline";
+import { createLayout, createPresence, createShared, type Layout, type Presence } from "@hannasage/armature/layout";
 import { createFollower, type Follower } from "@hannasage/armature/dom";
 import { ArmatureProvider, useArmatureSurface } from "@hannasage/armature/react";
 import { createGlassFilter, glassFlavor, type GlassFlavor } from "@hannasage/armature/glass";
@@ -83,6 +84,19 @@ export function timeline(element: HTMLElement): Timeline {
   return createTimeline(env, { tracks: [{ target: element, value: "opacity", keys: [[0, 0], [300, 1, easing("ease-out")], [800, 0.5, { stiffness: 170, damping: 26 }]] }] });
 }
 export const flick: number = createPointerVelocity().read(0).x;
+
+export function layout(element: HTMLElement, flavor: Flavor): Layout {
+  const handle = createLayout(element, { flavor });
+  handle.snapshot();
+  handle.play();
+  return handle;
+}
+export function presence(container: HTMLElement, flavor: Flavor): Presence {
+  const present = createPresence(container, { flavor });
+  present.exit(container.firstElementChild as HTMLElement, { to: { scale: 0.5 } });
+  createShared({ flavor }).leave("hero", container);
+  return present;
+}
 
 export function follow(element: HTMLElement): Follower {
   return createFollower(element, { flavor: demo, name: "thumb" });

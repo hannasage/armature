@@ -21,4 +21,16 @@ export default defineConfig(
     files: ["scripts/**/*.mjs", "tools/**/*.mjs"],
     languageOptions: { globals: { console: "readonly" } },
   },
+  {
+    // The browser checks run in Node, and their page functions run in a browser. They use the globals of both.
+    files: ["tests/browser/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        console: "readonly", process: "readonly", document: "readonly", window: "readonly", performance: "readonly", requestAnimationFrame: "readonly",
+        matchMedia: "readonly", setTimeout: "readonly", MutationObserver: "readonly", Date: "readonly", Promise: "readonly",
+        // Set on the page by the helper script of a check, and used by its page functions.
+        flavor: "readonly", rect: "readonly", frames: "readonly", rested: "readonly",
+      },
+    },
+  },
 );

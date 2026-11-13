@@ -28,9 +28,9 @@ The prefix is lowercase letters, digits, and hyphens, and it starts with a lette
 
 `defineFlavor(flavor)` makes this safe. It validates the flavor, freezes it at every level, and returns it. After that, a change throws a `TypeError` in strict code. A function inside the flavor, such as the `start` of a personality, is not frozen. The glass flavor is already frozen. Use `defineFlavor` for your own flavor.
 
-## A flavor has seven parts
+## A flavor has eight parts
 
-Only the top level is needed by every flavor. The other six parts are optional. A controller asks for the part it needs. If the part is missing, the controller throws a `TypeError` that names the flavor.
+Only the top level is needed by every flavor. The other seven parts are optional. A controller asks for the part it needs. If the part is missing, the controller throws a `TypeError` that names the flavor.
 
 - Top level: `name`, `prefix`, `logLabel`, and `springs`.
 - `surface`: read by the surface and by delegation.
@@ -39,6 +39,7 @@ Only the top level is needed by every flavor. The other six parts are optional. 
 - `followers`: read by the follower. Added in Milestone 2, after the Projection flavor needed it.
 - `gesture`: read by `createDrag`. Added in G4. See "The gesture part" below.
 - `timeline`: read by `createTimeline`. Added in G5. See "The timeline part" below.
+- `layout`: read by `createLayout`, `createPresence`, and `createShared`. Added in G6. See "The layout part" below.
 
 ## Top level fields
 
@@ -149,6 +150,17 @@ The part has no names, so it adds nothing to the rule that names are unique acro
 A name is lowercase letters, digits, and hyphens, and starts with a letter. A curve name must not be the key of a spring, because a step names one or the other.
 
 `validateFlavor` does not check this part. The spring-only entry has no room under its cap of 4,000 bytes for it. `createTimeline` and `requireTimeline` check it, so a bad part fails when a timeline is made. This differs from the rule of the amendment that `validateFlavor` checks every new part. The maintainer chose this on 2026-11-12, and `docs/baseline.md`, section "G5 build", records it.
+
+## The layout part
+
+`createLayout`, `createPresence`, and `createShared` from `@hannasage/armature/layout` read this part. `requireLayout(flavor)` returns it, or throws a `TypeError` that names the flavor. A flavor with no `layout` part stays valid. The part names no variable and no attribute, because a layout writes the individual properties `translate` and `scale`.
+
+- `springKeys` has `move` and, optionally, `exit`. Each is a key in `Flavor.springs`. `move` is the spring that a layout change and a shared element go back to zero on. `exit` is the spring of an exit, and it defaults to `move`. A key that names no spring throws a `TypeError`.
+- `rest` is required. It is a `RestLimits`. An offset is in pixels, and a size is a difference in pixels, so one pair of limits serves every part of a move. A move rests when its offset is below `restDelta` and its speed is below `restSpeed` (pixels per second). A spring that sets its own limits keeps them.
+
+The part has no names, so it adds nothing to the rule that names are unique across parts.
+
+`validateFlavor` does not check this part. The spring-only entry has no room under its cap of 4,000 bytes for it. The controllers of `/layout` check it, so a bad part fails when a controller is made. This differs from the rule of the amendment that `validateFlavor` checks every new part. The tech lead decided option A for the layout part on 2026-11-13, for the same reason as G5 (the timeline part, which the maintainer decided on 2026-11-12). `docs/baseline.md`, section "G6 build", records it.
 
 ## Personalities
 

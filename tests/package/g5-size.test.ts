@@ -39,7 +39,7 @@ describe("the /timeline size after G5", () => {
 
   it("writes the figures in docs/baseline.md, with the cap approved, and the tarball re-measured", () => {
     expect(baseline).toContain("## G5 build");
-    const section = baseline.slice(baseline.indexOf("## G5 build"));
+    const section = baseline.slice(baseline.indexOf("## G5 build"), baseline.indexOf("## G6 build") === -1 ? undefined : baseline.indexOf("## G6 build"));
     expect(section).toContain(`- \`/timeline\`: ${timeline.cap.toLocaleString("en-US")}`);
     expect(section).toContain("approved by the maintainer, 2026-11-12");
     expect(section).not.toMatch(/not approved/);
@@ -48,7 +48,7 @@ describe("the /timeline size after G5", () => {
   });
 
   it("records that the maintainer chose option A for the flavor check on 2026-11-12, and leaves no open decision", () => {
-    const section = baseline.slice(baseline.indexOf("## G5 build"));
+    const section = baseline.slice(baseline.indexOf("## G5 build"), baseline.indexOf("## G6 build") === -1 ? undefined : baseline.indexOf("## G6 build"));
     expect(section).toMatch(/maintainer chose option A on 2026-11-12/);
     expect(section).not.toMatch(/Decision for the maintainer|Variants for the maintainer/);
     const flavors = readFileSync(join(root, "docs/flavors.md"), "utf8");

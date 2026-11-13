@@ -10,12 +10,15 @@ import { describe, expect, it } from "vitest";
 //   src/engine imports nothing from src/dom, src/react, or src/glass.
 //   src/dom imports nothing from src/react or src/glass.
 //   src/react imports nothing from src/glass.
+//   src/layout imports nothing from src/dom, src/react, or src/glass, and no other layer imports src/layout (see boundary/layout.test.ts).
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const RULES = [
-  { layer: "engine", forbidden: ["dom", "react", "glass"] },
+  { layer: "engine", forbidden: ["dom", "react", "glass", "layout"] },
   { layer: "dom", forbidden: ["react", "glass"] },
   { layer: "react", forbidden: ["glass"] },
+  // G6: /layout reaches only the engine and the frame scheduler. It never reaches the DOM, React, or glass code.
+  { layer: "layout", forbidden: ["dom", "react", "glass"] },
 ];
 
 /** Every module specifier in a source text: static imports, type imports, re-exports, side-effect imports, dynamic imports, and require calls. */

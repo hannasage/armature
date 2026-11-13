@@ -54,6 +54,8 @@ export interface Flavor<P extends string = string> {
   readonly gesture?: GestureFlavor;
   /** Named sequences and default curves: the names `createTimeline` from `@hannasage/armature/timeline` reads. */
   readonly timeline?: TimelineFlavor;
+  /** Spring keys and rest limits in pixels: the numbers `createLayout`, `createPresence`, and `createShared` from `@hannasage/armature/layout` read. */
+  readonly layout?: { readonly springKeys: { readonly move: string; readonly exit?: string }; readonly rest: RestLimits };
 }
 
 /** One named sequence of a timeline: keys that name their curve or spring by a key of `TimelineFlavor.curves` or of `Flavor.springs`. */
