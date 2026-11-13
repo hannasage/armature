@@ -19,8 +19,12 @@ export interface LayoutEnvironment extends FrameEnvironment {
   setStyle(target: ArmatureTarget, property: string, value: string | null): void;
   /** The box of the target as it shows now, with any `translate` and `scale` applied about its center. */
   measure(target: ArmatureTarget): Box;
-  /** Takes `target` out of `container`. Needed by `createPresence`, unless its options give an `unmount`. */
-  unmount?(container: ArmatureTarget, target: ArmatureTarget): void;
+  /** Takes `target` out of `container`. Returns false when it was not there. Needed by `createPresence`, unless its options give an `unmount`. */
+  unmount?(container: ArmatureTarget, target: ArmatureTarget): boolean | void;
+  /** The inline value of a style property now, or null. Optional. A layout and an exit read `translate` with it, so code that moves the element too keeps its offset. */
+  getStyle?(target: ArmatureTarget, property: string): string | null;
+  /** Calls `callback` after `ms` milliseconds, even when no frame runs, and returns the function that cancels it. Optional. A presence uses it as a watchdog. */
+  after?(ms: number, callback: () => void): () => void;
 }
 
 /** `transform`, and the same name with a vendor prefix. The layout controllers write individual properties only, and the browser environment holds the line. */
@@ -49,7 +53,14 @@ export function createBrowserLayoutEnvironment(win?: Window & typeof globalThis)
       return { x: r.left, y: r.top, width: r.width, height: r.height };
     },
     unmount: (container, target) => {
-      if ((target as Node).parentNode === container) (container as Node).removeChild(target as Node);
+      if ((target as Node).parentNode !== container) return false;
+      (container as Node).removeChild(target as Node);
+      return true;
+    },
+    getStyle: (target, property) => (target as HTMLElement).style.getPropertyValue(property) || null,
+    after: (ms, callback) => {
+      const id = w().setTimeout(callback, ms);
+      return () => w().clearTimeout(id);
     },
   };
 }

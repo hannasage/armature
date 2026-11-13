@@ -13,7 +13,6 @@ body{margin:0;font:14px sans-serif}
 #card{position:relative;margin:20px;width:400px;height:300px;overflow:visible;background:#eee}
 .s{width:400px;height:24px;margin:0 20px}
 #card div.c{width:60px;height:20px;margin:2px;background:#789;display:inline-block;overflow:hidden;white-space:nowrap}
-#size div.c{width:auto}
 </style><div id=card>${Array.from({ length: n }, (_, i) => `<div class=c>c${i}</div>`).join("")}</div>${Array.from({ length: SIBLINGS }, (_, i) => `<div class=s>row ${i}</div>`).join("")}`;
 
 async function metrics(cdp) {

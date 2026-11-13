@@ -561,44 +561,46 @@ Method: `node scripts/size.mjs`, the same as G0 to G5. esbuild 0.28.2, `bundle`,
 
 | Entry | Source | Minified (bytes) | Gzipped (bytes) |
 | --- | --- | ---: | ---: |
-| `@hannasage/armature/layout` | `src/layout/index.ts` | 12,218 | 4,868 |
+| `@hannasage/armature/layout` | `src/layout/index.ts` | 14,050 | 5,746 |
 
-The cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The cap proposed here is 5,360. It is not approved: the maintainer has not seen it. The amendment 1 proposal sits beside it. The entry is 868 bytes over the 4.0 KB proposal.
+The cap is the measured size plus 10 percent, rounded up to the next 10 bytes: 5,746 gives 6,330. The tech lead approved the cap of 6,330 (approved by the tech lead, 2026-11-13), under the authority the maintainer gave on 2026-11-13. The amendment 1 proposal sits beside it. The entry is 1,746 bytes over the 4.0 KB proposal.
 
-| Entry | Measured (gzipped) | Cap (not approved) | Amendment 1 proposal |
+The measure after the first build was 4,868, and its cap was 5,360. Review round 1 added behavior, and the entry grew by 878 bytes: the `translate` that other code set (`getStyle`, the option `from`), a presence that survives the failure of one element (`leftMounted`, per-element failure), a watchdog (`after`), a time to live and tracking for shared keys, `release()`, a clear that can be retried, and a check for a box of all zeros. The trims tried (one shared message for the no-box line, shorter flavor messages built by one helper) moved the gzipped size by at most a byte, because gzip already folds repeated text. So the measure stands at 5,746, and the cap follows the rule.
+
+| Entry | Measured (gzipped) | Cap (approved) | Amendment 1 proposal |
 | --- | ---: | ---: | --- |
-| `/layout` | 4,868 | 5,360 | 4.0 KB |
+| `/layout` | 5,746 | 6,330 | 4.0 KB |
 
-The proposed cap of `/layout`, as a bullet (not approved):
+The cap of `/layout`, as a bullet (approved by the tech lead, 2026-11-13):
 
-- `/layout`: 5,360.
+- `/layout`: 6,330.
 
 Where the bytes sit, in minified bytes of the bundle:
 
 | File | Minified (bytes) |
 | --- | ---: |
-| `src/layout/motion.ts` | 2,555 |
-| `src/layout/presence.ts` | 1,949 |
-| `src/layout/layout.ts` | 1,666 |
-| `src/engine/spring.ts` | 1,442 |
-| `src/frame/scheduler.ts` | 1,377 |
-| `src/layout/flavor.ts` | 1,072 |
-| `src/layout/shared.ts` | 1,053 |
-| `src/layout/env.ts` | 579 |
-| `src/layout/util.ts` | 287 |
+| `src/layout/motion.ts` | 3,236 |
+| `src/layout/presence.ts` | 2,410 |
+| `src/layout/layout.ts` | 1,858 |
+| `src/layout/shared.ts` | 1,580 |
+| `src/engine/spring.ts` | 1,453 |
+| `src/frame/scheduler.ts` | 1,378 |
+| `src/layout/flavor.ts` | 904 |
+| `src/layout/env.ts` | 705 |
+| `src/layout/util.ts` | 288 |
 | `src/engine/env.ts` | 116 |
 
-The spring solver and the scheduler are 2,819 of the 12,218 bytes, and the entry needs both. The entry does not bundle `src/engine/flavor.ts`: it runs its own check of the `layout` part, which saves about 1.8 KB. No existing entry grew.
+The spring solver and the scheduler are 2,831 of the 14,050 bytes, and the entry needs both. The entry does not bundle `src/engine/flavor.ts`: it runs its own check of the `layout` part, which saves about 1.8 KB. No existing entry grew.
 
 ### Other entries
 
 No cap moved, and no entry grew. The measures at the base commit (`fa8ab50`, the merge of G5) and after G6 are the same, with one exception: `.` 3,853 (cap 4,000), `/frame` 807, `/values` 6,615, `/curves` 2,363, `/linear` 3,351, `/gesture` 5,332 (cap 5,850), `/timeline` 5,893 (cap 6,460), `/dom` 11,310, `/glass` 7,882, `/glass/react` 12,668, and `styles.css` 749 gzipped bytes. `/react` is 11,661, two bytes under its base measure of 11,663.
 
-The measure of an entry moves by a byte or two when text is added to a file that the entry bundles, even a comment or a type. The esbuild minifier counts the letters of the whole source file, comments and types included, when it picks the short names. An added comment and a named type in `src/engine/flavor.ts` moved `/gesture` up by 1 byte and `/react` down by 3. So the layout part is typed inline in the `Flavor` interface, with no comment, and the named type `LayoutFlavor` lives in `/layout`. With that the entries other than `/react` are exactly as before.
+A named type added to `src/engine/flavor.ts` (`export interface LayoutFlavor`, or a type alias) moved `/gesture` up by 1 byte and `/react` down by 3, whether or not it had a comment. An inline type on the `layout` property of `Flavor` moved `/gesture` by nothing, and `/react` by -2. A doc comment on that inline type moves no entry, so the property has one. The named type `LayoutFlavor` lives in `/layout`. The cause in the minifier was not found. An earlier version of this page said the minifier counts the letters of comments, and the test of the comment shows that was wrong.
 
 ### The tarball
 
-`npm run check:pack` passed. The tarball is 269,042 bytes in 230 files, under the limit of 333,027 (1.5 times the approved MEASURED_SIZE of 222,018). MEASURED_SIZE did not change.
+`npm run check:pack` passed. The tarball is 275,495 bytes in 230 files, under the limit of 333,027 (1.5 times the approved MEASURED_SIZE of 222,018). MEASURED_SIZE did not change.
 
 ### Scale distortion
 
@@ -607,38 +609,38 @@ A scale stretches the children of an element. Two fixes were measured, with a pl
 - Counter-scale: the parent scales, and each child gets the inverse scale, with the individual property `scale`.
 - Size animation: the width and height of the parent animate, and nothing scales.
 
-The measure is `tests/browser/distortion.pw.mjs`, run in a real browser (Chrome 157.0.8103.39, headless, on macOS). The page has a parent of 400 by 300 px in the flow, 300 rows below it, and N children of 60 by 20 px. The parent starts at scale 0.5 in x and 1.5 in y and goes to 1 over 120 frames. The stretch is the error of the rendered size of a child at the first frame, read with `getBoundingClientRect`. The other columns are per frame, from the browser's own counters (`Performance.getMetrics`, Chrome DevTools Protocol), over 120 frames.
+The measure is `tests/browser/distortion.pw.mjs`, and its output is saved in `tests/browser/results/distortion.json`, run in a real browser (Chrome 157.0.8103.39, headless, on macOS). The page has a parent of 400 by 300 px in the flow, 300 rows below it, and N children of 60 by 20 px. The parent starts at scale 0.5 in x and 1.5 in y and goes to 1 over 120 frames. The stretch is the error of the rendered size of a child at the first frame, read with `getBoundingClientRect`. The other columns are per frame, from the browser's own counters (`Performance.getMetrics`, Chrome DevTools Protocol), over 120 frames.
 
 | Children | Method | Stretch | Layouts per frame | Layout ms per frame | Recalcs per frame | Recalc ms per frame | Layout and recalc ms per frame |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 10 | plain scale, no fix | 50.0% | 0.01 | 0.001 | 1.00 | 0.048 | 0.049 |
-| 10 | counter-scale on children | 0% | 0.02 | 0.003 | 1.01 | 0.089 | 0.092 |
-| 10 | size animation | 0% | 1.01 | 0.193 | 1.01 | 0.019 | 0.213 |
-| 100 | plain scale, no fix | 50.0% | 0.01 | 0.001 | 1.00 | 0.049 | 0.050 |
-| 100 | counter-scale on children | 0% | 0.02 | 0.005 | 1.01 | 0.163 | 0.168 |
-| 100 | size animation | 0% | 1.01 | 0.283 | 1.01 | 0.023 | 0.306 |
-| 1,000 | plain scale, no fix | 50.0% | 0.01 | 0.003 | 1.00 | 0.079 | 0.082 |
-| 1,000 | counter-scale on children | 0% | 0.02 | 0.026 | 1.01 | 0.564 | 0.590 |
-| 1,000 | size animation | 0% | 1.01 | 0.843 | 1.01 | 0.049 | 0.892 |
+| 10 | plain scale, no fix | 50.0% | 0.01 | 0.001 | 1.00 | 0.051 | 0.051 |
+| 10 | counter-scale on children | 0% | 0.02 | 0.002 | 1.01 | 0.073 | 0.075 |
+| 10 | size animation | 0% | 1.01 | 0.179 | 1.01 | 0.021 | 0.199 |
+| 100 | plain scale, no fix | 50.0% | 0.01 | 0.001 | 1.00 | 0.042 | 0.042 |
+| 100 | counter-scale on children | 0% | 0.02 | 0.006 | 1.01 | 0.120 | 0.126 |
+| 100 | size animation | 0% | 1.01 | 0.230 | 1.01 | 0.022 | 0.252 |
+| 1,000 | plain scale, no fix | 50.0% | 0.01 | 0.003 | 1.00 | 0.075 | 0.078 |
+| 1,000 | counter-scale on children | 0% | 0.02 | 0.026 | 1.01 | 0.580 | 0.606 |
+| 1,000 | size animation | 0% | 1.01 | 0.777 | 1.01 | 0.054 | 0.831 |
 
 Choice: counter-scale on children, as the option `children` of `createLayout`.
 
 - Both fixes remove the stretch. The plain scale stretches a child by 50 percent at the start.
-- Counter-scale did no layout during the move (0.02 layouts per frame, from the first frame). A size animation did one layout on every frame, and it also moves every row below the parent. Its cost is the cost of laying out the page, so it grows with the page.
-- Counter-scale did less work than a size animation at 10, 100, and 1,000 children (0.092, 0.168, and 0.590 ms per frame, against 0.213, 0.306, and 0.892). Its cost grows with the number of children that get the inverse scale, one write each. So the option is opt-in, and the caller names only the children that need it.
+- Counter-scale did 0.02 layouts per frame (the layout of the first frame), and not none. A size animation did one layout on every frame, and it also moves every row below the parent. Its cost is the cost of laying out the page, so it grows with the page.
+- Counter-scale did less work than a size animation at 10, 100, and 1,000 children (0.075, 0.126, and 0.606 ms per frame, against 0.199, 0.252, and 0.831; at 1,000 children the two are close). Its cost grows with the number of children that get the inverse scale, one write each. So the option is opt-in, and the caller names only the children that need it.
 - A size animation also changes how text wraps, which is a second kind of jump. A scale never does.
 
 Limits of this measure: it is one run on one machine and one browser, so the milliseconds can move from run to run, and the order of the two methods held in all three rows. The rows are a plain DOM experiment. They are not the shipped controller. The rows below the parent are text rows of one line each, and a real page can be heavier. The real controller was checked in the same browser, see "The browser check".
 
 ### The flavor check: `validateFlavor` does not check the `layout` part
 
-Amendment 1 says `validateFlavor` checks the new flavor parts. At G6 it does not check the `layout` part. The `.` entry is 3,853 bytes against a cap of 4,000, and a check of the part adds more than the 147 bytes of room. The G6 task followed option A, which the maintainer chose for the timeline part on 2026-11-12: `createLayout`, `createPresence`, `createShared`, and `requireLayout` run the check, and `validateFlavor` does not. The `.` cap stays at 4,000. The maintainer has not confirmed this for the layout part.
+Amendment 1 says `validateFlavor` checks the new flavor parts. At G6 it does not check the `layout` part. The `.` entry is 3,853 bytes against a cap of 4,000, and a check of the part adds more than the 147 bytes of room. The tech lead decided option A for the layout part on 2026-11-13, for the same reason as G5 (the maintainer chose option A for the timeline part on 2026-11-12): `createLayout`, `createPresence`, `createShared`, and `requireLayout` run the check, and `validateFlavor` does not. The `.` cap stays at 4,000.
 
 A flavor with no `layout` part stays valid. A bad part fails when a controller is made.
 
 ### The browser check
 
-The gate container has no browser. `tests/browser/layout.pw.mjs` ran once on the host, with Playwright core and the installed Chrome 157.0.8103.39, headless, against the built `dist/layout`. It reads every number from the rendered page with `getBoundingClientRect`. It passed with no problem:
+The gate container has no browser. `tests/browser/layout.pw.mjs` ran once on the host, with Playwright core and the installed Chrome 157.0.8103.39, headless, against the built `dist/layout`. It reads every number from the rendered page with `getBoundingClientRect`. Its output is saved in `tests/browser/results/layout.json`. It was run again after review round 1, and it passed with no problem:
 
 - Inversion: at `play` the element showed the first box (20, 20, 100 by 50) and then moved to the new box (300, 150, 200 by 100). It rested there with no offset left in the style attribute. The written styles named `translate` and `scale` and never `transform`.
 - A change in flight: with 1,467 px per second of speed, a change to a box behind the element did not jump it. The element went on to x = 155.8 from 144.9, and then came back to the new box. The speed before and after the change was the same number. The frame times of a browser vary, so these three numbers change a little from run to run.
@@ -649,6 +651,6 @@ The gate container has no browser. `tests/browser/layout.pw.mjs` ran once on the
 
 ### Public names
 
-`/layout` exports `createLayout`, `createPresence`, `createShared`, `createBrowserLayoutEnvironment`, `requireLayout`, and the types `Box`, `ExitPose`, `Layout`, `LayoutEnvironment`, `LayoutFlavor`, `LayoutOptions`, `LayoutState`, `Presence`, `PresenceOptions`, `PresenceState`, `Shared`, `SharedOptions`, and `SharedState`. The names beyond the spec are `createShared`, `requireLayout`, `createBrowserLayoutEnvironment`, the option `children`, the optional arguments of `snapshot(first, velocity)`, and the option `unmount` of a presence.
+`/layout` exports `createLayout`, `createPresence`, `createShared`, `createBrowserLayoutEnvironment`, `requireLayout`, and the types `Box`, `ExitPose`, `Layout`, `LayoutEnvironment`, `LayoutFlavor`, `LayoutOptions`, `LayoutState`, `Presence`, `PresenceOptions`, `PresenceState`, `Shared`, `SharedOptions`, and `SharedState`. The names beyond the spec are `createShared`, `requireLayout`, `createBrowserLayoutEnvironment`, the option `children`, the optional arguments of `snapshot(first, velocity)`, `release()`, the options `ttl` of a shared object and `unmount` and `from` of a presence, the state `leftMounted` and `layouts`, and the optional environment methods `getStyle` and `after`.
 
 The spec says the environment gains an optional `measure(target)`. The type `ArmatureEnvironment` in the engine has it, and that costs no byte. The implementation for the browser is in `createBrowserLayoutEnvironment`, in `/layout`, and not in `createBrowserEnvironment`, because the spring-only entry has no room for it.

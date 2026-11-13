@@ -14,26 +14,29 @@ export type LayoutFlavor = NonNullable<Flavor["layout"]>;
 /**
  * Checks the layout part of a flavor, and throws a TypeError that names the flavor when it does not hold together. A flavor with no part passes.
  * `validateFlavor` does not run it, because the spring-only entry has no room under its cap. `createLayout`, `createPresence`, `createShared`,
- * and `requireLayout` run it. The maintainer chose this for the timeline part on 2026-11-12 (option A), and the layout part follows it.
+ * and `requireLayout` run it. The tech lead decided option A for the layout part on 2026-11-13, for the same reason as G5 (the timeline part).
  */
 export function checkLayoutFlavor(flavor: Flavor, label: string): void {
   const part: unknown = flavor.layout;
   if (part === undefined) return;
-  if (!plain(part)) throw new TypeError(`${label} has a layout part that is not an object.`);
-  const { springKeys, rest } = part;
-  if (!plain(springKeys)) throw new TypeError(`${label} has a layout part with no spring keys.`);
+  const bad = (text: string): never => {
+    throw new TypeError(`${label} has ${text}.`);
+  };
+  if (!plain(part)) bad("a layout part that is not an object");
+  const { springKeys, rest } = part as Record<string, unknown>;
+  if (!plain(springKeys)) bad("a layout part with no spring keys");
   const springs: unknown = flavor.springs;
   for (const name of ["move", "exit"]) {
-    const key = springKeys[name];
+    const key = (springKeys as Record<string, unknown>)[name];
     if (key === undefined && name === "exit") continue;
-    if (typeof key !== "string") throw new TypeError(`${label} has a layout spring key "${name}" that is not text.`);
-    if (!has(springs, key)) throw new TypeError(`${label} has no spring named "${key}".`);
-    if (!plain((springs as Record<string, unknown>)[key])) throw new TypeError(`${label} has a spring "${key}" that is not an object.`);
+    if (typeof key !== "string") bad(`a layout spring key "${name}" that is not text`);
+    if (!has(springs, key as string)) bad(`no spring named "${key}"`);
+    if (!plain((springs as Record<string, unknown>)[key as string])) bad(`a spring "${key}" that is not an object`);
   }
-  if (!plain(rest)) throw new TypeError(`${label} has a layout part with no rest limits.`);
+  if (!plain(rest)) bad("a layout part with no rest limits");
   for (const name of ["restDelta", "restSpeed"]) {
-    const value = rest[name];
-    if (!finite(value) || value <= 0) throw new TypeError(`${label} has a layout part with a rest limit "${name}" that is not a finite number above 0.`);
+    const value = (rest as Record<string, unknown>)[name];
+    if (!finite(value) || value <= 0) bad(`a layout part with a rest limit "${name}" that is not a finite number above 0`);
   }
 }
 

@@ -1,0 +1,237 @@
+{
+  "results": {
+    "inversion": {
+      "first": {
+        "x": 20,
+        "y": 20,
+        "width": 100,
+        "height": 50
+      },
+      "natural": {
+        "x": 300,
+        "y": 150,
+        "width": 200,
+        "height": 100
+      },
+      "afterPlay": {
+        "x": 20,
+        "y": 20,
+        "width": 100,
+        "height": 50
+      },
+      "midway": {
+        "x": 164.34300231933594,
+        "y": 87.01599884033203,
+        "width": 151.55201721191406,
+        "height": 75.77599334716797
+      },
+      "moving": true,
+      "done": true,
+      "end": {
+        "x": 300,
+        "y": 150,
+        "width": 200,
+        "height": 100
+      },
+      "style": "",
+      "styles": [
+        "translate: -330px -155px; scale: 0.5;",
+        "translate: -319.203px -149.928px; scale: 0.51636;",
+        "translate: -310.028px -145.619px; scale: 0.53026;",
+        "translate: -274.34px -128.857px; scale: 0.58433;",
+        "translate: -261.065px -122.621px; scale: 0.60445;",
+        "translate: -234.101px -109.957px; scale: 0.6453;",
+        "translate: -195.061px -91.619px; scale: 0.70445;",
+        "translate: -182.833px -85.876px; scale: 0.72298;",
+        "translate: -159.881px -75.096px; scale: 0.75776;",
+        "translate: -129.519px -60.834px; scale: 0.80376;",
+        "translate: -120.493px -56.595px; scale: 0.81744;",
+        "translate: -104.025px -48.86px; scale: 0.84239;",
+        "translate: -83.018px -38.994px; scale: 0.87421;",
+        "translate: -76.918px -36.128px; scale: 0.88346;",
+        "translate: -65.935px -30.97px; scale: 0.9001;",
+        "translate: -52.176px -24.507px; scale: 0.92095;",
+        "translate: -48.228px -22.653px; scale: 0.92693;",
+        "translate: -41.172px -19.338px; scale: 0.93762;",
+        "translate: -35.114px -16.493px; scale: 0.9468;",
+        "translate: -29.923px -14.055px; scale: 0.95466;",
+        "translate: -25.482px -11.969px; scale: 0.96139;",
+        "translate: -20.004px -9.396px; scale: 0.96969;",
+        "translate: -18.45px -8.666px; scale: 0.97205;",
+        "translate: -15.688px -7.369px; scale: 0.97623;",
+        "translate: -13.335px -6.264px; scale: 0.9798;",
+        "translate: -11.332px -5.323px; scale: 0.98283;",
+        "translate: -9.627px -4.522px; scale: 0.98541;",
+        "translate: -8.177px -3.841px; scale: 0.98761;",
+        "translate: -6.399px -3.005px; scale: 0.99031;",
+        "translate: -5.896px -2.769px; scale: 0.99107;",
+        "translate: -5.005px -2.351px; scale: 0.99242;",
+        "translate: -4.249px -1.996px; scale: 0.99356;",
+        "translate: -3.606px -1.694px; scale: 0.99454;",
+        "translate: -3.061px -1.438px; scale: 0.99536;",
+        "translate: -2.598px -1.22px; scale: 0.99606;",
+        "translate: -2.204px -1.035px; scale: 0.99666;",
+        "translate: -1.871px -0.879px; scale: 0.99717;",
+        "translate: -1.462px -0.687px; scale: 0.99778;",
+        "translate: -1.347px -0.633px; scale: 0.99796;",
+        "translate: -1.053px -0.494px; scale: 0.99841;",
+        "translate: -0.969px -0.455px; scale: 0.99853;",
+        "translate: -0.823px -0.386px; scale: 0.99875;",
+        "translate: -0.643px -0.302px; scale: 0.99903;",
+        "translate: -0.592px -0.278px; scale: 0.9991;",
+        "translate: -0.502px -0.236px; scale: 0.99924;",
+        "translate: -0.392px -0.184px; scale: 0.99941;",
+        "translate: -0.362px -0.17px; scale: 0.99945;",
+        "translate: -0.307px -0.144px; scale: 0.99954 1;",
+        "translate: -0.26px -0.122px; scale: 0.99961 1;",
+        "translate: -0.221px -0.104px; scale: 0.99967 1;",
+        "translate: -0.187px -0.088px; scale: 0.99972 1;",
+        "translate: -0.159px -0.075px;",
+        "translate: -0.135px -0.063px;",
+        "translate: -0.114px -0.054px;",
+        "translate: -0.097px;",
+        "translate: -0.082px;",
+        "translate: -0.07px;",
+        "translate: -0.059px;",
+        "translate: -0.05px;",
+        ""
+      ]
+    },
+    "retarget": {
+      "before": {
+        "x": 144.86900329589844,
+        "y": 77.9749984741211,
+        "width": 144.5960235595703,
+        "height": 72.29801177978516
+      },
+      "after": {
+        "x": 144.86900329589844,
+        "y": 77.9749984741211,
+        "width": 144.5960235595703,
+        "height": 72.29801177978516
+      },
+      "speedBefore": 1467.3721769025785,
+      "speedAfter": 1467.3721769025785,
+      "farthest": 155.8354949951172,
+      "done": true,
+      "end": {
+        "x": 20,
+        "y": 20,
+        "width": 100,
+        "height": 50
+      }
+    },
+    "shared": {
+      "leaving": {
+        "x": 30,
+        "y": 40,
+        "width": 120,
+        "height": 60
+      },
+      "natural": {
+        "x": 420,
+        "y": 260,
+        "width": 240,
+        "height": 120
+      },
+      "start": {
+        "x": 30,
+        "y": 40,
+        "width": 120,
+        "height": 60
+      },
+      "midway": {
+        "x": 255.622802734375,
+        "y": 167.27439880371094,
+        "width": 189.42242431640625,
+        "height": 94.71119689941406
+      },
+      "done": true,
+      "end": {
+        "x": 420,
+        "y": 260,
+        "width": 240,
+        "height": 120
+      }
+    },
+    "presence": {
+      "natural": {
+        "x": 10,
+        "y": 500,
+        "width": 100,
+        "height": 50
+      },
+      "midway": {
+        "x": 42.30950164794922,
+        "y": 516.1547241210938,
+        "width": 35.381004333496094,
+        "height": 17.6905517578125
+      },
+      "mounted": true,
+      "mountedAtEnd": false,
+      "gone": 1,
+      "exiting": 0
+    },
+    "children": {
+      "naturalKid": {
+        "x": 300,
+        "y": 150,
+        "width": 200,
+        "height": 20
+      },
+      "parent": {
+        "x": 20,
+        "y": 20,
+        "width": 100,
+        "height": 50
+      },
+      "stretched": {
+        "x": -30,
+        "y": 15,
+        "width": 200,
+        "height": 20
+      },
+      "later": {
+        "parent": {
+          "x": 123.74299621582031,
+          "y": 68.16600036621094,
+          "width": 137.05198669433594,
+          "height": 68.5260009765625
+        },
+        "kid": {
+          "x": 92.26831817626953,
+          "y": 65.0185317993164,
+          "width": 200.0013427734375,
+          "height": 20.000137329101562
+        },
+        "scale": 0.6852556817297842
+      },
+      "end": {
+        "x": 300,
+        "y": 150,
+        "width": 200,
+        "height": 20
+      },
+      "kidStyle": ""
+    },
+    "reduced": {
+      "natural": {
+        "x": 300,
+        "y": 150,
+        "width": 200,
+        "height": 100
+      },
+      "afterPlay": {
+        "x": 300,
+        "y": 150,
+        "width": 200,
+        "height": 100
+      },
+      "moving": false,
+      "style": null,
+      "removed": true,
+      "media": true
+    }
+  },
+  "problems": []
+}

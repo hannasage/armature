@@ -160,7 +160,7 @@ A name is lowercase letters, digits, and hyphens, and starts with a letter. A cu
 
 The part has no names, so it adds nothing to the rule that names are unique across parts.
 
-`validateFlavor` does not check this part. The spring-only entry has no room under its cap of 4,000 bytes for it. The controllers of `/layout` check it, so a bad part fails when a controller is made. This differs from the rule of the amendment that `validateFlavor` checks every new part. It follows the choice the maintainer made for the timeline part on 2026-11-12, option A, which `docs/baseline.md`, section "G5 build", records. The maintainer has not confirmed it for the layout part, and `docs/baseline.md`, section "G6 build", says so.
+`validateFlavor` does not check this part. The spring-only entry has no room under its cap of 4,000 bytes for it. The controllers of `/layout` check it, so a bad part fails when a controller is made. This differs from the rule of the amendment that `validateFlavor` checks every new part. The tech lead decided option A for the layout part on 2026-11-13, for the same reason as G5 (the timeline part, which the maintainer decided on 2026-11-12). `docs/baseline.md`, section "G6 build", records it.
 
 ## Personalities
 

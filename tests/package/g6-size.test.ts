@@ -85,7 +85,7 @@ describe("the /layout size after G6", () => {
     const files = ["src/layout/flavor.ts", "docs/layout.md", "docs/flavors.md", "docs/baseline.md", "CHANGELOG.md"];
     for (const file of files) {
       const text = readFileSync(join(root, file), "utf8");
-      expect(text, file).toMatch(/the tech lead decided option A for the layout part on 2026-11-13/);
+      expect(text, file).toMatch(/the tech lead decided option A for the layout part on 2026-11-13/i);
       expect(text, file).not.toMatch(/not yet confirmed|has not confirmed/);
     }
   });

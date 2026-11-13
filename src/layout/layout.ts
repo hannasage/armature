@@ -11,7 +11,7 @@ import type { Flavor } from "../engine/flavor";
 import { prefersReducedMotion } from "../engine/env";
 import type { FrameTask, Scheduler } from "../frame/scheduler";
 import type { Box, LayoutEnvironment } from "./env";
-import { checkBox, checkPose, createEmitter, createMover, invert, measure, setup, zero, type Mover, type Pose } from "./motion";
+import { checkBox, checkPose, createEmitter, createMover, empty, invert, measure, noBox, readBase, runner, setup, zero, type Mover, type Pose } from "./motion";
 import { thing, toError } from "./util";
 
 export interface LayoutOptions {
@@ -57,6 +57,8 @@ export interface Layout {
   getState(): LayoutState;
   /** Stops the motion, removes the offset, and ignores every later call. It logs nothing. Safe to call twice. */
   destroy(): void;
+  /** Stops the motion and ignores every later call, like `destroy`, but writes nothing: the element stays as it shows. For an element that is going away. */
+  release(): void;
 }
 
 export function createLayout(el: ArmatureTarget, options: LayoutOptions): Layout {
@@ -69,36 +71,30 @@ export function createLayout(el: ArmatureTarget, options: LayoutOptions): Layout
   let pending: { box: Box; speed: Pose } | undefined;
   let destroyed = false;
   let failure: Error | undefined;
-  let remove: (() => void) | undefined;
   let dirty = false;
+  let warned = false;
 
-  const stop = () => {
-    remove?.();
-    remove = undefined;
-  };
   /** A measure or a write failed: log once, stop, and put the element back as far as the environment allows. */
   const fail = (error: unknown) => {
     if (failure) return;
     failure = toError(error);
     console.error(`${tag} The layout could not measure or write and stopped.`, error);
     pending = undefined;
-    stop();
-    const m = mover;
-    mover = undefined;
+    run.stop();
     try {
-      m?.clear();
+      mover?.clear();
+      mover = undefined;
     } catch {
-      // The environment is what failed. Nothing more can be done.
+      // The environment is what failed. The mover stays, so `destroy` can try the clear again.
     }
   };
   /** Takes the pose off the element and tells the listeners it is at rest. */
   const rest = (): boolean => {
-    const m = mover;
-    mover = undefined;
     dirty = false;
-    stop();
+    run.stop();
     try {
-      m?.clear();
+      mover?.clear();
+      mover = undefined;
     } catch (error) {
       fail(error);
       return false;
@@ -110,7 +106,7 @@ export function createLayout(el: ArmatureTarget, options: LayoutOptions): Layout
     step() {
       dirty = true;
       if (!destroyed && mover?.step()) return true;
-      remove = undefined;
+      run.done();
       return false;
     },
     frame() {
@@ -125,8 +121,8 @@ export function createLayout(el: ArmatureTarget, options: LayoutOptions): Layout
       try {
         if (m.moving()) m.write();
         else {
-          mover = undefined;
           m.clear();
+          mover = undefined;
         }
       } catch (error) {
         fail(error);
@@ -135,6 +131,23 @@ export function createLayout(el: ArmatureTarget, options: LayoutOptions): Layout
       events.emit("update");
       if (!mover && !destroyed) events.emit("rest");
     },
+  };
+  const run = runner(scheduler, task);
+
+  const finish = (release: boolean) => {
+    if (destroyed) return;
+    destroyed = true;
+    pending = undefined;
+    run.stop();
+    const m = mover;
+    mover = undefined;
+    try {
+      if (!release) m?.clear();
+    } catch {
+      // A destroy logs nothing.
+    }
+    events.clear();
+    if (own) (scheduler as Scheduler).destroy();
   };
 
   return {
@@ -152,7 +165,7 @@ export function createLayout(el: ArmatureTarget, options: LayoutOptions): Layout
       if (destroyed || failure || !pending) return;
       const { box: first, speed } = pending;
       pending = undefined;
-      let next: Mover;
+      let next: Mover | undefined;
       try {
         if (prefersReducedMotion(env)) {
           if (rest()) events.emit("rest");
@@ -161,14 +174,20 @@ export function createLayout(el: ArmatureTarget, options: LayoutOptions): Layout
         // The old offset comes off first, so the measure sees the layout and not the pose.
         mover?.clear();
         const last = measure(env, el);
-        const kids = typeof children === "function" ? children() : (children ?? []);
-        mover = next = createMover(env, el, last, invert(first, last), speed, zero(), move, kids);
-        if (next.moving()) next.write();
+        if (empty(first) || empty(last)) {
+          if (!warned) noBox(tag, "the move");
+          warned = true;
+        } else {
+          const list = typeof children === "function" ? children() : (children ?? []);
+          if (!Array.isArray(list)) throw new TypeError("The layout children are a list of elements, or a function that returns one.");
+          mover = next = createMover(env, el, last, invert(first, last), speed, zero(), move, list, readBase(env, el));
+          if (next.moving()) next.write();
+        }
       } catch (error) {
         fail(error);
         return;
       }
-      if (!next.moving()) {
+      if (!next?.moving()) {
         if (rest()) events.emit("rest");
         return;
       }
@@ -176,11 +195,11 @@ export function createLayout(el: ArmatureTarget, options: LayoutOptions): Layout
       // A listener can destroy the layout, or start another play, during the write.
       if (destroyed || failure || mover !== next) return;
       dirty = false;
-      remove ??= scheduler.add(task);
+      run.start();
     },
     on: (event, listener) => events.on(event, listener),
     getState: () => ({
-      moving: mover !== undefined,
+      moving: mover !== undefined && !failure,
       offset: mover?.pose() ?? zero(),
       velocity: mover?.speed() ?? zero(),
       scaleX: mover?.scale()[0] ?? 1,
@@ -189,20 +208,7 @@ export function createLayout(el: ArmatureTarget, options: LayoutOptions): Layout
       listenerErrors: events.errors(),
       failed: failure,
     }),
-    destroy() {
-      if (destroyed) return;
-      destroyed = true;
-      pending = undefined;
-      stop();
-      const m = mover;
-      mover = undefined;
-      try {
-        m?.clear();
-      } catch {
-        // A destroy logs nothing.
-      }
-      events.clear();
-      if (own) (scheduler as Scheduler).destroy();
-    },
+    destroy: () => finish(false),
+    release: () => finish(true),
   };
 }
