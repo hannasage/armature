@@ -423,3 +423,45 @@ describe("a leave that fails", () => {
     expect(error).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("fix round 2", () => {
+  it("untracks a layout that the caller released, and a later enter gets a working layout", () => {
+    const r = rig();
+    r.shared.leave("one", r.a);
+    const first = r.shared.enter("one", r.b);
+    expect(r.shared.getState().layouts).toBe(1);
+    first.release();
+    expect(r.shared.getState().layouts).toBe(0);
+    const c = {};
+    r.env.place(c, box(0, 300, 50, 50));
+    r.shared.leave("two", c);
+    const second = r.shared.enter("two", r.b);
+    expect(second).not.toBe(first);
+    expect(second.getState().moving).toBe(true);
+  });
+
+  it("untracks a layout that failed, and a later enter gets a working layout", () => {
+    const r = rig();
+    r.shared.leave("one", r.a);
+    const first = r.shared.enter("one", r.b);
+    r.env.failWith = new Error("write refused");
+    r.slices(2);
+    r.env.failWith = undefined;
+    expect(first.getState().failed).toBeInstanceOf(Error);
+    expect(r.shared.getState().layouts).toBe(0);
+    r.shared.leave("two", r.a);
+    const second = r.shared.enter("two", r.b);
+    expect(second).not.toBe(first);
+    expect(second.getState().moving).toBe(true);
+  });
+
+  it("does not return a destroyed or failed layout as the live one", () => {
+    const r = rig();
+    r.shared.leave("one", r.a);
+    const first = r.shared.enter("one", r.b);
+    first.destroy();
+    const again = r.shared.enter("none", r.b);
+    expect(again).not.toBe(first);
+    expect(again.getState().destroyed).toBe(false);
+  });
+});

@@ -825,3 +825,96 @@ describe("release and children", () => {
     expect(error).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("fix round 2", () => {
+  it("never writes a counter-scale above 1,000", () => {
+    const kid = {};
+    const r = rig({ children: [kid] });
+    r.layout.snapshot(box(5, 5, 0.01, 0.01));
+    r.layout.play();
+    for (let i = 0; i < 20; i++) {
+      for (const n of (r.env.style(kid, "scale") ?? "1 1").split(" ")) expect(parseFloat(n)).toBeLessThanOrEqual(1000);
+      r.slices(1);
+    }
+  });
+
+  it("survives a remove of the scheduler that throws, and adds the task again at the next play", () => {
+    const env = new FakeLayoutEnv();
+    const add = vi.fn(() => () => {
+      throw new Error("cannot remove");
+    });
+    const el = {};
+    env.place(el, box(0, 0, 100, 50));
+    const layout = createLayout(el, { flavor: lofty, env, scheduler: { add } });
+    layout.snapshot();
+    env.place(el, box(300, 0, 100, 50));
+    layout.play();
+    layout.destroy();
+    expect(() => layout.destroy()).not.toThrow();
+    const second = createLayout(el, { flavor: lofty, env, scheduler: { add } });
+    second.snapshot();
+    env.place(el, box(0, 0, 100, 50));
+    second.play();
+    expect(add).toHaveBeenCalledTimes(2);
+  });
+
+  it("reads a base translate that is not in pixels as 0, and puts its text back at rest", () => {
+    const r = rig();
+    r.env.styles.set(r.el, { translate: "calc(10px + 5%) 0" });
+    flip(r, box(300, 0, 100, 50));
+    expect(r.env.style(r.el, "translate")).toMatch(/^-?[\d.]+px -?[\d.]+px$/);
+    r.env.run(10_000);
+    expect(r.env.style(r.el, "translate")).toBe("calc(10px + 5%) 0");
+  });
+
+  it("replaces an inline scale that other code set while it resizes, and removes it at rest", () => {
+    const r = rig();
+    r.env.styles.set(r.el, { scale: "2" });
+    flip(r, box(0, 0, 200, 100));
+    expect(r.env.style(r.el, "scale")).not.toBe("2");
+    r.env.run(10_000);
+    expect(r.env.style(r.el, "scale")).toBeUndefined();
+  });
+
+  it("lets a rest listener play again, and one that destroys the layout", () => {
+    const r = rig();
+    let again = 0;
+    r.layout.on("rest", () => {
+      again += 1;
+      if (again === 1) {
+        r.layout.snapshot();
+        r.env.place(r.el, box(0, 0, 100, 50));
+        r.layout.play();
+      }
+    });
+    flip(r, box(300, 0, 100, 50));
+    r.env.run(10_000);
+    r.slices(400);
+    expect(again).toBe(2);
+    expect(r.env.visual(r.el)).toEqual(box(0, 0, 100, 50));
+
+    const d = rig();
+    d.layout.on("rest", () => d.layout.destroy());
+    flip(d, box(300, 0, 100, 50));
+    expect(() => d.env.run(10_000)).not.toThrow();
+    expect(d.layout.getState().destroyed).toBe(true);
+    expect(d.env.pending).toBe(0);
+  });
+
+  it("lets an update listener start another play", () => {
+    const r = rig();
+    let done = false;
+    r.layout.on("update", () => {
+      if (done) return;
+      done = true;
+      r.layout.snapshot();
+      r.env.place(r.el, box(500, 0, 100, 50));
+      r.layout.play();
+    });
+    flip(r, box(300, 0, 100, 50));
+    r.env.run(10_000);
+    r.slices(400);
+    expect(r.env.visual(r.el)).toEqual(box(500, 0, 100, 50));
+    expect(r.layout.getState().failed).toBeUndefined();
+  });
+});

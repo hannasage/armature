@@ -3,8 +3,8 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// G6 adds the `/layout` entry. Its cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The cap is a proposal and is not
-// approved by the tech lead on 2026-11-13. No existing cap moves, and the spring-only entry stays under its cap of 4,000.
+// G6 adds the `/layout` entry. Its cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The tech lead approved the cap
+// on 2026-11-13. No existing cap moves, and the spring-only entry stays under its cap of 4,000.
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const lib = (await import(pathToFileURL(join(root, "scripts/size-lib.mjs")).href)) as {
