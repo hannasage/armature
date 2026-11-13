@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { nonLiteralDynamicImports, specifiersOf } from "../helpers/specifiers";
 
 // A flavor in `examples/` stands in for a flavor that lives in another repository. It may import the public Armature
-// entries and nothing else: no relative path, no deep path into `src` or `dist`, no other package. The public entries
+// entries and the files of its own folder, and nothing else: no path out of its folder, no deep path into `src` or `dist`, no other package. The public entries
 // are the keys of the "exports" map in package.json, so this test follows the package when an entry is added.
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -25,6 +25,9 @@ function sourceFiles(dir: string): string[] {
 }
 
 const isPublic = (specifier: string) => PUBLIC.includes(specifier);
+
+/** A relative import of a file in the same example folder, such as `./flavor`. A flavor may split into files, but may not reach out of its folder. */
+const isSibling = (file: string, specifier: string) => /^\.\/[\w-]+$/.test(specifier) && dirname(resolve(dirname(file), specifier)) === dirname(file);
 
 describe("the list of public specifiers", () => {
   it("is built from the exports map", () => {
@@ -56,8 +59,9 @@ describe("the scanner for dynamic imports", () => {
 describe("the examples", () => {
   const files = sourceFiles(join(root, "examples"));
 
-  it("hold at least the Projection flavor", () => {
-    expect(files.map((file) => relative(root, file))).toContain(join("examples", "projection", "flavor.ts"));
+  it("hold at least the Projection flavor and the Tide flavor with its sheet", () => {
+    const names = files.map((file) => relative(root, file));
+    for (const file of [join("examples", "projection", "flavor.ts"), join("examples", "tide", "flavor.ts"), join("examples", "tide", "sheet.ts")]) expect(names).toContain(file);
   });
 
   it("use no dynamic import whose argument is not a string literal, because the scan could not see where it points", () => {
@@ -65,12 +69,18 @@ describe("the examples", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("import nothing except the public Armature entries", () => {
+  it("import nothing except the public Armature entries and the files of their own folder", () => {
     const offenders = files.flatMap((file) =>
       specifiersOf(readFileSync(file, "utf8"))
-        .filter((specifier) => !isPublic(specifier))
+        .filter((specifier) => !isPublic(specifier) && !isSibling(file, specifier))
         .map((specifier) => `${relative(root, file)} -> ${specifier}`),
     );
     expect(offenders).toEqual([]);
+  });
+
+  it("accept a file of the same folder and refuse a path out of it", () => {
+    const file = join(root, "examples", "tide", "sheet.ts");
+    expect(isSibling(file, "./flavor")).toBe(true);
+    for (const bad of ["../projection/flavor", "./../../src/index", "../../src/engine/flavor", "./nested/../../x", "flavor"]) expect(isSibling(file, bad), bad).toBe(false);
   });
 });
