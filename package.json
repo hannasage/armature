@@ -40,6 +40,10 @@
       "types": "./dist/gesture/index.d.ts",
       "import": "./dist/gesture/index.js"
     },
+    "./timeline": {
+      "types": "./dist/timeline/index.d.ts",
+      "import": "./dist/timeline/index.js"
+    },
     "./values": {
       "types": "./dist/values/index.d.ts",
       "import": "./dist/values/index.js"

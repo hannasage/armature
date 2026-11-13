@@ -14,7 +14,7 @@ export const API = {
       "requireFollower", "requireLens", "requireReveal", "requireSurface", "retarget", "springOf", "stepSpring", "validateFlavor"
     ],
     types: [
-      "Flavor", "SurfaceFlavor", "LensFlavor", "RevealFlavor", "FollowerSpec", "FollowerFlavor", "GestureFlavor", "RestLimits", "PersonalitySpec", "RevealStart", "StartContext", "StartInput", "FeelOptions",
+      "Flavor", "SurfaceFlavor", "LensFlavor", "RevealFlavor", "FollowerSpec", "FollowerFlavor", "GestureFlavor", "TimelineFlavor", "TimelineSequence", "RestLimits", "PersonalitySpec", "RevealStart", "StartContext", "StartInput", "FeelOptions",
       "SpringConfig", "SpringState", "ArmatureEnvironment", "ArmatureTarget", "ArmatureScrollEnvironment", "Preferences",
     ],
     generic: true,
@@ -30,6 +30,11 @@ export const API = {
       "ArmaturePointerEnvironment", "Drag", "DragBounds", "DragOptions", "DragState", "PointerHandlers", "PointerSample", "PointerVelocity",
       "PointerVelocityOptions", "SwipeDirection"
     ],
+    generic: true,
+  },
+  "./timeline": {
+    values: ["createBrowserTimelineEnvironment", "createTimeline", "requireTimeline"],
+    types: ["DecayStep", "Keyframe", "Timeline", "TimelineEnvironment", "TimelineOptions", "TimelineState", "TimelineStep", "TrackSpec"],
     generic: true,
   },
   "./values": {

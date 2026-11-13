@@ -34,8 +34,8 @@ describe("package contract", () => {
     expect(pkg.publishConfig).toEqual({ access: "public", tag: "beta" });
   });
 
-  it("exports the ten subpaths and the stylesheet, and nothing else", () => {
-    expect(Object.keys(pkg.exports).sort()).toEqual([".", "./curves", "./dom", "./frame", "./gesture", "./glass", "./glass/react", "./linear", "./react", "./styles.css", "./values"]);
+  it("exports the eleven subpaths and the stylesheet, and nothing else", () => {
+    expect(Object.keys(pkg.exports).sort()).toEqual([".", "./curves", "./dom", "./frame", "./gesture", "./glass", "./glass/react", "./linear", "./react", "./styles.css", "./timeline", "./values"]);
   });
 
   it("gives each code subpath a types file and an import file, and no require file", () => {

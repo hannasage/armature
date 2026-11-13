@@ -28,9 +28,9 @@ The prefix is lowercase letters, digits, and hyphens, and it starts with a lette
 
 `defineFlavor(flavor)` makes this safe. It validates the flavor, freezes it at every level, and returns it. After that, a change throws a `TypeError` in strict code. A function inside the flavor, such as the `start` of a personality, is not frozen. The glass flavor is already frozen. Use `defineFlavor` for your own flavor.
 
-## A flavor has six parts
+## A flavor has seven parts
 
-Only the top level is needed by every flavor. The other five parts are optional. A controller asks for the part it needs. If the part is missing, the controller throws a `TypeError` that names the flavor.
+Only the top level is needed by every flavor. The other six parts are optional. A controller asks for the part it needs. If the part is missing, the controller throws a `TypeError` that names the flavor.
 
 - Top level: `name`, `prefix`, `logLabel`, and `springs`.
 - `surface`: read by the surface and by delegation.
@@ -38,6 +38,7 @@ Only the top level is needed by every flavor. The other five parts are optional.
 - `reveal`: read by the scroll reveal and by the attribute builders.
 - `followers`: read by the follower. Added in Milestone 2, after the Projection flavor needed it.
 - `gesture`: read by `createDrag`. Added in G4. See "The gesture part" below.
+- `timeline`: read by `createTimeline`. Added in G5. See "The timeline part" below.
 
 ## Top level fields
 
@@ -136,6 +137,18 @@ A call can replace the spring with the `spring` option. The rest limits of the f
 - `rest` is required. It is a `RestLimits`. The decay stops when its speed is below `restSpeed`. A spring uses both limits, under any limit it sets itself.
 
 The part has no names, so it adds nothing to the rule that names are unique across parts.
+
+## The timeline part
+
+`createTimeline` from `@hannasage/armature/timeline` reads this part. `requireTimeline(flavor)` returns it, or throws a `TypeError` that names the flavor. A flavor with no `timeline` part stays valid. Every piece of the part is optional, and the empty part is valid.
+
+- `curves` is a record from a name to the four control points `[x1, y1, x2, y2]` of a cubic-bezier. Each number is finite, and x1 and x2 are from 0 to 1.
+- `defaultCurve` is a key in `curves`. A key that names no step takes this curve. Without it the step is a straight line.
+- `sequences` is a record from a name to `{ keys }`. Each key is `[time in ms, value, step?]`. A step is the name of a curve or the key of a spring in `springs`. The times never go back. A track uses a sequence with `sequence: "name"` in place of `keys`.
+
+A name is lowercase letters, digits, and hyphens, and starts with a letter. A curve name must not be the key of a spring, because a step names one or the other.
+
+`validateFlavor` does not check this part. The spring-only entry has no room under its cap of 4,000 bytes for it. `createTimeline` and `requireTimeline` check it, so a bad part fails when a timeline is made. This differs from the rule of the amendment that `validateFlavor` checks every new part. The maintainer chose this on 2026-11-12, and `docs/baseline.md`, section "G5 build", records it.
 
 ## Personalities
 
