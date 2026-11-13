@@ -293,3 +293,133 @@ describe("destroy", () => {
     expect(error).not.toHaveBeenCalled();
   });
 });
+
+describe("retention and fights", () => {
+  it("keeps no layout once it rests: the tracked count stays bounded across many enters", () => {
+    const r = rig();
+    for (let i = 0; i < 50; i++) {
+      const from = {};
+      const to = {};
+      r.env.place(from, box(0, 0, 10, 10));
+      r.env.place(to, box(100, 100, 10, 10));
+      r.shared.leave(`k${i}`, from);
+      r.shared.enter(`k${i}`, to);
+      expect(r.shared.getState().layouts).toBeLessThanOrEqual(1);
+      r.env.run(10_000);
+      r.slices(400);
+      expect(r.shared.getState().layouts).toBe(0);
+    }
+  });
+
+  it("does not track a layout that has nothing to move", () => {
+    const r = rig();
+    r.shared.enter("lonely", r.b);
+    expect(r.shared.getState().layouts).toBe(0);
+  });
+
+  it("stops the earlier layout when a second enter moves the same element, so two layouts never fight", () => {
+    const r = rig();
+    r.shared.leave("one", r.a);
+    const first = r.shared.enter("one", r.b);
+    r.slices(3);
+    const c = {};
+    r.env.place(c, box(0, 500, 50, 50));
+    r.shared.leave("two", c);
+    const second = r.shared.enter("two", r.b);
+    expect(first.getState().destroyed).toBe(true);
+    expect(second.getState().moving).toBe(true);
+    expect(r.shared.getState().layouts).toBe(1);
+    r.env.run(10_000);
+    r.slices(400);
+    expect(r.env.visual(r.b)).toEqual(box(400, 200, 300, 150));
+  });
+
+  it("gives the live layout back for a second enter that has no key waiting, and makes no second layout", () => {
+    const r = rig();
+    r.shared.leave("one", r.a);
+    const first = r.shared.enter("one", r.b);
+    r.slices(3);
+    const again = r.shared.enter("none", r.b);
+    expect(again).toBe(first);
+    expect(first.getState().destroyed).toBe(false);
+  });
+});
+
+describe("a chain", () => {
+  it("never writes to the leaving element: its layout stops and leaves the styles as they are", () => {
+    const r = rig();
+    r.shared.leave("hero", r.a);
+    r.shared.enter("hero", r.b);
+    r.slices(10);
+    const c = {};
+    r.env.place(c, box(0, 600, 80, 80));
+    const writes = r.env.writes.filter((w) => w.target === r.b).length;
+    r.shared.leave("hero", r.b);
+    const second = r.shared.enter("hero", c);
+    expect(r.env.writes.filter((w) => w.target === r.b).length).toBe(writes);
+    r.slices(20);
+    expect(r.env.writes.filter((w) => w.target === r.b).length).toBe(writes);
+    expect(second.getState().moving).toBe(true);
+    expect(r.env.pending + r.scheduler.size).toBeGreaterThan(0);
+  });
+});
+
+describe("keys that wait", () => {
+  it("expires after the time to live, on the clock of the environment, so a key nobody enters does not stay", () => {
+    const r = rig();
+    r.shared.leave("hero", r.a);
+    expect(r.shared.getState().pending).toBe(1);
+    r.env.time += 2500;
+    expect(r.shared.getState().pending).toBe(0);
+    const layout = r.shared.enter("hero", r.b);
+    expect(layout.getState().moving).toBe(false);
+    expect(r.env.styles.has(r.b)).toBe(false);
+  });
+
+  it("keeps a key that is young enough, and takes the time to live from the options", () => {
+    const r = rig({ ttl: 100 });
+    r.shared.leave("hero", r.a);
+    r.env.time += 50;
+    expect(r.shared.getState().pending).toBe(1);
+    r.env.time += 100;
+    expect(r.shared.getState().pending).toBe(0);
+    for (const bad of [0, -1, NaN, "x"]) expect(() => createShared({ flavor: lofty, env: r.env, ttl: bad as never })).toThrow(TypeError);
+  });
+});
+
+describe("a leave that fails", () => {
+  it("drops the stale key of an earlier leave, and exposes failed", () => {
+    const r = rig();
+    r.shared.leave("hero", r.a);
+    expect(r.shared.getState().pending).toBe(1);
+    r.env.measureFails = new Error("no layout");
+    r.shared.leave("hero", r.a);
+    r.env.measureFails = undefined;
+    expect(r.shared.getState().pending).toBe(0);
+    expect(r.shared.getState().failed?.message).toBe("no layout");
+    const layout = r.shared.enter("hero", r.b);
+    expect(layout.getState().moving).toBe(false);
+  });
+
+  it("logs once for each distinct failure", () => {
+    const r = rig();
+    r.env.measureFails = new Error("one");
+    r.shared.leave("a", r.a);
+    r.shared.leave("a", r.a);
+    expect(error).toHaveBeenCalledTimes(1);
+    r.env.measureFails = new Error("two");
+    r.shared.leave("a", r.a);
+    expect(error).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats an all-zero box as no layout: no key is kept, and it logs once", () => {
+    const r = rig();
+    r.shared.leave("hero", r.a);
+    r.env.script(r.a, box(0, 0, 0, 0));
+    r.shared.leave("hero", r.a);
+    expect(r.shared.getState().pending).toBe(0);
+    r.env.script(r.a, box(0, 0, 0, 0));
+    r.shared.leave("other", r.a);
+    expect(error).toHaveBeenCalledTimes(1);
+  });
+});

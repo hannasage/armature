@@ -72,15 +72,26 @@ describe("the browser layout environment", () => {
     expect(el.style.setProperty).toHaveBeenCalledWith(name, "1");
   });
 
+  it("reads a style, and sets a timer that can be cancelled", () => {
+    const win = { ...fakeWindow(), setTimeout: vi.fn(() => 9), clearTimeout: vi.fn() };
+    const env = createBrowserLayoutEnvironment(win as never);
+    const el = { ...fakeElement(), style: { setProperty: vi.fn(), removeProperty: vi.fn(), getPropertyValue: vi.fn(() => "3px 4px") } };
+    expect(env.getStyle!(el, "translate")).toBe("3px 4px");
+    const cancel = env.after!(5000, () => undefined);
+    expect(win.setTimeout).toHaveBeenCalledWith(expect.any(Function), 5000);
+    cancel();
+    expect(win.clearTimeout).toHaveBeenCalledWith(9);
+  });
+
   it("unmounts a child of the container, and does nothing for an element that is not one", () => {
     const env = createBrowserLayoutEnvironment(fakeWindow() as never);
     const container = { removeChild: vi.fn() };
     const child = fakeElement(container);
-    env.unmount!(container, child);
+    expect(env.unmount!(container, child)).toBe(true);
     expect(container.removeChild).toHaveBeenCalledWith(child);
     container.removeChild.mockClear();
-    env.unmount!(container, fakeElement({}));
-    env.unmount!(container, fakeElement());
+    expect(env.unmount!(container, fakeElement({}))).toBe(false);
+    expect(env.unmount!(container, fakeElement())).toBe(false);
     expect(container.removeChild).not.toHaveBeenCalled();
   });
 });

@@ -732,3 +732,96 @@ describe("one scheduler", () => {
     expect(r.env.pending).toBe(1);
   });
 });
+
+describe("code that owns translate too", () => {
+  it("restores the translate it found, and adds the pose to it while it moves, so a drag offset does not jump", () => {
+    const r = rig();
+    r.env.styles.set(r.el, { translate: "30px 10px" });
+    r.layout.snapshot();
+    r.env.place(r.el, box(300, 0, 100, 50));
+    r.layout.play();
+    // The element shows where it was, with its drag offset.
+    expect(r.env.visual(r.el).x).toBeCloseTo(30, 2);
+    r.slices(5);
+    r.env.run(10_000);
+    expect(r.env.style(r.el, "translate")).toBe("30px 10px");
+    expect(r.env.visual(r.el).x).toBeCloseTo(330, 2);
+  });
+});
+
+describe("a box with no layout", () => {
+  it.each([["first", true], ["last", false]])("skips the move when the %s box is all zero, logs once, and rests", (_name, firstBox) => {
+    const r = rig();
+    const rest = vi.fn();
+    r.layout.on("rest", rest);
+    r.env.script(r.el, firstBox ? box(0, 0, 0, 0) : box(0, 0, 100, 50), firstBox ? box(5, 5, 10, 10) : box(0, 0, 0, 0));
+    r.layout.snapshot();
+    r.layout.play();
+    expect(r.env.writes).toEqual([]);
+    expect(r.env.requested).toBe(0);
+    expect(rest).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(r.layout.getState().failed).toBeUndefined();
+    r.env.script(r.el, box(0, 0, 0, 0), box(5, 5, 10, 10));
+    r.layout.snapshot();
+    r.layout.play();
+    expect(error).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("a clear that fails", () => {
+  it("keeps clearing the other targets, and can be retried by destroy", () => {
+    const kid = {};
+    const r = rig({ children: [kid] });
+    flip(r, box(0, 0, 200, 100));
+    r.slices(2);
+    r.env.failOnNull = true;
+    r.env.reduced = true;
+    expect(() => r.slices(1)).not.toThrow();
+    expect(r.layout.getState().failed).toBeInstanceOf(Error);
+    r.env.failOnNull = false;
+    r.layout.destroy();
+    expect(r.env.style(r.el, "translate")).toBeUndefined();
+    expect(r.env.style(r.el, "scale")).toBeUndefined();
+    expect(r.env.style(kid, "scale")).toBeUndefined();
+  });
+
+  it("clears the children even when the translate fails first", () => {
+    const kid = {};
+    const r = rig({ children: [kid] });
+    flip(r, box(0, 0, 200, 100));
+    r.slices(2);
+    const real = r.env.setStyle;
+    r.env.setStyle = (t, p, v) => {
+      if (t === r.el && p === "translate" && v === null) throw new Error("stuck");
+      real(t, p, v);
+    };
+    r.env.reduced = true;
+    r.slices(1);
+    expect(r.env.style(kid, "scale")).toBeUndefined();
+  });
+});
+
+describe("release and children", () => {
+  it("releases a layout without writing: the element stays as it shows", () => {
+    const r = rig();
+    flip(r, box(300, 0, 100, 50));
+    r.slices(5);
+    const writes = r.env.writes.length;
+    r.layout.release();
+    expect(r.env.writes.length).toBe(writes);
+    expect(r.layout.getState().destroyed).toBe(true);
+    r.slices(5);
+    expect(r.env.writes.length).toBe(writes);
+    expect(r.env.pending).toBe(0);
+  });
+
+  it("fails, logged once, when the children function returns something that is not a list", () => {
+    const r = rig({ children: (() => 5) as never });
+    r.layout.snapshot();
+    r.env.place(r.el, box(300, 0, 100, 50));
+    expect(() => r.layout.play()).not.toThrow();
+    expect(r.layout.getState().failed).toBeInstanceOf(TypeError);
+    expect(error).toHaveBeenCalledTimes(1);
+  });
+});

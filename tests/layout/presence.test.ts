@@ -297,10 +297,12 @@ describe("bad input", () => {
 });
 
 describe("a failure", () => {
-  it("in a write logs once with the label, sets failed, and still unmounts every element that is leaving", () => {
+  it("in a write fails each element, logs once with the label, unmounts them without an exit event, and does not poison the presence", () => {
     const r = rig();
     const second = {};
     r.env.place(second, box(0, 0, 40, 40));
+    const gone = vi.fn();
+    r.present.on("exit", gone);
     r.present.exit(r.el);
     r.present.exit(second);
     r.slices(2);
@@ -311,28 +313,74 @@ describe("a failure", () => {
     expect(error).toHaveBeenCalledTimes(1);
     expect(String(error.mock.calls[0][0])).toContain("[lofty]");
     expect(r.env.unmounted.map((u) => u.target).sort()).toEqual([r.el, second].sort());
+    expect(gone).not.toHaveBeenCalled();
     expect(r.present.getState().exiting).toBe(0);
-    expect(r.env.pending).toBe(0);
+    // The presence still works for the next element.
+    const next = {};
+    r.env.place(next, box(0, 0, 20, 20));
+    r.present.exit(next);
+    r.env.run(10_000);
+    expect(r.env.unmounted.map((u) => u.target)).toContain(next);
+    expect(gone).toHaveBeenCalledTimes(1);
   });
 
-  it("in an unmount logs once, sets failed, and does not throw into the page", () => {
+  it("in one element does not stop the others", () => {
+    const r = rig();
+    const bad = {};
+    r.env.place(bad, box(0, 0, 40, 40));
+    r.env.script(bad, box(NaN, 0, 1, 1));
+    r.present.exit(bad);
+    expect(r.env.unmounted.map((u) => u.target)).toEqual([bad]);
+    r.present.exit(r.el);
+    r.env.run(10_000);
+    expect(r.env.unmounted.map((u) => u.target)).toEqual([bad, r.el]);
+    expect(error).toHaveBeenCalledTimes(1);
+  });
+
+  it("in an unmount logs once, sets failed, leaves the element in leftMounted, and does not throw into the page", () => {
     const r = rig();
     r.env.unmountFails = new Error("cannot remove");
     r.present.exit(r.el);
     expect(() => r.env.run(10_000)).not.toThrow();
-    expect(r.present.getState().failed?.message).toBe("cannot remove");
+    const state = r.present.getState();
+    expect(state.failed?.message).toBe("cannot remove");
+    expect(state.leftMounted).toEqual([r.el]);
+    expect(state.exiting).toBe(0);
     expect(error).toHaveBeenCalledTimes(1);
+    r.env.unmountFails = undefined;
+    const other = {};
+    r.env.place(other, box(0, 0, 20, 20));
+    r.present.exit(other);
+    r.env.run(10_000);
+    expect(r.env.unmounted.map((u) => u.target)).toEqual([other]);
+    expect(r.present.getState().leftMounted).toEqual([r.el]);
   });
 
-  it("ignores every later call after a failure", () => {
+  it("drops an element from leftMounted when a later exit removes it", () => {
     const r = rig();
     r.env.unmountFails = new Error("cannot remove");
     r.present.exit(r.el);
     r.env.run(10_000);
-    const measured = r.env.measured.length;
     r.env.unmountFails = undefined;
-    r.present.exit({});
-    expect(r.env.measured.length).toBe(measured);
+    r.present.exit(r.el);
+    r.env.run(10_000);
+    expect(r.present.getState().leftMounted).toEqual([]);
+  });
+
+  it("counts only the elements that stay: one that fails to unmount stays, and the other goes", () => {
+    const r = rig();
+    const second = {};
+    r.env.place(second, box(0, 0, 100, 50));
+    r.present.exit(r.el);
+    r.present.exit(second);
+    const real = r.env.unmount;
+    r.env.unmount = (container, target) => {
+      if (target === r.el) throw new Error("stuck");
+      return real(container, target);
+    };
+    r.env.run(10_000);
+    expect(r.present.getState().leftMounted).toEqual([r.el]);
+    expect(r.env.unmounted.map((u) => u.target)).toEqual([second]);
   });
 });
 
@@ -390,17 +438,22 @@ describe("destroy", () => {
     expect(error).not.toHaveBeenCalled();
     expect(present.getState().destroyed).toBe(true);
     expect(present.getState().exiting).toBe(0);
+    expect(env.timers.every((t) => t.cancelled)).toBe(true);
   });
 
-  it("is safe to call twice, and ignores every later call", () => {
+  it("is safe to call twice, and an exit after it unmounts the element at once, with no exit event", () => {
     const r = rig();
+    const gone = vi.fn();
+    r.present.on("exit", gone);
     r.present.destroy();
     expect(() => r.present.destroy()).not.toThrow();
     r.present.exit(r.el);
     const off = r.present.on("exit", vi.fn());
     expect(() => off()).not.toThrow();
     expect(r.env.measured).toEqual([]);
-    expect(r.env.unmounted).toEqual([]);
+    expect(r.env.unmounted.map((u) => u.target)).toEqual([r.el]);
+    expect(gone).not.toHaveBeenCalled();
+    expect(r.env.pending).toBe(0);
   });
 
   it("leaves a shared scheduler to its owner", () => {
@@ -413,11 +466,112 @@ describe("destroy", () => {
     expect(r.scheduler.size).toBe(1);
   });
 
-  it("does not throw when an unmount fails during destroy, and logs nothing", () => {
+  it("logs once, and records the element, when an unmount fails during destroy", () => {
     const r = rig();
+    const second = {};
+    r.env.place(second, box(0, 0, 20, 20));
     r.present.exit(r.el);
+    r.present.exit(second);
     r.env.unmountFails = new Error("x");
     expect(() => r.present.destroy()).not.toThrow();
-    expect(error).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(r.present.getState().leftMounted.sort()).toEqual([r.el, second].sort());
   });
 });
+
+describe("the unmount", () => {
+  it("clears the pose after a custom unmount that keeps the node", () => {
+    const unmount = vi.fn();
+    const r = rig({ unmount });
+    r.present.exit(r.el);
+    r.env.run(10_000);
+    expect(unmount).toHaveBeenCalledTimes(1);
+    expect(r.env.style(r.el, "scale")).toBeUndefined();
+    expect(r.env.style(r.el, "translate")).toBeUndefined();
+  });
+
+  it("fires exit only when the node was really removed: a result of false is not an exit", () => {
+    const r = rig();
+    const gone = vi.fn();
+    r.present.on("exit", gone);
+    r.env.unmountResult = false;
+    r.present.exit(r.el);
+    r.env.run(10_000);
+    expect(r.env.unmounted).toHaveLength(1);
+    expect(gone).not.toHaveBeenCalled();
+    expect(r.present.getState().leftMounted).toEqual([]);
+  });
+
+  it("unmounts an exit that never rests, after the watchdog time, when no frame ever fires", () => {
+    const r = rig();
+    const gone = vi.fn();
+    r.present.on("exit", gone);
+    r.present.exit(r.el);
+    expect(r.env.timers).toHaveLength(1);
+    expect(r.env.timers[0].ms).toBe(5000);
+    expect(r.env.unmounted).toEqual([]);
+    r.env.fire(0);
+    expect(r.env.unmounted.map((u) => u.target)).toEqual([r.el]);
+    expect(gone).toHaveBeenCalledWith(r.el);
+    expect(r.present.getState().exiting).toBe(0);
+    expect(r.env.pending).toBe(0);
+  });
+
+  it("cancels the watchdog when the exit rests by itself", () => {
+    const r = rig();
+    r.present.exit(r.el);
+    r.env.run(10_000);
+    expect(r.env.timers[0].cancelled).toBe(true);
+    expect(r.env.unmounted).toHaveLength(1);
+  });
+});
+
+describe("the current offset and the box", () => {
+  it("starts from the translate that other code set, so there is no jump, and ends on it plus the pose", () => {
+    const r = rig();
+    r.env.styles.set(r.el, { translate: "30px 10px" });
+    r.present.exit(r.el, { to: { x: 50, scale: 1 } });
+    r.slices(1);
+    const first = r.env.style(r.el, "translate")!;
+    expect(parseFloat(first)).toBeGreaterThanOrEqual(30);
+    expect(parseFloat(first)).toBeLessThan(45);
+    r.env.run(10_000);
+    expect(r.env.style(r.el, "translate")).toBe("80px 10px");
+  });
+
+  it("takes the offset from the option from, when the environment cannot read a style", () => {
+    const r = rig();
+    r.present.exit(r.el, { from: [30, 10], to: { x: 50, scale: 1 } });
+    r.slices(1);
+    expect(parseFloat(r.env.style(r.el, "translate")!)).toBeGreaterThanOrEqual(30);
+    r.env.run(10_000);
+    expect(r.env.style(r.el, "translate")).toBe("80px 10px");
+  });
+
+  it("throws a TypeError for a from that is not two finite numbers", () => {
+    const r = rig();
+    for (const bad of [5, [1], [1, NaN], [Infinity, 0], "ab"]) expect(() => r.present.exit(r.el, { from: bad as never })).toThrow(TypeError);
+  });
+
+  it("treats an all-zero box as no layout: it unmounts at once, and logs once", () => {
+    const r = rig();
+    const second = {};
+    r.env.place(second, box(0, 0, 10, 10));
+    r.env.script(r.el, box(0, 0, 0, 0));
+    r.env.script(second, box(0, 0, 0, 0));
+    r.present.exit(r.el);
+    r.present.exit(second);
+    expect(r.env.unmounted.map((u) => u.target)).toEqual([r.el, second]);
+    expect(r.env.requested).toBe(0);
+    expect(error).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a second exit of an element that is exiting: the first pose stays", () => {
+    const r = rig();
+    r.present.exit(r.el, { to: { scale: 0.5 } });
+    r.present.exit(r.el, { to: { scale: 0 } });
+    r.env.run(10_000);
+    expect(r.env.style(r.el, "scale")).toBe("0.5 0.5");
+  });
+});
+

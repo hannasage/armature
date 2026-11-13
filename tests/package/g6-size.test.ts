@@ -4,7 +4,7 @@ import { pathToFileURL, fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 // G6 adds the `/layout` entry. Its cap is the measured size plus 10 percent, rounded up to the next 10 bytes. The cap is a proposal and is not
-// approved: the maintainer has not seen it. No existing cap moves, and the spring-only entry stays under its cap of 4,000.
+// approved by the tech lead on 2026-11-13. No existing cap moves, and the spring-only entry stays under its cap of 4,000.
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const lib = (await import(pathToFileURL(join(root, "scripts/size-lib.mjs")).href)) as {
@@ -28,19 +28,21 @@ describe("the /layout size after G6", () => {
     expect(layout.measuredGzipped).toBeLessThanOrEqual(layout.cap);
   });
 
-  it("keeps the amendment proposal beside the cap, and marks the cap not approved", () => {
+  it("keeps the amendment proposal beside the cap, and records the approval of the tech lead", () => {
     expect(layout.proposal).toBe("4.0 KB");
-    expect(layout.approval).toMatch(/^not approved/);
+    expect(layout.approval).toBe("approved by the tech lead, 2026-11-13");
   });
 
   it("no longer lists /layout among the entries that do not exist yet", () => {
     expect(Object.keys(budget.proposedForNewEntries)).not.toContain(KEY);
   });
 
-  it("writes the figures in docs/baseline.md, with the cap not approved, and the tarball re-measured", () => {
+  it("writes the figures in docs/baseline.md, with the cap approved by the tech lead, and the tarball re-measured", () => {
     expect(baseline).toContain("## G6 build");
     expect(section()).toContain(`- \`/layout\`: ${layout.cap.toLocaleString("en-US")}`);
-    expect(section()).toMatch(/not approved/);
+    expect(section()).toContain("approved by the tech lead, 2026-11-13");
+    expect(section()).not.toMatch(/not approved/);
+    expect(section()).toContain((layout.measuredAfterReview ?? layout.measuredGzipped).toLocaleString("en-US"));
     expect(section()).toMatch(/tarball[^\n]*\d{3},\d{3} bytes/i);
     expect(section()).toContain("1.5");
   });
@@ -77,5 +79,25 @@ describe("the /layout size after G6", () => {
   it("records the public names, and the decision for the environment, in docs/baseline.md", () => {
     expect(section()).toContain("### Public names");
     expect(section()).toMatch(/measure/);
+  });
+
+  it("records the decision of the tech lead for the flavor check, in the source and in every doc, and leaves no open question", () => {
+    const files = ["src/layout/flavor.ts", "docs/layout.md", "docs/flavors.md", "docs/baseline.md", "CHANGELOG.md"];
+    for (const file of files) {
+      const text = readFileSync(join(root, file), "utf8");
+      expect(text, file).toMatch(/the tech lead decided option A for the layout part on 2026-11-13/);
+      expect(text, file).not.toMatch(/not yet confirmed|has not confirmed/);
+    }
+  });
+
+  it("documents the limits of the controllers in docs/layout.md", () => {
+    const text = readFileSync(join(root, "docs/layout.md"), "utf8");
+    expect(text).toMatch(/own[^\n]*`translate` and `scale`/);
+    expect(text).toMatch(/transformed ancestor/);
+    expect(text).toMatch(/rotation/);
+    expect(text).toMatch(/same frame/);
+    expect(text).toMatch(/cancel/);
+    expect(text).toMatch(/without firing `exit`|does not fire `exit`/);
+    expect(text).not.toMatch(/did no layout during the move/);
   });
 });

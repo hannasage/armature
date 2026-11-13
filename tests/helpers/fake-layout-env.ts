@@ -32,6 +32,12 @@ export class FakeLayoutEnv implements LayoutEnvironment {
   measureFails: unknown;
   /** When set, `unmount` throws it. */
   unmountFails: unknown;
+  /** When true, `setStyle` throws for a value of null. */
+  failOnNull = false;
+  /** What `unmount` returns. */
+  unmountResult: boolean | undefined = true;
+  /** The timers of `after`. A test runs one with `fire`. */
+  timers: Array<{ ms: number; callback: () => void; cancelled: boolean; fired: boolean }> = [];
 
   requestFrame = (callback: (time: number) => void) => {
     const id = this.nextId++;
@@ -47,6 +53,7 @@ export class FakeLayoutEnv implements LayoutEnvironment {
   matchMedia = (query: string) => ({ matches: query.includes("prefers-reduced-motion") && this.reduced });
   setStyle = (target: ArmatureTarget, property: string, value: string | null) => {
     if (this.failWith !== undefined) throw this.failWith;
+    if (this.failOnNull && value === null) throw new Error("cannot clear");
     this.writes.push({ target, property, value });
     const next = { ...(this.styles.get(target) ?? {}) };
     if (value === null) delete next[property];
@@ -63,7 +70,23 @@ export class FakeLayoutEnv implements LayoutEnvironment {
   unmount = (container: ArmatureTarget, target: ArmatureTarget) => {
     if (this.unmountFails !== undefined) throw this.unmountFails;
     this.unmounted.push({ container, target, time: this.time });
+    return this.unmountResult;
   };
+  getStyle = (target: ArmatureTarget, property: string) => this.styles.get(target)?.[property] ?? null;
+  after = (ms: number, callback: () => void) => {
+    const timer = { ms, callback, cancelled: false, fired: false };
+    this.timers.push(timer);
+    return () => {
+      timer.cancelled = true;
+    };
+  };
+  /** Runs the timer at `index`, unless it was cancelled. */
+  fire(index = 0) {
+    const timer = this.timers[index];
+    if (timer.cancelled) return;
+    timer.fired = true;
+    timer.callback();
+  }
 
   /** Sets the natural box of a target: where layout puts it with no `translate` and no `scale`. */
   place(target: ArmatureTarget, box: Box) {
